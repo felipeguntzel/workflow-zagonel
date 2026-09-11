@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test functions/_lib/**/*.test.js",
-    "dev": "wrangler pages dev . --d1=DB=workflow_zagonel_db",
+    "dev": "wrangler pages dev .",
     "deploy": "wrangler pages deploy ."
   }
 }
