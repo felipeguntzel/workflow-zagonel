@@ -1,4 +1,4 @@
-import { run } from "../../_lib/db.js";
+import { first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
 
 export async function onRequestPut(context) {
@@ -9,7 +9,9 @@ export async function onRequestPut(context) {
   const set = colunas.map((c) => `${c} = ?`).join(", ");
   const valores = colunas.map((c) => body[c]);
   await run(context.env.DB, `UPDATE acoes SET ${set} WHERE id = ?`, ...valores, context.params.id);
-  return json({ ok: true });
+  const atualizada = await first(context.env.DB, "SELECT * FROM acoes WHERE id = ?", context.params.id);
+  if (!atualizada) return error("Não encontrada", 404);
+  return json(atualizada);
 }
 
 export async function onRequestDelete(context) {
