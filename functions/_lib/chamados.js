@@ -13,6 +13,7 @@ export function hojeISO() {
 
 async function statusIdPorNome(db, nome) {
   const row = await first(db, "SELECT id FROM status WHERE nome = ?", nome);
+  if (!row) throw new Error(`Status não encontrado: ${nome}`);
   return row.id;
 }
 
@@ -25,6 +26,7 @@ async function resolverSetorEPrazoPadrao(db, { etapa_id, acao_origem_id }) {
        WHERE e.id = ?`,
       etapa_id
     );
+    if (!row) throw new Error(`Etapa não encontrada ou sem setor: ${etapa_id}`);
     return row;
   }
   const row = await first(
@@ -34,6 +36,7 @@ async function resolverSetorEPrazoPadrao(db, { etapa_id, acao_origem_id }) {
      WHERE a.id = ?`,
     acao_origem_id
   );
+  if (!row) throw new Error(`Ação não encontrada ou sem setor destino: ${acao_origem_id}`);
   return row;
 }
 

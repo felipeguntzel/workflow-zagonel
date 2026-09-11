@@ -4,8 +4,12 @@ import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
 import { criarChamado, avancarFluxo, hojeISO } from "../../_lib/chamados.js";
 
 export async function onRequestGet(context) {
-  const setorId = new URL(context.request.url).searchParams.get("setor_id");
-  if (!setorId) return error("Parâmetro obrigatório: setor_id");
+  const setorIdRaw = new URL(context.request.url).searchParams.get("setor_id");
+  if (!setorIdRaw) return error("Parâmetro obrigatório: setor_id");
+  // ponytail: COALESCE(...) has no column affinity in SQLite, so a bound TEXT
+  // param never matches an INTEGER column here — must coerce to a number.
+  const setorId = Number(setorIdRaw);
+  if (Number.isNaN(setorId)) return error("Parâmetro setor_id inválido");
   const chamados = await all(
     context.env.DB,
     `SELECT
@@ -30,7 +34,7 @@ export async function onRequestPost(context) {
     return error("Campos obrigatórios: fluxo_template_id, etapa_inicial_id, solicitante_id");
   }
   const etapa = await carregarEtapaComAcoes(context.env.DB, body.etapa_inicial_id);
-  if (!etapa || !etapa.eh_inicial || etapa.fluxo_template_id !== body.fluxo_template_id) {
+  if (!etapa || !etapa.eh_inicial || Number(etapa.fluxo_template_id) !== Number(body.fluxo_template_id)) {
     return error("etapa_inicial_id inválido para este fluxo_template_id");
   }
   const solicitante = await first(
