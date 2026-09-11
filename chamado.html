@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>WorkFlow Zagonel — Chamado</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="nav"></div>
+<main>
+  <p><a href="chamados.html">← Meus chamados</a> | <a id="link-geral" href="#">Ver chamado geral</a></p>
+  <div id="detalhe"></div>
+  <div id="acao"></div>
+  <p><button type="button" id="btn-excluir-chamado">Excluir chamado</button></p>
+  <section>
+    <h2>Apontamento de horas <span id="total-horas"></span></h2>
+    <ul id="lista-horas"></ul>
+    <form class="formulario" id="form-horas">
+      <label>Data <input type="date" name="data" required></label>
+      <label>Horas <input type="number" step="0.5" min="0.5" name="horas" required></label>
+      <label>Observação <input type="text" name="observacao"></label>
+      <button type="submit">Lançar horas</button>
+    </form>
+  </section>
+  <section>
+    <h2>Comentários</h2>
+    <ul id="lista-comentarios"></ul>
+    <form class="formulario" id="form-comentario">
+      <label>Novo comentário <textarea name="texto" required></textarea></label>
+      <button type="submit">Comentar</button>
+    </form>
+  </section>
+</main>
+<script type="module" src="chamado.js"></script>
+</body>
+</html>
