@@ -56,7 +56,9 @@ bloqueado enquanto o chamado-irmão daquela ação pré-requisito (mesmo
 chamado_mae_id) não estiver finalizado.
 
 ## Comentário
-- id, chamado_id (FK), usuario_id (FK), data, texto, eh_justificativa (bool)
+- id, chamado_id (FK), usuario_id (FK, nullable — nulo em comentários gerados
+  pelo sistema, ex. ajuste automático de prazo), data, texto,
+  eh_justificativa (bool)
 
 ## ApontamentoHoras
 - id, chamado_id (FK), usuario_id (FK), data, horas, observacao
