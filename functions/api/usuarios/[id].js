@@ -1,24 +1,34 @@
-import { first, run } from "../../_lib/db.js";
+import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
 import { hashSenha, validarFormatoLogin } from "../../_lib/auth.js";
+import { exigirPermissao } from "../../_lib/permissoes.js";
+
+async function carregarGruposDoUsuario(db, usuarioId) {
+  const linhas = await all(db, "SELECT grupo_id FROM usuario_grupos WHERE usuario_id = ?", usuarioId);
+  return linhas.map((l) => l.grupo_id);
+}
 
 export async function onRequestGet(context) {
+  const { erro } = await exigirPermissao(context, "usuarios", "visualizar");
+  if (erro) return erro;
   const usuario = await first(
     context.env.DB,
-    "SELECT id, nome, setor_id, login FROM usuarios WHERE id = ?",
+    "SELECT id, nome, setor_id, login, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
     context.params.id
   );
   if (!usuario) return error("Não encontrado", 404);
+  usuario.grupos = await carregarGruposDoUsuario(context.env.DB, usuario.id);
   return json(usuario);
 }
 
 export async function onRequestPut(context) {
+  const { erro } = await exigirPermissao(context, "usuarios", "editar");
+  if (erro) return erro;
   const body = await context.request.json();
-  const campos = ["nome", "setor_id"];
-  const colunas = campos.filter((c) => body[c] !== undefined);
+  const colunas = ["nome", "setor_id"].filter((c) => body[c] !== undefined);
+  const valores = colunas.map((c) => body[c]);
 
   let login = null;
-  let senhaHash = null;
   if (body.login !== undefined) {
     login = String(body.login).toLowerCase();
     if (!validarFormatoLogin(login)) {
@@ -33,28 +43,56 @@ export async function onRequestPut(context) {
       context.params.id
     );
     if (existente) return error("Já existe um usuário com esse login");
-    senhaHash = await hashSenha(`1234${login}`);
+    colunas.push("login");
+    valores.push(login);
   }
 
-  if (colunas.length === 0 && login === null) {
+  if (body.senha !== undefined && body.senha !== "") {
+    const senhaHash = await hashSenha(body.senha);
+    colunas.push("senha_hash", "deve_trocar_senha");
+    valores.push(senhaHash, 1);
+  }
+
+  if (body.admin !== undefined) {
+    colunas.push("admin");
+    valores.push(body.admin ? 1 : 0);
+  }
+
+  if (colunas.length === 0 && body.grupos === undefined) {
     return error("Nenhum campo para atualizar");
   }
 
-  const colunasFinal = login !== null ? [...colunas, "login", "senha_hash"] : colunas;
-  const valoresFinal = login !== null ? [...colunas.map((c) => body[c]), login, senhaHash] : colunas.map((c) => body[c]);
-  const set = colunasFinal.map((c) => `${c} = ?`).join(", ");
-  await run(context.env.DB, `UPDATE usuarios SET ${set} WHERE id = ?`, ...valoresFinal, context.params.id);
+  if (colunas.length > 0) {
+    const set = colunas.map((c) => `${c} = ?`).join(", ");
+    await run(context.env.DB, `UPDATE usuarios SET ${set} WHERE id = ?`, ...valores, context.params.id);
+  }
+
+  if (Array.isArray(body.grupos)) {
+    await run(context.env.DB, "DELETE FROM usuario_grupos WHERE usuario_id = ?", context.params.id);
+    for (const grupoId of body.grupos) {
+      await run(
+        context.env.DB,
+        "INSERT INTO usuario_grupos (usuario_id, grupo_id) VALUES (?, ?)",
+        context.params.id,
+        grupoId
+      );
+    }
+  }
 
   const atualizado = await first(
     context.env.DB,
-    "SELECT id, nome, setor_id, login FROM usuarios WHERE id = ?",
+    "SELECT id, nome, setor_id, login, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
     context.params.id
   );
   if (!atualizado) return error("Não encontrado", 404);
+  atualizado.grupos = await carregarGruposDoUsuario(context.env.DB, context.params.id);
   return json(atualizado);
 }
 
 export async function onRequestDelete(context) {
+  const { erro } = await exigirPermissao(context, "usuarios", "excluir");
+  if (erro) return erro;
+  await run(context.env.DB, "DELETE FROM usuario_grupos WHERE usuario_id = ?", context.params.id);
   await run(context.env.DB, "DELETE FROM usuarios WHERE id = ?", context.params.id);
   return json({ ok: true });
 }
