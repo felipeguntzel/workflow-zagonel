@@ -105,3 +105,37 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   atualiza sozinho depois de cadastrar um novo FluxoTemplate na tabela acima
   (precisa recarregar a página); abrir `chamado.html` sem `?id=` ou com um id
   inválido mostra página em branco sem mensagem de erro.
+
+## Achados da revisão final de branch (Autenticação login/senha) não corrigidos agora
+
+Ver `docs/superpowers/plans/2026-09-14-autenticacao-login-senha.md`.
+
+- **Autenticação sem autorização real**: este projeto tem uma tela de login,
+  mas nenhuma rota da API verifica sessão/token — qualquer chamada direta
+  (`curl`, etc.) continua funcionando sem passar pelo login, e o objeto do
+  usuário salvo no navegador (`localStorage`, incluindo `setor_id`) pode ser
+  editado pelo próprio usuário. Combinado com `GET /api/usuarios` (público,
+  lista todos os logins) e a senha padrão previsível (`1234` + login, sem
+  tela de troca), o sistema hoje autentica visualmente mas não protege de
+  verdade. Isso é esperado para um protótipo interno, mas precisa ser dito
+  explicitamente na apresentação/handoff para o TI: "tem autenticação" não
+  significa "está protegido". Uma implementação real precisaria de sessões
+  ou tokens server-side e autorização por rota, além de um KDF com salt
+  (bcrypt/scrypt/PBKDF2) em vez do SHA-256 sem salt usado aqui.
+- **Condição de corrida na checagem de login único**: `usuarios/index.js` e
+  `[id].js` checam duplicidade de `login` com um `SELECT` antes do `INSERT`/
+  `UPDATE` (TOCTOU) — em teoria, duas requisições simultâneas criando o
+  mesmo login poderiam ambas passar a checagem e uma delas cair no
+  `UNIQUE INDEX` do banco, que hoje não é tratado por `functions/_middleware.js`
+  (só trata `FOREIGN KEY constraint failed`), resultando num 500 em vez de
+  400. Probabilidade muito baixa no uso real (poucos usuários, cadastro
+  raro), mas o fix é uma linha a mais no middleware. O mesmo vale para
+  `status.nome`, que também é `UNIQUE` e não tem checagem amigável no CRUD
+  genérico.
+- **`index.js` (tela de login) não reaproveita `mostrarErro()` de `ui.js`**:
+  faz `textContent`/`hidden` na mão em vez de chamar o helper compartilhado
+  que todo o resto do app usa — funciona igual, só não é consistente.
+- **Campo de login sem `title` no atributo `pattern`**: ao digitar um login
+  inválido (ex: com ponto ou espaço), o navegador mostra só a mensagem
+  genérica de validação, sem explicar a regra. Um atributo `title` no
+  `<input>` resolveria.
