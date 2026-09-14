@@ -35,7 +35,7 @@ async function renderEtapas(fluxoId) {
   const container = document.getElementById("secao-etapas");
 
   const nomeSetor = (id) => setores.find((s) => s.id === id)?.nome ?? id;
-  const nomeEtapa = (id) => etapas.find((e) => e.id === id)?.nome ?? "—";
+  const nomeEtapa = (id) => etapas.find((e) => e.id === id)?.nome ?? "-";
 
   container.innerHTML = `
     <h3>Etapas</h3>
@@ -52,8 +52,8 @@ async function renderEtapas(fluxoId) {
             <td>${nomeSetor(e.setor_id)}</td>
             <td>${e.tipo}</td>
             <td>${e.eh_inicial ? "Sim" : "Não"}</td>
-            <td>${e.etapa_proxima_id ? nomeEtapa(e.etapa_proxima_id) : "—"}</td>
-            <td>${e.etapa_proxima_vinculo ?? "—"}</td>
+            <td>${e.etapa_proxima_id ? nomeEtapa(e.etapa_proxima_id) : "-"}</td>
+            <td>${e.etapa_proxima_vinculo ?? "-"}</td>
             <td>
               ${e.tipo === "aprovacao" ? `<button type="button" class="btn-acoes" data-id="${e.id}">Ações</button>` : ""}
               <button type="button" class="btn-excluir-etapa" data-id="${e.id}">Excluir</button>
@@ -81,7 +81,7 @@ async function renderEtapas(fluxoId) {
       <label><input type="checkbox" name="eh_inicial"> É a etapa inicial? ${info(
         "Marque só na etapa que abre o chamado mãe. O sistema finaliza essa etapa e avança o fluxo automaticamente assim que o chamado é criado."
       )}</label>
-      <label>Próxima etapa (opcional — deixe em branco se esta etapa usa Ações) ${info(
+      <label>Próxima etapa (opcional - deixe em branco se esta etapa usa Ações) ${info(
         "Quando esta etapa for aprovada/finalizada, cria automaticamente um chamado para a etapa escolhida aqui. Deixe em branco se esta etapa libera uma lista de Ações em vez de uma única próxima etapa."
       )}
         <select name="etapa_proxima_id">
@@ -180,8 +180,8 @@ async function renderAcoes(etapaId) {
             <td>${a.vinculo}</td>
             <td>${
               a.prerequisito_acao_id
-                ? etapa.acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "—"
-                : "—"
+                ? etapa.acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-"
+                : "-"
             }</td>
             <td><button type="button" class="btn-excluir-acao" data-id="${a.id}">Excluir</button></td>
           </tr>`

@@ -72,9 +72,9 @@ async function carregarDetalhe() {
   const finalizado = chamado.status_nome === "finalizado";
 
   document.getElementById("detalhe").innerHTML = `
-    <h1>#${chamado.id} — ${chamado.titulo}</h1>
+    <h1>#${chamado.id} - ${chamado.titulo}</h1>
     <p>Setor: ${chamado.setor_nome} ${info("Setor responsável por esta etapa/tarefa.")}</p>
-    <p>Status: ${chamado.status_nome} — Prazo: ${chamado.prazo} (${chamado.situacao_prazo})</p>
+    <p>Status: ${chamado.status_nome} - Prazo: ${chamado.prazo} (${chamado.situacao_prazo})</p>
     ${chamado.resultado ? `<p>Resultado: ${chamado.resultado}</p>` : ""}
     ${
       chamado.bloqueado
@@ -203,7 +203,7 @@ async function carregarHoras() {
   document.getElementById("lista-horas").innerHTML = resumo.lancamentos
     .map(
       (l) =>
-        `<li>${l.data} — ${l.usuario_nome} — ${l.horas}h ${l.observacao ? `(${l.observacao})` : ""}</li>`
+        `<li>${l.data} - ${l.usuario_nome} - ${l.horas}h ${l.observacao ? `(${l.observacao})` : ""}</li>`
     )
     .join("");
 }
@@ -214,7 +214,7 @@ async function carregarComentarios() {
     .map(
       (c) =>
         `<li><strong>${c.usuario_nome ?? "Sistema"}</strong> (${c.data})${
-          c.eh_justificativa ? " — justificativa" : ""
+          c.eh_justificativa ? " - justificativa" : ""
         }: ${c.texto}</li>`
     )
     .join("");
