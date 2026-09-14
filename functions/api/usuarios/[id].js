@@ -8,6 +8,13 @@ async function carregarGruposDoUsuario(db, usuarioId) {
   return linhas.map((l) => l.grupo_id);
 }
 
+async function validarGruposExistem(db, grupos) {
+  if (grupos.length === 0) return true;
+  const placeholders = grupos.map(() => "?").join(", ");
+  const validos = await all(db, `SELECT id FROM grupos_permissao WHERE id IN (${placeholders})`, ...grupos);
+  return validos.length === new Set(grupos).size;
+}
+
 export async function onRequestGet(context) {
   const { erro } = await exigirPermissao(context, "usuarios", "visualizar");
   if (erro) return erro;
@@ -22,9 +29,14 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPut(context) {
-  const { erro } = await exigirPermissao(context, "usuarios", "editar");
+  const { usuario, erro } = await exigirPermissao(context, "usuarios", "editar");
   if (erro) return erro;
   const body = await context.request.json();
+
+  if (body.admin !== undefined && usuario.admin !== 1) {
+    return error("Apenas administradores podem alterar o status de administrador de um usuário.", 403);
+  }
+
   const colunas = ["nome", "setor_id"].filter((c) => body[c] !== undefined);
   const valores = colunas.map((c) => body[c]);
 
@@ -56,6 +68,10 @@ export async function onRequestPut(context) {
   if (body.admin !== undefined) {
     colunas.push("admin");
     valores.push(body.admin ? 1 : 0);
+  }
+
+  if (Array.isArray(body.grupos) && !(await validarGruposExistem(context.env.DB, body.grupos))) {
+    return error("Um ou mais grupos informados não existem.");
   }
 
   if (colunas.length === 0 && body.grupos === undefined) {
