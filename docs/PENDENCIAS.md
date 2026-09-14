@@ -39,8 +39,23 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   do chamado mãe. Uma etapa tarefa não-inicial com `etapa_proxima_id`
   configurado ficaria "presa" ao ser finalizada manualmente. Mitigado por
   ora escondendo o campo "Próxima etapa" na tela de cadastro quando
-  `tipo = tarefa` (ver commit da correção pós-revisão final). Se precisar
-  desse caso no futuro, implementar `avancarFluxo` também no `PUT` de status.
+  `tipo = tarefa` e "É a etapa inicial?" não está marcado (ver commit da
+  correção pós-revisão final). Se precisar desse caso no futuro, implementar
+  `avancarFluxo` também no `PUT` de status.
+  - **Gap residual conhecido nessa mitigação**: esconder os campos não limpa
+    o valor selecionado neles antes de esconder — se alguém escolher uma
+    "Próxima etapa" com tipo=aprovação e DEPOIS trocar para tipo=tarefa (sem
+    marcar inicial), o valor antigo continua selecionado (só invisível) e
+    ainda é enviado no `POST`, recriando o problema original de forma mais
+    silenciosa. Baixa probabilidade (exige reordenar os campos fora do fluxo
+    natural do formulário), mas vale corrigir limpando os selects ao
+    escondê-los, ou ignorando o valor no envio quando o campo estiver oculto.
+- **Botão "Excluir chamado" (`chamado.js`) ainda não trata erro de rede/API**:
+  a correção pós-revisão final cobriu 9 pontos de mutação do frontend, mas
+  esse botão específico não estava na lista original e ficou de fora — se o
+  `DELETE` falhar (ex.: chamado com filhos e algum erro inesperado), a tela
+  não mostra nada. Mesma classe do item de exibição de erro já corrigido em
+  outros lugares; só falta replicar o padrão `mostrarErro()` aqui também.
 - **Regra de "vencido" não exclui status "suspenso"**: `docs/modules/prazos-horas.md`
   diz que um chamado suspenso não deveria aparecer como vencido, mas
   `situacaoPrazo`/`chamadoComDetalhes` não checam esse status hoje.
