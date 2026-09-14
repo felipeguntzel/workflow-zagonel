@@ -1,7 +1,11 @@
 import { all, first } from "../../../_lib/db.js";
 import { json, error } from "../../../_lib/http.js";
+import { obterUsuarioDaRequisicao } from "../../../_lib/permissoes.js";
 
 export async function onRequestGet(context) {
+  const usuario = await obterUsuarioDaRequisicao(context.request, context.env);
+  if (!usuario) return error("Não autenticado", 401);
+
   const raiz = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
   if (!raiz) return error("Não encontrado", 404);
   const raizId = raiz.chamado_mae_id ?? raiz.id;

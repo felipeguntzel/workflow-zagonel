@@ -1,14 +1,19 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
 import { chamadoComDetalhes, hojeISO, aplicarCascataAtraso, computarBloqueado } from "../../_lib/chamados.js";
+import { exigirPermissao } from "../../_lib/permissoes.js";
 
 export async function onRequestGet(context) {
+  const { erro } = await exigirPermissao(context, "chamados", "visualizar");
+  if (erro) return erro;
   const chamado = await chamadoComDetalhes(context.env.DB, context.params.id);
   if (!chamado) return error("Não encontrado", 404);
   return json(chamado);
 }
 
 export async function onRequestPut(context) {
+  const { erro } = await exigirPermissao(context, "chamados", "editar");
+  if (erro) return erro;
   const body = await context.request.json();
   const camposPermitidos = ["status_id", "responsavel_id", "prazo"];
   const colunas = camposPermitidos.filter((c) => body[c] !== undefined);
@@ -60,6 +65,8 @@ async function coletarSubarvore(db, chamadoId) {
 }
 
 export async function onRequestDelete(context) {
+  const { erro } = await exigirPermissao(context, "chamados", "excluir");
+  if (erro) return erro;
   const ids = await coletarSubarvore(context.env.DB, context.params.id);
   // ponytail: coletarSubarvore returns ids parent-first (preorder); chamados.chamado_mae_id
   // and chamado_pai_id are self-referencing FKs enforced by D1, so a parent row can't be

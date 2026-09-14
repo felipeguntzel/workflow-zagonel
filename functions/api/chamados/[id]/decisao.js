@@ -1,6 +1,7 @@
 import { run } from "../../../_lib/db.js";
 import { json, error } from "../../../_lib/http.js";
 import { carregarEtapaComAcoes } from "../../../_lib/etapas.js";
+import { exigirPermissao } from "../../../_lib/permissoes.js";
 import {
   chamadoComDetalhes,
   finalizarComCascata,
@@ -10,6 +11,8 @@ import {
 } from "../../../_lib/chamados.js";
 
 export async function onRequestPost(context) {
+  const { usuario, erro } = await exigirPermissao(context, "chamados", "editar");
+  if (erro) return erro;
   const body = await context.request.json();
   if (body.decisao !== "aprovado" && body.decisao !== "reprovado") {
     return error("Campo 'decisao' deve ser 'aprovado' ou 'reprovado'");
@@ -29,7 +32,7 @@ export async function onRequestPost(context) {
       `INSERT INTO comentarios (chamado_id, usuario_id, data, texto, eh_justificativa)
        VALUES (?, ?, ?, ?, 1)`,
       chamado.id,
-      body.usuario_id ?? null,
+      usuario.id,
       hoje,
       body.justificativa
     );
