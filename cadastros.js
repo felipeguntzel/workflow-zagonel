@@ -36,6 +36,12 @@ if (usuario) {
     campos: [
       { nome: "nome", label: "Nome", obrigatorio: true },
       { nome: "setor_id", label: "Setor", obrigatorio: true, opcoesEndpoint: "/setores" },
+      {
+        nome: "login",
+        label: "Login",
+        obrigatorio: true,
+        dica: "Usado para entrar no sistema. Só letras e números, sem espaços, pontos ou caracteres especiais. A senha padrão do novo usuário é '1234' + o login (ex.: login 'joao' → senha '1234joao').",
+      },
     ],
   }).catch((e) => mostrarErro(mensagemErro, e));
 

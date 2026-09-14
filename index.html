@@ -2,19 +2,30 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WorkFlow Zagonel — Entrar</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main class="login">
-  <h1>WorkFlow Zagonel</h1>
-  <label>
-    Usuário
-    <select id="select-usuario"></select>
-  </label>
-  <button id="btn-entrar">Entrar</button>
-  <p id="mensagem-erro" class="erro" hidden></p>
-</main>
+<div class="login-split">
+  <div class="login-split__destaque">
+    <h1>WorkFlow Zagonel</h1>
+    <p>Gestão de chamados de alteração e criação de produto</p>
+  </div>
+  <div class="login-split__form">
+    <form class="formulario" id="form-login">
+      <h2>Entrar</h2>
+      <label>Usuário
+        <input type="text" name="login" required autocomplete="username" pattern="[A-Za-z0-9]+">
+      </label>
+      <label>Senha
+        <input type="password" name="senha" required autocomplete="current-password">
+      </label>
+      <button type="submit">Entrar</button>
+      <p id="mensagem-erro" class="erro" hidden></p>
+    </form>
+  </div>
+</div>
 <script type="module" src="index.js"></script>
 </body>
 </html>

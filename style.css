@@ -31,8 +31,36 @@ body {
 
 main { padding: 1.5rem; max-width: 960px; margin: 0 auto; }
 
-.login { max-width: 320px; margin: 4rem auto; text-align: center; }
-.login select, .login button { width: 100%; padding: 0.5rem; margin-top: 0.5rem; }
+.login-split {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+.login-split__destaque {
+  flex: 1 1 50%;
+  background: linear-gradient(135deg, var(--cor-primaria), #1d4a35);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
+}
+.login-split__destaque h1 { font-size: 2.5rem; margin: 0 0 0.5rem; }
+.login-split__form {
+  flex: 1 1 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+.login-split__form form { width: 100%; max-width: 360px; }
+@media (max-width: 720px) {
+  .login-split { flex-direction: column; }
+  .login-split__destaque { flex: 0 0 auto; padding: 1.5rem; }
+  .login-split__destaque h1 { font-size: 1.75rem; }
+}
 
 table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
 th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--cor-borda); }

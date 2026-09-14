@@ -10,8 +10,6 @@ chamados). Ordem não implica prioridade.
   - Quantas tarefas mãe existem, quantas por setor.
   - Tempo médio que cada setor demora para finalizar.
   - Dashboard visual de gargalos (setores mais lentos).
-- **Autenticação real**: login com senha, em vez de só escolher o usuário da
-  lista.
 - **Reajuste de prazo mais sofisticado**: hoje empurra pelos mesmos dias de
   atraso; no futuro talvez precise de regras diferentes por tipo de
   dependência (ex.: recalcular considerando dias úteis/feriados).
@@ -21,6 +19,24 @@ chamados). Ordem não implica prioridade.
 - **Integração com sistemas existentes da empresa**: quando o TI assumir a
   implementação definitiva, avaliar reaproveitamento de cadastros já
   existentes (usuários, setores, centro de custo) em vez de recadastrar.
+
+## Fora de escopo da leva de autenticação (login/senha)
+
+Ver `docs/superpowers/specs/2026-09-14-autenticacao-login-senha-design.md`.
+
+- **Troca de senha pelo próprio usuário**: hoje a senha só é definida
+  automaticamente na criação (`1234` + login), sem tela para o usuário
+  trocar depois.
+- **Política de senha mais forte**: sem regra de complexidade além do
+  padrão fixo.
+- **Limite de tentativas de login (rate limiting)**: sem proteção contra
+  força bruta no `POST /api/login`.
+- **Obrigar troca de senha no primeiro acesso**.
+- **Layout padrão para as telas internas (operacionais) + PWA**: nav/sidebar
+  consistente entre chamados/cadastros/fluxo/detalhe/geral, responsivo,
+  ocupando a tela toda, manifest + service worker para instalar como app.
+  Pedido pelo usuário junto com a autenticação, mas tratado como projeto
+  separado (desenho próprio depois desta leva).
 
 ## Achados da revisão final de branch (Fase 1) não corrigidos agora
 
@@ -75,11 +91,12 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   código).
 - **`responsavel_id` nunca é definido nem exibido** em nenhuma tela, apesar
   de a coluna e a regra de negócio existirem.
-- **`pages_build_output_dir = "."` publica todo o repositório** como estático
-  no domínio público do Cloudflare Pages — inclui `docs/`, `migrations/*.sql`,
-  `CLAUDE.md`. Nenhuma credencial vaza (o `database_id` do D1 não é segredo),
-  mas documentação interna e o schema completo ficam públicos. Resolver com
-  um `_routes.json`/`.cfignore` restringindo o que é servido.
+- **`pages_build_output_dir = "."` publicava todo o repositório** como estático
+  no domínio público do Cloudflare Pages — incluindo `docs/`, `migrations/*.sql`
+  e `CLAUDE.md`. A partir da migração `0003_auth.sql` (login/senha), isso
+  passou a incluir hashes de senha reais, não só documentação — corrigido com
+  um `.assetsignore` na raiz do projeto excluindo `migrations/`, `docs/`,
+  `.claude/` e `*.md` dos arquivos estáticos publicados.
 - **`wrangler.toml`'s `compatibility_date` está fixado em 2026-07-09**
   (abaixo do ideal) só para funcionar com a versão do `wrangler` instalada
   localmente durante a Fase 1. Atualizar o `wrangler` e avançar essa data é
@@ -88,3 +105,37 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   atualiza sozinho depois de cadastrar um novo FluxoTemplate na tabela acima
   (precisa recarregar a página); abrir `chamado.html` sem `?id=` ou com um id
   inválido mostra página em branco sem mensagem de erro.
+
+## Achados da revisão final de branch (Autenticação login/senha) não corrigidos agora
+
+Ver `docs/superpowers/plans/2026-09-14-autenticacao-login-senha.md`.
+
+- **Autenticação sem autorização real**: este projeto tem uma tela de login,
+  mas nenhuma rota da API verifica sessão/token — qualquer chamada direta
+  (`curl`, etc.) continua funcionando sem passar pelo login, e o objeto do
+  usuário salvo no navegador (`localStorage`, incluindo `setor_id`) pode ser
+  editado pelo próprio usuário. Combinado com `GET /api/usuarios` (público,
+  lista todos os logins) e a senha padrão previsível (`1234` + login, sem
+  tela de troca), o sistema hoje autentica visualmente mas não protege de
+  verdade. Isso é esperado para um protótipo interno, mas precisa ser dito
+  explicitamente na apresentação/handoff para o TI: "tem autenticação" não
+  significa "está protegido". Uma implementação real precisaria de sessões
+  ou tokens server-side e autorização por rota, além de um KDF com salt
+  (bcrypt/scrypt/PBKDF2) em vez do SHA-256 sem salt usado aqui.
+- **Condição de corrida na checagem de login único**: `usuarios/index.js` e
+  `[id].js` checam duplicidade de `login` com um `SELECT` antes do `INSERT`/
+  `UPDATE` (TOCTOU) — em teoria, duas requisições simultâneas criando o
+  mesmo login poderiam ambas passar a checagem e uma delas cair no
+  `UNIQUE INDEX` do banco, que hoje não é tratado por `functions/_middleware.js`
+  (só trata `FOREIGN KEY constraint failed`), resultando num 500 em vez de
+  400. Probabilidade muito baixa no uso real (poucos usuários, cadastro
+  raro), mas o fix é uma linha a mais no middleware. O mesmo vale para
+  `status.nome`, que também é `UNIQUE` e não tem checagem amigável no CRUD
+  genérico.
+- **`index.js` (tela de login) não reaproveita `mostrarErro()` de `ui.js`**:
+  faz `textContent`/`hidden` na mão em vez de chamar o helper compartilhado
+  que todo o resto do app usa — funciona igual, só não é consistente.
+- **Campo de login sem `title` no atributo `pattern`**: ao digitar um login
+  inválido (ex: com ponto ou espaço), o navegador mostra só a mensagem
+  genérica de validação, sem explicar a regra. Um atributo `title` no
+  `<input>` resolveria.
