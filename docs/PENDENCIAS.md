@@ -69,3 +69,7 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   (abaixo do ideal) só para funcionar com a versão do `wrangler` instalada
   localmente durante a Fase 1. Atualizar o `wrangler` e avançar essa data é
   a correção correta quando alguém for mexer nisso de novo.
+- **Pequenos detalhes de UX**: o seletor de fluxo na tela de Fluxos não
+  atualiza sozinho depois de cadastrar um novo FluxoTemplate na tabela acima
+  (precisa recarregar a página); abrir `chamado.html` sem `?id=` ou com um id
+  inválido mostra página em branco sem mensagem de erro.
