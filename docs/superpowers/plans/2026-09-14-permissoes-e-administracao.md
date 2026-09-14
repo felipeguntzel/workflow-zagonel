@@ -696,6 +696,8 @@ git commit -m "Permission-gate the generic CRUD factory: empresas, setores, stat
 - Consumes: `exigirPermissao` (Task 3), `hashSenha`/`validarFormatoLogin` (`functions/_lib/auth.js`).
 - Produces (HTTP): every response shape is now `{id, nome, setor_id, login, admin, deve_trocar_senha, grupos: [grupoId, ...]}` — `senha_hash` still never appears. `POST` now requires `senha` (the admin-chosen initial password) instead of auto-generating one, accepts `admin` (0/1) and `grupos` (array of grupo ids). `PUT` can optionally include `senha` (a reset — also re-sets `deve_trocar_senha=1`), `admin`, and `grupos` (replaces the user's group memberships entirely).
 
+**Isolation, same principle as Task 8's `exigirAdmin`:** `usuarios.editar`/`usuarios.inserir` are ordinary CRUD permissions a ranked group could plausibly hold — they must never be enough, by themselves, to grant the `admin` flag (that would let any such group promote any user, including its own members, to full system access, defeating the whole permission-group model). So touching `admin` at all — `POST` with a truthy `body.admin`, or `PUT` with `body.admin !== undefined` (whether setting it to `0` or `1`) — additionally requires the CALLER to already be `admin === 1`; a non-admin caller gets `403` on that specific attempt, even with full `usuarios.editar`/`inserir`. This is on top of, not instead of, the normal `exigirPermissao(context, "usuarios", acao)` gate every handler still has. Both `POST` and `PUT` also validate every id in a `grupos` array against `grupos_permissao` up front, before mutating anything — a request naming a nonexistent `grupo_id` is rejected whole (`400`) rather than partially applied.
+
 - [ ] **Step 1: Replace `functions/api/usuarios/index.js`**
 
 ```js
@@ -707,6 +709,13 @@ import { exigirPermissao } from "../../_lib/permissoes.js";
 async function carregarGruposDoUsuario(db, usuarioId) {
   const linhas = await all(db, "SELECT grupo_id FROM usuario_grupos WHERE usuario_id = ?", usuarioId);
   return linhas.map((l) => l.grupo_id);
+}
+
+async function validarGruposExistem(db, grupos) {
+  if (grupos.length === 0) return true;
+  const placeholders = grupos.map(() => "?").join(", ");
+  const validos = await all(db, `SELECT id FROM grupos_permissao WHERE id IN (${placeholders})`, ...grupos);
+  return validos.length === new Set(grupos).size;
 }
 
 export async function onRequestGet(context) {
@@ -723,11 +732,14 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  const { erro } = await exigirPermissao(context, "usuarios", "inserir");
+  const { usuario, erro } = await exigirPermissao(context, "usuarios", "inserir");
   if (erro) return erro;
   const body = await context.request.json();
   if (!body.nome || !body.setor_id || !body.login || !body.senha) {
     return error("Campos obrigatórios: nome, setor_id, login, senha");
+  }
+  if (body.admin && usuario.admin !== 1) {
+    return error("Apenas administradores podem conceder admin a um usuário.", 403);
   }
   const login = String(body.login).toLowerCase();
   if (!validarFormatoLogin(login)) {
@@ -738,6 +750,10 @@ export async function onRequestPost(context) {
   const existente = await first(context.env.DB, "SELECT id FROM usuarios WHERE login = ?", login);
   if (existente) {
     return error("Já existe um usuário com esse login");
+  }
+  const grupos = Array.isArray(body.grupos) ? body.grupos : [];
+  if (!(await validarGruposExistem(context.env.DB, grupos))) {
+    return error("Um ou mais grupos informados não existem.");
   }
   const senhaHash = await hashSenha(body.senha);
   const admin = body.admin ? 1 : 0;
@@ -751,7 +767,6 @@ export async function onRequestPost(context) {
     admin
   );
   const novoId = resultado.meta.last_row_id;
-  const grupos = Array.isArray(body.grupos) ? body.grupos : [];
   for (const grupoId of grupos) {
     await run(
       context.env.DB,
@@ -770,6 +785,13 @@ export async function onRequestPost(context) {
 }
 ```
 
+`body.admin && usuario.admin !== 1` gates the ONE privileged field, on top of
+the ordinary `usuarios.inserir` check every other field already went
+through — a group with `usuarios.inserir` can create ordinary users freely,
+but can never mint a new admin unless the caller creating them is already
+one. `validarGruposExistem` runs before the `INSERT INTO usuarios` — a
+bad `grupo_id` is rejected whole, never partially applied.
+
 - [ ] **Step 2: Replace `functions/api/usuarios/[id].js`**
 
 ```js
@@ -781,6 +803,13 @@ import { exigirPermissao } from "../../_lib/permissoes.js";
 async function carregarGruposDoUsuario(db, usuarioId) {
   const linhas = await all(db, "SELECT grupo_id FROM usuario_grupos WHERE usuario_id = ?", usuarioId);
   return linhas.map((l) => l.grupo_id);
+}
+
+async function validarGruposExistem(db, grupos) {
+  if (grupos.length === 0) return true;
+  const placeholders = grupos.map(() => "?").join(", ");
+  const validos = await all(db, `SELECT id FROM grupos_permissao WHERE id IN (${placeholders})`, ...grupos);
+  return validos.length === new Set(grupos).size;
 }
 
 export async function onRequestGet(context) {
@@ -797,9 +826,14 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPut(context) {
-  const { erro } = await exigirPermissao(context, "usuarios", "editar");
+  const { usuario, erro } = await exigirPermissao(context, "usuarios", "editar");
   if (erro) return erro;
   const body = await context.request.json();
+
+  if (body.admin !== undefined && usuario.admin !== 1) {
+    return error("Apenas administradores podem alterar o status de administrador de um usuário.", 403);
+  }
+
   const colunas = ["nome", "setor_id"].filter((c) => body[c] !== undefined);
   const valores = colunas.map((c) => body[c]);
 
@@ -831,6 +865,10 @@ export async function onRequestPut(context) {
   if (body.admin !== undefined) {
     colunas.push("admin");
     valores.push(body.admin ? 1 : 0);
+  }
+
+  if (Array.isArray(body.grupos) && !(await validarGruposExistem(context.env.DB, body.grupos))) {
+    return error("Um ou mais grupos informados não existem.");
   }
 
   if (colunas.length === 0 && body.grupos === undefined) {
@@ -893,10 +931,30 @@ actually log in with the admin-chosen password:
 ```bash
 curl -s -X POST http://localhost:8788/api/login -H "content-type: application/json" -d "{\"login\":\"testesilva\",\"senha\":\"minhasenha\"}"
 ```
-Expected: `200`, `"deve_trocar_senha":1`. Clean up and restore `ana`'s
-temporary admin flag:
+Expected: `200`, `"deve_trocar_senha":1`.
+
+Now confirm the admin-escalation guard: give a SECOND user only `usuarios.editar`/`inserir` (no admin) via a group, and confirm they can edit ordinary fields but not touch `admin`:
+```bash
+wrangler d1 execute workflow_zagonel_db --local --command="INSERT INTO grupos_permissao (nome) VALUES ('Teste - Usuarios CRUD')"
+wrangler d1 execute workflow_zagonel_db --local --command="INSERT INTO permissoes (grupo_id, tela, visualizar, inserir, editar, excluir) VALUES (last_insert_rowid(), 'usuarios', 1, 1, 1, 0)"
+wrangler d1 execute workflow_zagonel_db --local --command="INSERT INTO usuario_grupos (usuario_id, grupo_id) SELECT id, (SELECT id FROM grupos_permissao WHERE nome = 'Teste - Usuarios CRUD') FROM usuarios WHERE login = 'bruno'"
+TOKEN2=$(curl -s -X POST http://localhost:8788/api/login -H "content-type: application/json" -d "{\"login\":\"bruno\",\"senha\":\"1234bruno\"}" | node -e "process.stdin.once('data', d => console.log(JSON.parse(d).token))")
+curl -s -X PUT http://localhost:8788/api/usuarios/<id-do-teste-silva> -H "content-type: application/json" -H "Authorization: Bearer $TOKEN2" -d "{\"nome\":\"Teste Silva Renomeado\"}" -w "\nHTTP:%{http_code}\n"
+curl -s -X PUT http://localhost:8788/api/usuarios/<id-do-teste-silva> -H "content-type: application/json" -H "Authorization: Bearer $TOKEN2" -d "{\"admin\":1}" -w "\nHTTP:%{http_code}\n"
+curl -s -X POST http://localhost:8788/api/usuarios -H "content-type: application/json" -H "Authorization: Bearer $TOKEN2" -d "{\"nome\":\"Outro Admin\",\"setor_id\":1,\"login\":\"outroadmin\",\"senha\":\"x\",\"admin\":1}" -w "\nHTTP:%{http_code}\n"
+```
+Expected: first call `200` (renaming is an ordinary edit, `usuarios.editar` is enough); second call `403` (bruno lacks admin, so cannot touch the `admin` field even though he has `usuarios.editar`); third call `403` for the same reason on creation. Then confirm an invalid `grupo_id` is rejected whole:
+```bash
+curl -s -X PUT http://localhost:8788/api/usuarios/<id-do-teste-silva> -H "content-type: application/json" -H "Authorization: Bearer $TOKEN" -d "{\"grupos\":[999999]}" -w "\nHTTP:%{http_code}\n"
+```
+Expected: `400` "Um ou mais grupos informados não existem." — confirm via a follow-up `GET` that `testesilva`'s `grupos` is unchanged (not partially cleared).
+
+Clean up and restore `ana`'s temporary admin flag:
 ```bash
 curl -s -X DELETE http://localhost:8788/api/usuarios/<id-do-teste-silva> -H "Authorization: Bearer $TOKEN"
+wrangler d1 execute workflow_zagonel_db --local --command="DELETE FROM usuario_grupos WHERE usuario_id = (SELECT id FROM usuarios WHERE login = 'bruno')"
+wrangler d1 execute workflow_zagonel_db --local --command="DELETE FROM permissoes WHERE grupo_id = (SELECT id FROM grupos_permissao WHERE nome = 'Teste - Usuarios CRUD')"
+wrangler d1 execute workflow_zagonel_db --local --command="DELETE FROM grupos_permissao WHERE nome = 'Teste - Usuarios CRUD'"
 wrangler d1 execute workflow_zagonel_db --local --command="UPDATE usuarios SET admin = 0 WHERE login = 'ana'"
 ```
 
