@@ -1,7 +1,10 @@
 import { first, run } from "../../../_lib/db.js";
 import { json, error } from "../../../_lib/http.js";
+import { exigirPermissao } from "../../../_lib/permissoes.js";
 
 export async function onRequestPost(context) {
+  const { erro } = await exigirPermissao(context, "fluxos", "inserir");
+  if (erro) return erro;
   const body = await context.request.json();
   if (!body.rotulo || !body.setor_destino_id || !body.vinculo) {
     return error("Campos obrigatórios: rotulo, setor_destino_id, vinculo");
