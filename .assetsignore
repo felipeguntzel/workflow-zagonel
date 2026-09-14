@@ -1,0 +1,4 @@
+migrations/
+docs/
+.claude/
+*.md

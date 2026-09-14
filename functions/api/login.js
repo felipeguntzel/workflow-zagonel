@@ -7,7 +7,7 @@ export async function onRequestPost(context) {
   if (!body.login || !body.senha) {
     return error("Login e senha são obrigatórios");
   }
-  const loginNormalizado = body.login.toLowerCase();
+  const loginNormalizado = String(body.login).toLowerCase();
   const senhaHash = await hashSenha(body.senha);
   const usuario = await first(
     context.env.DB,

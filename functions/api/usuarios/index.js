@@ -15,7 +15,7 @@ export async function onRequestPost(context) {
   if (!body.nome || !body.setor_id || !body.login) {
     return error("Campos obrigatórios: nome, setor_id, login");
   }
-  const login = body.login.toLowerCase();
+  const login = String(body.login).toLowerCase();
   if (!validarFormatoLogin(login)) {
     return error(
       "Login inválido: use apenas letras e números, sem espaços, pontos ou caracteres especiais"

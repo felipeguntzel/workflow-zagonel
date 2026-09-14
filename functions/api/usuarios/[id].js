@@ -1,6 +1,6 @@
 import { first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { validarFormatoLogin } from "../../_lib/auth.js";
+import { hashSenha, validarFormatoLogin } from "../../_lib/auth.js";
 
 export async function onRequestGet(context) {
   const usuario = await first(
@@ -18,8 +18,9 @@ export async function onRequestPut(context) {
   const colunas = campos.filter((c) => body[c] !== undefined);
 
   let login = null;
+  let senhaHash = null;
   if (body.login !== undefined) {
-    login = body.login.toLowerCase();
+    login = String(body.login).toLowerCase();
     if (!validarFormatoLogin(login)) {
       return error(
         "Login inválido: use apenas letras e números, sem espaços, pontos ou caracteres especiais"
@@ -32,14 +33,15 @@ export async function onRequestPut(context) {
       context.params.id
     );
     if (existente) return error("Já existe um usuário com esse login");
+    senhaHash = await hashSenha(`1234${login}`);
   }
 
   if (colunas.length === 0 && login === null) {
     return error("Nenhum campo para atualizar");
   }
 
-  const colunasFinal = login !== null ? [...colunas, "login"] : colunas;
-  const valoresFinal = login !== null ? [...colunas.map((c) => body[c]), login] : colunas.map((c) => body[c]);
+  const colunasFinal = login !== null ? [...colunas, "login", "senha_hash"] : colunas;
+  const valoresFinal = login !== null ? [...colunas.map((c) => body[c]), login, senhaHash] : colunas.map((c) => body[c]);
   const set = colunasFinal.map((c) => `${c} = ?`).join(", ");
   await run(context.env.DB, `UPDATE usuarios SET ${set} WHERE id = ?`, ...valoresFinal, context.params.id);
 
