@@ -91,12 +91,25 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   código).
 - **`responsavel_id` nunca é definido nem exibido** em nenhuma tela, apesar
   de a coluna e a regra de negócio existirem.
-- **`pages_build_output_dir = "."` publicava todo o repositório** como estático
+- **`pages_build_output_dir = "."` publica todo o repositório** como estático
   no domínio público do Cloudflare Pages — incluindo `docs/`, `migrations/*.sql`
   e `CLAUDE.md`. A partir da migração `0003_auth.sql` (login/senha), isso
-  passou a incluir hashes de senha reais, não só documentação — corrigido com
-  um `.assetsignore` na raiz do projeto excluindo `migrations/`, `docs/`,
-  `.claude/` e `*.md` dos arquivos estáticos publicados.
+  passou a incluir hashes de senha reais, não só documentação. Tentamos
+  corrigir com um `.assetsignore` na raiz (`migrations/`, `docs/`, `.claude/`,
+  `*.md`), mas **verificado em deploy real que o Cloudflare Pages/wrangler
+  4.107.1 não respeita esse arquivo** — os caminhos continuaram públicos.
+  Corrigido de verdade com Pages Functions "catch-all" que interceptam essas
+  rotas antes de chegar aos arquivos estáticos e retornam 404
+  (`functions/migrations/[[path]].js`, `functions/docs/[[path]].js`,
+  `functions/.claude/[[path]].js`, `functions/CLAUDE.md.js`) — confirmado
+  funcionando via deploy de teste real (`curl` retornando 404 nesses
+  caminhos, API e páginas continuando 200 normalmente). Solução robusta mas
+  não elegante: qualquer nova pasta/arquivo sensível na raiz do repo precisa
+  de uma função equivalente, já que não existe hoje um mecanismo real de
+  exclusão de assets estáticos nesse setup. Se o TI reimplementar isso,
+  vale mover os arquivos do frontend para uma subpasta dedicada (ex:
+  `public/`) e apontar `pages_build_output_dir` só para ela, em vez de
+  depender de rotas catch-all.
 - **`wrangler.toml`'s `compatibility_date` está fixado em 2026-07-09**
   (abaixo do ideal) só para funcionar com a versão do `wrangler` instalada
   localmente durante a Fase 1. Atualizar o `wrangler` e avançar essa data é
