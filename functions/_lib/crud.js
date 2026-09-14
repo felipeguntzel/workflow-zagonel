@@ -1,14 +1,19 @@
 import { all, first, run } from "./db.js";
 import { json, error } from "./http.js";
+import { exigirPermissao } from "./permissoes.js";
 
-export function crudHandlers(table, { required = [], optional = [] } = {}) {
+export function crudHandlers(table, { required = [], optional = [], tela } = {}) {
   const campos = [...required, ...optional];
 
   async function onRequestGet(context) {
+    const { erro } = await exigirPermissao(context, tela, "visualizar");
+    if (erro) return erro;
     return json(await all(context.env.DB, `SELECT * FROM ${table} ORDER BY id`));
   }
 
   async function onRequestPost(context) {
+    const { erro } = await exigirPermissao(context, tela, "inserir");
+    if (erro) return erro;
     const body = await context.request.json();
     for (const campo of required) {
       if (body[campo] === undefined || body[campo] === null || body[campo] === "") {
@@ -34,16 +39,20 @@ export function crudHandlers(table, { required = [], optional = [] } = {}) {
   return { onRequestGet, onRequestPost };
 }
 
-export function crudItemHandlers(table, { required = [], optional = [] } = {}) {
+export function crudItemHandlers(table, { required = [], optional = [], tela } = {}) {
   const campos = [...required, ...optional];
 
   async function onRequestGet(context) {
+    const { erro } = await exigirPermissao(context, tela, "visualizar");
+    if (erro) return erro;
     const row = await first(context.env.DB, `SELECT * FROM ${table} WHERE id = ?`, context.params.id);
     if (!row) return error("Não encontrado", 404);
     return json(row);
   }
 
   async function onRequestPut(context) {
+    const { erro } = await exigirPermissao(context, tela, "editar");
+    if (erro) return erro;
     const body = await context.request.json();
     const colunas = campos.filter((c) => body[c] !== undefined);
     if (colunas.length === 0) return error("Nenhum campo para atualizar");
@@ -56,6 +65,8 @@ export function crudItemHandlers(table, { required = [], optional = [] } = {}) {
   }
 
   async function onRequestDelete(context) {
+    const { erro } = await exigirPermissao(context, tela, "excluir");
+    if (erro) return erro;
     await run(context.env.DB, `DELETE FROM ${table} WHERE id = ?`, context.params.id);
     return json({ ok: true });
   }
