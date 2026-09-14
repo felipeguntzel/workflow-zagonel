@@ -1,16 +1,17 @@
 import { exigirLogin } from "./auth.js";
-import { montarNav } from "./ui.js";
+import { montarNav, mostrarErro } from "./ui.js";
 import { renderCrud } from "./crud-ui.js";
 
 const usuario = exigirLogin();
 if (usuario) {
   document.getElementById("nav").replaceWith(montarNav(usuario));
+  const mensagemErro = document.getElementById("mensagem-erro");
 
   renderCrud(document.getElementById("secao-empresas"), {
     titulo: "Empresas",
     endpoint: "/empresas",
     campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
-  });
+  }).catch((e) => mostrarErro(mensagemErro, e));
 
   renderCrud(document.getElementById("secao-setores"), {
     titulo: "Setores",
@@ -27,7 +28,7 @@ if (usuario) {
         dica: "Usado para sugerir automaticamente o prazo de qualquer chamado aberto para este setor (data de abertura + este número de dias).",
       },
     ],
-  });
+  }).catch((e) => mostrarErro(mensagemErro, e));
 
   renderCrud(document.getElementById("secao-usuarios"), {
     titulo: "Usuários",
@@ -36,11 +37,11 @@ if (usuario) {
       { nome: "nome", label: "Nome", obrigatorio: true },
       { nome: "setor_id", label: "Setor", obrigatorio: true, opcoesEndpoint: "/setores" },
     ],
-  });
+  }).catch((e) => mostrarErro(mensagemErro, e));
 
   renderCrud(document.getElementById("secao-status"), {
     titulo: "Status",
     endpoint: "/status",
     campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
-  });
+  }).catch((e) => mostrarErro(mensagemErro, e));
 }

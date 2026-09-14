@@ -1,6 +1,6 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { chamadoComDetalhes, hojeISO, aplicarCascataAtraso } from "../../_lib/chamados.js";
+import { chamadoComDetalhes, hojeISO, aplicarCascataAtraso, computarBloqueado } from "../../_lib/chamados.js";
 
 export async function onRequestGet(context) {
   const chamado = await chamadoComDetalhes(context.env.DB, context.params.id);
@@ -21,6 +21,11 @@ export async function onRequestPut(context) {
   if (body.status_id !== undefined) {
     const statusRow = await first(context.env.DB, "SELECT nome FROM status WHERE id = ?", body.status_id);
     if (statusRow && statusRow.nome === "finalizado") {
+      const chamadoAtual = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
+      if (!chamadoAtual) return error("Não encontrado", 404);
+      if (await computarBloqueado(context.env.DB, chamadoAtual)) {
+        return error("Não é possível finalizar: chamado bloqueado aguardando pré-requisito.", 409);
+      }
       await run(
         context.env.DB,
         `UPDATE chamados SET ${set}, data_finalizacao = COALESCE(data_finalizacao, ?) WHERE id = ?`,

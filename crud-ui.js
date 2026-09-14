@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { info } from "./ui.js";
+import { info, mostrarErro } from "./ui.js";
 
 function valorExibicao(linha, campo, opcoesFK) {
   if (campo.opcoesEndpoint) {
@@ -83,8 +83,12 @@ export async function renderCrud(container, config) {
     );
     container.querySelectorAll(".btn-excluir").forEach((btn) =>
       btn.addEventListener("click", async () => {
-        await api(`${config.endpoint}/${btn.dataset.id}`, { method: "DELETE" });
-        recarregar();
+        try {
+          await api(`${config.endpoint}/${btn.dataset.id}`, { method: "DELETE" });
+          recarregar();
+        } catch (e) {
+          mostrarErro(document.getElementById("mensagem-erro"), e);
+        }
       })
     );
   }
@@ -96,15 +100,19 @@ export async function renderCrud(container, config) {
       const valor = form.elements[campo.nome].value;
       corpo[campo.nome] = campo.tipo === "number" || campo.opcoesEndpoint ? Number(valor) : valor;
     }
-    if (editandoId) {
-      await api(`${config.endpoint}/${editandoId}`, { method: "PUT", body: corpo });
-    } else {
-      await api(config.endpoint, { method: "POST", body: corpo });
+    try {
+      if (editandoId) {
+        await api(`${config.endpoint}/${editandoId}`, { method: "PUT", body: corpo });
+      } else {
+        await api(config.endpoint, { method: "POST", body: corpo });
+      }
+      editandoId = null;
+      form.reset();
+      botaoSalvar.textContent = "Adicionar";
+      recarregar();
+    } catch (e) {
+      mostrarErro(document.getElementById("mensagem-erro"), e);
     }
-    editandoId = null;
-    form.reset();
-    botaoSalvar.textContent = "Adicionar";
-    recarregar();
   });
 
   await recarregar();

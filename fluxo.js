@@ -1,16 +1,17 @@
 import { exigirLogin } from "./auth.js";
-import { montarNav, info } from "./ui.js";
+import { montarNav, info, mostrarErro } from "./ui.js";
 import { renderCrud } from "./crud-ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
 if (usuario) {
   document.getElementById("nav").replaceWith(montarNav(usuario));
+  const mensagemErro = document.getElementById("mensagem-erro");
   await renderCrud(document.getElementById("secao-fluxos"), {
     titulo: "Fluxos",
     endpoint: "/fluxos",
     campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
-  });
+  }).catch((e) => mostrarErro(mensagemErro, e));
   await iniciarSelecaoFluxo();
 }
 
@@ -107,31 +108,57 @@ async function renderEtapas(fluxoId) {
   );
   container.querySelectorAll(".btn-excluir-etapa").forEach((btn) =>
     btn.addEventListener("click", async () => {
-      await api(`/etapas/${btn.dataset.id}`, { method: "DELETE" });
-      renderEtapas(fluxoId);
+      try {
+        await api(`/etapas/${btn.dataset.id}`, { method: "DELETE" });
+        renderEtapas(fluxoId);
+      } catch (e) {
+        mostrarErro(document.getElementById("mensagem-erro"), e);
+      }
     })
   );
 
   document.getElementById("form-etapa").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const form = ev.target;
-    await api(`/fluxos/${fluxoId}/etapas`, {
-      method: "POST",
-      body: {
-        nome: form.elements.nome.value,
-        setor_id: Number(form.elements.setor_id.value),
-        tipo: form.elements.tipo.value,
-        eh_inicial: form.elements.eh_inicial.checked,
-        etapa_proxima_id: form.elements.etapa_proxima_id.value
-          ? Number(form.elements.etapa_proxima_id.value)
-          : null,
-        etapa_proxima_vinculo: form.elements.etapa_proxima_id.value
-          ? form.elements.etapa_proxima_vinculo.value
-          : null,
-      },
-    });
-    renderEtapas(fluxoId);
+    try {
+      await api(`/fluxos/${fluxoId}/etapas`, {
+        method: "POST",
+        body: {
+          nome: form.elements.nome.value,
+          setor_id: Number(form.elements.setor_id.value),
+          tipo: form.elements.tipo.value,
+          eh_inicial: form.elements.eh_inicial.checked,
+          etapa_proxima_id: form.elements.etapa_proxima_id.value
+            ? Number(form.elements.etapa_proxima_id.value)
+            : null,
+          etapa_proxima_vinculo: form.elements.etapa_proxima_id.value
+            ? form.elements.etapa_proxima_vinculo.value
+            : null,
+        },
+      });
+      renderEtapas(fluxoId);
+    } catch (e) {
+      mostrarErro(document.getElementById("mensagem-erro"), e);
+    }
   });
+
+  const selectTipo = document.getElementById("form-etapa").elements.tipo;
+  const checkboxInicial = document.getElementById("form-etapa").elements.eh_inicial;
+  const campoProximaEtapa = document.getElementById("form-etapa").elements.etapa_proxima_id.closest("label");
+  const campoVinculo = document.getElementById("form-etapa").elements.etapa_proxima_vinculo.closest("label");
+
+  function atualizarCamposProximaEtapa() {
+    // Uma etapa tipo "tarefa" só avança o fluxo automaticamente quando é a
+    // etapa inicial (caso especial tratado na criação do chamado). Uma
+    // "tarefa" não-inicial com etapa_proxima_id configurada nunca avançaria
+    // sozinha, então escondemos os campos para não permitir essa combinação.
+    const oculto = selectTipo.value === "tarefa" && !checkboxInicial.checked;
+    campoProximaEtapa.hidden = oculto;
+    campoVinculo.hidden = oculto;
+  }
+  selectTipo.addEventListener("change", atualizarCamposProximaEtapa);
+  checkboxInicial.addEventListener("change", atualizarCamposProximaEtapa);
+  atualizarCamposProximaEtapa();
 }
 
 async function renderAcoes(etapaId) {
@@ -192,25 +219,33 @@ async function renderAcoes(etapaId) {
 
   container.querySelectorAll(".btn-excluir-acao").forEach((btn) =>
     btn.addEventListener("click", async () => {
-      await api(`/acoes/${btn.dataset.id}`, { method: "DELETE" });
-      renderAcoes(etapaId);
+      try {
+        await api(`/acoes/${btn.dataset.id}`, { method: "DELETE" });
+        renderAcoes(etapaId);
+      } catch (e) {
+        mostrarErro(document.getElementById("mensagem-erro"), e);
+      }
     })
   );
 
   document.getElementById("form-acao").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const form = ev.target;
-    await api(`/etapas/${etapaId}/acoes`, {
-      method: "POST",
-      body: {
-        rotulo: form.elements.rotulo.value,
-        setor_destino_id: Number(form.elements.setor_destino_id.value),
-        vinculo: form.elements.vinculo.value,
-        prerequisito_acao_id: form.elements.prerequisito_acao_id.value
-          ? Number(form.elements.prerequisito_acao_id.value)
-          : null,
-      },
-    });
-    renderAcoes(etapaId);
+    try {
+      await api(`/etapas/${etapaId}/acoes`, {
+        method: "POST",
+        body: {
+          rotulo: form.elements.rotulo.value,
+          setor_destino_id: Number(form.elements.setor_destino_id.value),
+          vinculo: form.elements.vinculo.value,
+          prerequisito_acao_id: form.elements.prerequisito_acao_id.value
+            ? Number(form.elements.prerequisito_acao_id.value)
+            : null,
+        },
+      });
+      renderAcoes(etapaId);
+    } catch (e) {
+      mostrarErro(document.getElementById("mensagem-erro"), e);
+    }
   });
 }

@@ -4,6 +4,11 @@ export function info(texto) {
   return `<span class="info" title="${texto.replace(/"/g, "&quot;")}">i</span>`;
 }
 
+export function mostrarErro(elemento, erro) {
+  elemento.textContent = erro && erro.message ? erro.message : String(erro);
+  elemento.hidden = false;
+}
+
 export function situacaoClasse(situacao) {
   if (situacao === "vencido") return "badge badge-vencido";
   if (situacao === "alerta") return "badge badge-alerta";

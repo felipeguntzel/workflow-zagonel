@@ -1,5 +1,5 @@
 import { exigirLogin } from "./auth.js";
-import { montarNav, info } from "./ui.js";
+import { montarNav, info, mostrarErro } from "./ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
@@ -28,28 +28,36 @@ function iniciar() {
   document.getElementById("form-horas").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const form = ev.target;
-    await api(`/chamados/${id}/horas`, {
-      method: "POST",
-      body: {
-        usuario_id: usuario.id,
-        data: form.elements.data.value,
-        horas: Number(form.elements.horas.value),
-        observacao: form.elements.observacao.value || null,
-      },
-    });
-    form.reset();
-    carregarHoras();
+    try {
+      await api(`/chamados/${id}/horas`, {
+        method: "POST",
+        body: {
+          usuario_id: usuario.id,
+          data: form.elements.data.value,
+          horas: Number(form.elements.horas.value),
+          observacao: form.elements.observacao.value || null,
+        },
+      });
+      form.reset();
+      carregarHoras();
+    } catch (e) {
+      mostrarErro(document.getElementById("mensagem-erro"), e);
+    }
   });
 
   document.getElementById("form-comentario").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const form = ev.target;
-    await api(`/chamados/${id}/comentarios`, {
-      method: "POST",
-      body: { usuario_id: usuario.id, texto: form.elements.texto.value },
-    });
-    form.reset();
-    carregarComentarios();
+    try {
+      await api(`/chamados/${id}/comentarios`, {
+        method: "POST",
+        body: { usuario_id: usuario.id, texto: form.elements.texto.value },
+      });
+      form.reset();
+      carregarComentarios();
+    } catch (e) {
+      mostrarErro(document.getElementById("mensagem-erro"), e);
+    }
   });
 
   carregarTudo();
@@ -180,8 +188,12 @@ async function renderStatusManual(chamado) {
       erro.hidden = false;
       return;
     }
-    await api(`/chamados/${chamado.id}`, { method: "PUT", body: { status_id: statusId } });
-    carregarTudo();
+    try {
+      await api(`/chamados/${chamado.id}`, { method: "PUT", body: { status_id: statusId } });
+      carregarTudo();
+    } catch (e) {
+      mostrarErro(document.getElementById("erro-status"), e);
+    }
   });
 }
 
