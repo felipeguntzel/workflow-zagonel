@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkFlow Zagonel - Trocar Senha</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>Trocar senha</h1>
+  <p>Esta é sua primeira vez entrando com essa senha, ou ela foi redefinida por um administrador. Escolha uma nova senha para continuar.</p>
+  <form class="formulario" id="form-trocar-senha">
+    <label>Nova senha
+      <input type="password" name="nova_senha" required minlength="4">
+    </label>
+    <label>Confirmar nova senha
+      <input type="password" name="confirmar_senha" required minlength="4">
+    </label>
+    <button type="submit">Salvar nova senha</button>
+    <p id="mensagem-erro" class="erro" hidden></p>
+  </form>
+</main>
+<script type="module" src="trocar-senha.js"></script>
+</body>
+</html>
