@@ -1,0 +1,10 @@
+{
+  "name": "workflow-zagonel",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test functions/_lib/**/*.test.js",
+    "dev": "wrangler pages dev .",
+    "deploy": "wrangler pages deploy ."
+  }
+}

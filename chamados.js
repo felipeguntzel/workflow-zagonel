@@ -1,0 +1,33 @@
+import { exigirLogin } from "./auth.js";
+import { montarNav } from "./ui.js";
+import { api } from "./api.js";
+
+const usuario = exigirLogin();
+if (usuario) {
+  document.getElementById("nav").replaceWith(montarNav(usuario));
+  carregarChamados();
+}
+
+function situacaoBadge(prazo, statusNome) {
+  if (statusNome === "finalizado") return "";
+  const hoje = new Date().toISOString().slice(0, 10);
+  const diff = Math.round((new Date(prazo) - new Date(hoje)) / 86400000);
+  if (diff < 0) return `<span class="badge badge-vencido">Vencido</span>`;
+  if (diff <= 2) return `<span class="badge badge-alerta">Alerta</span>`;
+  return `<span class="badge badge-ok">Ok</span>`;
+}
+
+async function carregarChamados() {
+  const chamados = await api(`/chamados?setor_id=${usuario.setor_id}`);
+  document.getElementById("tabela-chamados").innerHTML = chamados
+    .map(
+      (c) => `
+        <tr>
+          <td><a href="chamado.html?id=${c.id}">#${c.id} — ${c.titulo}</a></td>
+          <td>${c.status_nome}</td>
+          <td>${c.prazo}</td>
+          <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
+        </tr>`
+    )
+    .join("");
+}

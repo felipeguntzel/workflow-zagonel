@@ -1,0 +1,8 @@
+name = "workflow-zagonel"
+pages_build_output_dir = "."
+compatibility_date = "2026-07-09"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "workflow_zagonel_db"
+database_id = "f0fb2da3-3028-42dc-83e1-6624b29df327"
