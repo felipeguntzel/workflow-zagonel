@@ -132,6 +132,10 @@ checagem manualmente, no mesmo padrão.
   (criar/renomear/excluir); ao selecionar um grupo, uma matriz de
   telas × ações (visualizar/inserir/editar/excluir, + "ver todos os
   setores" só na linha de Chamados) com checkboxes, salva por tela.
+  **Gerenciar grupos é uma ação restrita a administradores** — não é uma
+  tela como as outras seis, não passa pelo próprio sistema de grupos (um
+  grupo nunca poderia se dar mais poder do que já tem se isso fosse
+  configurável por permissão).
 - **Trocar Senha** (`trocar-senha.html`/`trocar-senha.js`): nova senha +
   confirmação, exibida obrigatoriamente quando `deve_trocar_senha` é
   verdadeiro.
