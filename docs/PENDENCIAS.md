@@ -10,8 +10,6 @@ chamados). Ordem não implica prioridade.
   - Quantas tarefas mãe existem, quantas por setor.
   - Tempo médio que cada setor demora para finalizar.
   - Dashboard visual de gargalos (setores mais lentos).
-- **Autenticação real**: login com senha, em vez de só escolher o usuário da
-  lista.
 - **Reajuste de prazo mais sofisticado**: hoje empurra pelos mesmos dias de
   atraso; no futuro talvez precise de regras diferentes por tipo de
   dependência (ex.: recalcular considerando dias úteis/feriados).
@@ -21,6 +19,24 @@ chamados). Ordem não implica prioridade.
 - **Integração com sistemas existentes da empresa**: quando o TI assumir a
   implementação definitiva, avaliar reaproveitamento de cadastros já
   existentes (usuários, setores, centro de custo) em vez de recadastrar.
+
+## Fora de escopo da leva de autenticação (login/senha)
+
+Ver `docs/superpowers/specs/2026-09-14-autenticacao-login-senha-design.md`.
+
+- **Troca de senha pelo próprio usuário**: hoje a senha só é definida
+  automaticamente na criação (`1234` + login), sem tela para o usuário
+  trocar depois.
+- **Política de senha mais forte**: sem regra de complexidade além do
+  padrão fixo.
+- **Limite de tentativas de login (rate limiting)**: sem proteção contra
+  força bruta no `POST /api/login`.
+- **Obrigar troca de senha no primeiro acesso**.
+- **Layout padrão para as telas internas (operacionais) + PWA**: nav/sidebar
+  consistente entre chamados/cadastros/fluxo/detalhe/geral, responsivo,
+  ocupando a tela toda, manifest + service worker para instalar como app.
+  Pedido pelo usuário junto com a autenticação, mas tratado como projeto
+  separado (desenho próprio depois desta leva).
 
 ## Achados da revisão final de branch (Fase 1) não corrigidos agora
 
