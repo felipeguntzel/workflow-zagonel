@@ -8,20 +8,26 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main>
-  <h1>Trocar senha</h1>
-  <p>Esta é sua primeira vez entrando com essa senha, ou ela foi redefinida por um administrador. Escolha uma nova senha para continuar.</p>
-  <form class="formulario" id="form-trocar-senha">
-    <label>Nova senha
-      <input type="password" name="nova_senha" required minlength="4">
-    </label>
-    <label>Confirmar nova senha
-      <input type="password" name="confirmar_senha" required minlength="4">
-    </label>
-    <button type="submit">Salvar nova senha</button>
-    <p id="mensagem-erro" class="erro" hidden></p>
-  </form>
-</main>
+<div class="login-split">
+  <div class="login-split__destaque">
+    <img src="favicon.svg" alt="" class="login-split__logo">
+    <h1>WorkFlow Zagonel</h1>
+  </div>
+  <div class="login-split__form">
+    <form class="formulario" id="form-trocar-senha">
+      <h2>Trocar senha</h2>
+      <p>Esta é sua primeira vez entrando com essa senha, ou ela foi redefinida por um administrador. Escolha uma nova senha para continuar.</p>
+      <label>Nova senha <span class="info" title="Mínimo de 8 caracteres. Letras, números e símbolos são todos permitidos, sem restrição.">i</span>
+        <input type="password" name="nova_senha" required minlength="8" autocomplete="new-password">
+      </label>
+      <label>Confirmar nova senha
+        <input type="password" name="confirmar_senha" required minlength="8" autocomplete="new-password">
+      </label>
+      <button type="submit">Salvar nova senha</button>
+      <p id="mensagem-erro" class="erro" hidden></p>
+    </form>
+  </div>
+</div>
 <script type="module" src="trocar-senha.js"></script>
 </body>
 </html>

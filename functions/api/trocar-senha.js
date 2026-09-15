@@ -7,7 +7,9 @@ export async function onRequestPost(context) {
   const usuario = await obterUsuarioDaRequisicao(context.request, context.env);
   if (!usuario) return error("Não autenticado", 401);
   const body = await context.request.json();
-  if (!body.nova_senha) return error("Nova senha é obrigatória");
+  if (!body.nova_senha || body.nova_senha.length < 8) {
+    return error("A nova senha deve ter pelo menos 8 caracteres.");
+  }
   const senhaHash = await hashSenha(body.nova_senha);
   await run(
     context.env.DB,
