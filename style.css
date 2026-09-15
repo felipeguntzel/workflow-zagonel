@@ -180,8 +180,6 @@ td { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowra
 .badge-ok { background: var(--cor-ok); }
 :root[data-tema="alto-contraste"] .badge { border-color: var(--cor-borda); font-weight: 700; }
 
-.erro { color: var(--cor-vencido); }
-
 form.formulario { display: flex; flex-direction: column; gap: 0.5rem; max-width: 480px; }
 form.formulario label { display: flex; flex-direction: column; gap: 0.2rem; }
 form.formulario[hidden] { display: none; }
