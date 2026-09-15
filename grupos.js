@@ -56,7 +56,13 @@ async function iniciar(container, mensagemErro) {
       .join("");
 
     lista.querySelectorAll(".btn-selecionar").forEach((btn) =>
-      btn.addEventListener("click", () => abrirGrupo(Number(btn.dataset.id)))
+      btn.addEventListener("click", async () => {
+        try {
+          await abrirGrupo(Number(btn.dataset.id));
+        } catch (e) {
+          mostrarErro(mensagemErro, e);
+        }
+      })
     );
     lista.querySelectorAll(".btn-excluir").forEach((btn) =>
       btn.addEventListener("click", async () => {
@@ -67,7 +73,7 @@ async function iniciar(container, mensagemErro) {
             grupoSelecionadoId = null;
             detalhe.innerHTML = "";
           }
-          recarregarLista();
+          await recarregarLista();
         } catch (e) {
           mostrarErro(mensagemErro, e);
         }
@@ -123,7 +129,7 @@ async function iniciar(container, mensagemErro) {
       const nome = ev.target.elements.nome.value;
       try {
         await api(`/grupos/${id}`, { method: "PUT", body: { nome } });
-        recarregarLista();
+        await recarregarLista();
       } catch (e) {
         mostrarErro(mensagemErro, e);
       }
@@ -155,7 +161,7 @@ async function iniciar(container, mensagemErro) {
     try {
       await api("/grupos", { method: "POST", body: { nome } });
       formNovo.reset();
-      recarregarLista();
+      await recarregarLista();
     } catch (e) {
       mostrarErro(mensagemErro, e);
     }
