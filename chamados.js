@@ -1,10 +1,11 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
-import { montarNav, mostrarErro } from "./ui.js";
+import { aplicarLayout } from "./layout.js";
+import { mostrarErro } from "./ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
 if (usuario) {
-  document.getElementById("nav").replaceWith(montarNav(usuario));
+  aplicarLayout(usuario);
   if (!permissaoDaTela("chamados").inserir) {
     document.getElementById("link-novo-chamado").hidden = true;
   }
