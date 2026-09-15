@@ -300,7 +300,7 @@ password-change flow), so there's something to actually curl and verify.
 
 **Interfaces:**
 - Consumes: `first`/`all` (`functions/_lib/db.js`), `error` (`functions/_lib/http.js`), `verificarToken` (`functions/_lib/sessao.js`, Task 2), `hashSenha` (`functions/_lib/auth.js`).
-- Produces: `obterUsuarioDaRequisicao(request, env) -> Promise<{id, nome, setor_id, admin} | null>` (reads the `Authorization: Bearer <token>` header, verifies it, loads the user row — `admin` is `0`/`1` as stored), `obterPermissoesDoUsuario(db, usuarioId) -> Promise<{empresas: {visualizar,inserir,editar,excluir}, setores: {...}, usuarios: {...}, status: {...}, fluxos: {...}, chamados: {visualizar,inserir,editar,excluir,ver_todos_setores}}>` (an admin user gets every flag `true`), `exigirPermissao(context, tela, acao) -> Promise<{usuario, permissoes} | {erro: Response}>` (401 if no valid session, 403 if valid but lacking the permission — callers do `const {usuario, erro} = await exigirPermissao(...); if (erro) return erro;`), `exigirAdmin(context) -> Promise<{usuario} | {erro: Response}>` (401/403 the same way, but requires `admin === 1` specifically — managing permission groups themselves is deliberately admin-only, never gated by a group's own permissions, so a group can never grant itself more power). All consumed by every remaining backend task.
+- Produces: `obterUsuarioDaRequisicao(request, env) -> Promise<{id, nome, setor_id, admin, deve_trocar_senha} | null>` (reads the `Authorization: Bearer <token>` header, verifies it, loads the user row — `admin`/`deve_trocar_senha` are `0`/`1` as stored), `obterPermissoesDoUsuario(db, usuarioId) -> Promise<{empresas: {visualizar,inserir,editar,excluir}, setores: {...}, usuarios: {...}, status: {...}, fluxos: {...}, chamados: {visualizar,inserir,editar,excluir,ver_todos_setores}}>` (an admin user gets every flag `true`), `exigirPermissao(context, tela, acao) -> Promise<{usuario, permissoes} | {erro: Response}>` (401 if no valid session, 403 if `deve_trocar_senha === 1` OR if valid but lacking the permission — callers do `const {usuario, erro} = await exigirPermissao(...); if (erro) return erro;`), `exigirAdmin(context) -> Promise<{usuario} | {erro: Response}>` (401/403 the same way, including the same forced-password-change block, plus requires `admin === 1` specifically — managing permission groups themselves is deliberately admin-only, never gated by a group's own permissions, so a group can never grant itself more power). The forced-password-change block (added after a whole-branch review caught it missing — the design always intended it, see design spec section D) means every `tela`/`acao`-gated endpoint is unreachable until the user completes `POST /api/trocar-senha`, which stays reachable throughout since it calls `obterUsuarioDaRequisicao` directly, never `exigirPermissao`/`exigirAdmin`. `GET /api/chamados/:id/arvore` and `GET/POST /api/chamados/:id/comentarios` (Task 7) also call `obterUsuarioDaRequisicao` directly and so are NOT blocked by a pending forced password change — consistent with their existing "open to any valid session, no permission check at all" design, not a new gap. All consumed by every remaining backend task.
 
 - [ ] **Step 1: Write `functions/_lib/permissoes.js`**
 
@@ -318,7 +318,7 @@ export async function obterUsuarioDaRequisicao(request, env) {
   if (!verificado) return null;
   const usuario = await first(
     env.DB,
-    "SELECT id, nome, setor_id, admin FROM usuarios WHERE id = ?",
+    "SELECT id, nome, setor_id, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
     verificado.usuarioId
   );
   return usuario ?? null;
@@ -366,6 +366,9 @@ export async function obterPermissoesDoUsuario(db, usuarioId) {
 export async function exigirPermissao(context, tela, acao) {
   const usuario = await obterUsuarioDaRequisicao(context.request, context.env);
   if (!usuario) return { erro: error("Não autenticado", 401) };
+  if (usuario.deve_trocar_senha === 1) {
+    return { erro: error("Troque sua senha antes de continuar", 403) };
+  }
   const permissoes = await obterPermissoesDoUsuario(context.env.DB, usuario.id);
   const permitido = usuario.admin === 1 || Boolean(permissoes[tela]?.[acao]);
   if (!permitido) return { erro: error("Acesso negado", 403) };
@@ -375,6 +378,9 @@ export async function exigirPermissao(context, tela, acao) {
 export async function exigirAdmin(context) {
   const usuario = await obterUsuarioDaRequisicao(context.request, context.env);
   if (!usuario) return { erro: error("Não autenticado", 401) };
+  if (usuario.deve_trocar_senha === 1) {
+    return { erro: error("Troque sua senha antes de continuar", 403) };
+  }
   if (usuario.admin !== 1) return { erro: error("Acesso restrito a administradores", 403) };
   return { usuario };
 }
@@ -481,6 +487,29 @@ Also confirm a request with no/garbage token is rejected:
 curl -s -X POST http://localhost:8788/api/trocar-senha -H "content-type: application/json" -d "{\"nova_senha\":\"x\"}" -w "\nHTTP:%{http_code}\n"
 ```
 Expected: `401`.
+
+Confirm the forced-password-change block: temporarily flag a user as
+needing a password change and verify every `tela`/`acao`-gated endpoint is
+blocked while `trocar-senha` itself stays reachable.
+```bash
+wrangler d1 execute workflow_zagonel_db --local --command="UPDATE usuarios SET deve_trocar_senha = 1 WHERE login = 'ana'"
+TOKEN3=$(curl -s -X POST http://localhost:8788/api/login -H "content-type: application/json" -d "{\"login\":\"ana\",\"senha\":\"novaSenha123\"}" | node -e "process.stdin.once('data', d => console.log(JSON.parse(d).token))")
+curl -s http://localhost:8788/api/empresas -H "Authorization: Bearer $TOKEN3" -w "\nHTTP:%{http_code}\n"
+curl -s -X POST http://localhost:8788/api/trocar-senha -H "content-type: application/json" -H "Authorization: Bearer $TOKEN3" -d "{\"nova_senha\":\"1234ana\"}" -w "\nHTTP:%{http_code}\n"
+```
+Expected: first call `403` "Troque sua senha antes de continuar" (any
+gated endpoint works the same way — `empresas` here is just a convenient
+one, already gated since Task 4); second call `200` — `trocar-senha`
+itself is never blocked by its own gate. Confirm the flag actually clears
+and normal access resumes:
+```bash
+curl -s -X POST http://localhost:8788/api/login -H "content-type: application/json" -d "{\"login\":\"ana\",\"senha\":\"1234ana\"}"
+curl -s http://localhost:8788/api/empresas -H "Authorization: Bearer <novo-token>" -w "\nHTTP:%{http_code}\n"
+```
+Expected: login response has `"deve_trocar_senha":0`; the `empresas` call
+now returns whatever it returned before this check (`403` for lacking the
+`empresas` permission itself is fine — the point is it's no longer the
+forced-password-change `403`, distinguishable by the error message).
 
 - [ ] **Step 5: Commit**
 
@@ -696,7 +725,7 @@ git commit -m "Permission-gate the generic CRUD factory: empresas, setores, stat
 - Consumes: `exigirPermissao` (Task 3), `hashSenha`/`validarFormatoLogin` (`functions/_lib/auth.js`).
 - Produces (HTTP): every response shape is now `{id, nome, setor_id, login, admin, deve_trocar_senha, grupos: [grupoId, ...]}` — `senha_hash` still never appears. `POST` now requires `senha` (the admin-chosen initial password) instead of auto-generating one, accepts `admin` (0/1) and `grupos` (array of grupo ids). `PUT` can optionally include `senha` (a reset — also re-sets `deve_trocar_senha=1`), `admin`, and `grupos` (replaces the user's group memberships entirely).
 
-**Isolation, same principle as Task 8's `exigirAdmin`:** `usuarios.editar`/`usuarios.inserir` are ordinary CRUD permissions a ranked group could plausibly hold — they must never be enough, by themselves, to grant the `admin` flag (that would let any such group promote any user, including its own members, to full system access, defeating the whole permission-group model). So `POST` with a truthy `body.admin` additionally requires the CALLER to already be `admin === 1`; a non-admin caller gets `403` on that specific attempt, even with full `usuarios.inserir`. `PUT` applies the same rule but compares against the target user's CURRENT `admin` value rather than merely checking whether `body.admin` is present: it only requires the caller to already be admin when `body.admin` would actually CHANGE the target's admin status — a `PUT` that redundantly resends the target's existing `admin` value (as the frontend's generic form always does, whether or not the admin checkbox was touched — see Task 12) does not trip the gate. This is on top of, not instead of, the normal `exigirPermissao(context, "usuarios", acao)` gate every handler still has. Both `POST` and `PUT` also validate every id in a `grupos` array against `grupos_permissao` up front, before mutating anything — a request naming a nonexistent `grupo_id` is rejected whole (`400`) rather than partially applied.
+**Isolation, same principle as Task 8's `exigirAdmin`:** `usuarios.editar`/`usuarios.inserir` are ordinary CRUD permissions a ranked group could plausibly hold — they must never be enough, by themselves, to grant MORE power than the group itself already has, whether via the `admin` flag or via `grupos` membership (either one lets a group promote any user, including its own members, to power the group doesn't actually hold — defeating the whole permission-group model). So `POST` with a truthy `body.admin`, or a non-empty `body.grupos`, additionally requires the CALLER to already be `admin === 1`; a non-admin caller gets `403` on either attempt, even with full `usuarios.inserir`. `PUT` applies the same rule to both fields but compares against the target user's CURRENT stored value rather than merely checking whether the field is present: it only requires the caller to already be admin when the submitted value would actually CHANGE the target's `admin` flag or group membership — a `PUT` that redundantly resends the target's existing `admin` value or the exact same `grupos` array (as the frontend's generic form always does for `admin`, whether or not the checkbox was touched — see Task 12) does not trip the gate. This is on top of, not instead of, the normal `exigirPermissao(context, "usuarios", acao)` gate every handler still has. Both `POST` and `PUT` also validate every id in a `grupos` array against `grupos_permissao` up front, before mutating anything — a request naming a nonexistent `grupo_id` is rejected whole (`400`) rather than partially applied.
 
 - [ ] **Step 1: Replace `functions/api/usuarios/index.js`**
 
@@ -755,6 +784,9 @@ export async function onRequestPost(context) {
   if (!(await validarGruposExistem(context.env.DB, grupos))) {
     return error("Um ou mais grupos informados não existem.");
   }
+  if (grupos.length > 0 && usuario.admin !== 1) {
+    return error("Apenas administradores podem atribuir grupos a um usuário.", 403);
+  }
   const senhaHash = await hashSenha(body.senha);
   const admin = body.admin ? 1 : 0;
   const resultado = await run(
@@ -785,11 +817,18 @@ export async function onRequestPost(context) {
 }
 ```
 
-`body.admin && usuario.admin !== 1` gates the ONE privileged field, on top of
+`body.admin && usuario.admin !== 1` gates the admin field, on top of
 the ordinary `usuarios.inserir` check every other field already went
 through — a group with `usuarios.inserir` can create ordinary users freely,
 but can never mint a new admin unless the caller creating them is already
-one. `validarGruposExistem` runs before the `INSERT INTO usuarios` — a
+one. The SAME isolation applies to `grupos` (added after a whole-branch
+review caught the gap): a non-empty `grupos` array on creation also requires
+the caller to already be admin — otherwise a group holding only
+`usuarios.visualizar`+`inserir` could enumerate every group via `GET
+/api/grupos` (Task 8's one open exception) and mint a brand-new user
+pre-loaded into the most privileged group it found, which defeats the
+permission-group model exactly the way an unguarded `admin` field would.
+`validarGruposExistem` runs before the `INSERT INTO usuarios` — a
 bad `grupo_id` is rejected whole, never partially applied.
 
 - [ ] **Step 2: Replace `functions/api/usuarios/[id].js`**
@@ -872,8 +911,17 @@ export async function onRequestPut(context) {
     valores.push(body.admin ? 1 : 0);
   }
 
-  if (Array.isArray(body.grupos) && !(await validarGruposExistem(context.env.DB, body.grupos))) {
-    return error("Um ou mais grupos informados não existem.");
+  if (Array.isArray(body.grupos)) {
+    if (!(await validarGruposExistem(context.env.DB, body.grupos))) {
+      return error("Um ou mais grupos informados não existem.");
+    }
+    const gruposAtuais = await carregarGruposDoUsuario(context.env.DB, context.params.id);
+    const mudouGrupos =
+      gruposAtuais.length !== body.grupos.length ||
+      gruposAtuais.some((g) => !body.grupos.includes(g));
+    if (mudouGrupos && usuario.admin !== 1) {
+      return error("Apenas administradores podem alterar os grupos de um usuário.", 403);
+    }
   }
 
   if (colunas.length === 0 && body.grupos === undefined) {
@@ -2649,7 +2697,7 @@ async function iniciar(container, mensagemErro) {
           <tr>
             <th>Tela</th>
             ${ACOES.map((a) => `<th>${a}</th>`).join("")}
-            <th>Ver todos os setores ${info("Só relevante para Chamados: enxerga chamados de todos os setores, não só do setor do usuário.")}</th>
+            <th>Ver todos os setores ${info("Só relevante para Chamados, e só afeta a listagem 'Meus chamados': sem esta permissão, o usuário só vê ali os chamados do próprio setor. Abrir um chamado específico por link (inclusive de outro setor) e ver a árvore/comentários do chamado mãe sempre funciona para qualquer usuário autenticado, com ou sem esta permissão — isso é proposital.")}</th>
           </tr>
         </thead>
         <tbody>
@@ -3569,6 +3617,18 @@ seed users (`ana`/`bruno`/`carla`/`diego`/`elisa`) for every other task's
 verification steps in this plan — wiping them locally would break future
 local testing for no benefit, since local dev data was never meant to
 mirror production.
+
+**On `felipe`'s initial password being committed as plaintext below:** a
+whole-branch review flagged this and it was discussed explicitly with the
+human partner — decision: keep it as a fixed, known value. This is safe
+specifically because `exigirPermissao`/`exigirAdmin` (Task 3, amended)
+now block every `tela`/`acao`-gated endpoint for any user with
+`deve_trocar_senha = 1`, so even a leaked initial password can only be
+used to change the password itself, nothing else — and Task 17's smoke
+test makes that change the very first thing done with the account, right
+after the reset runs. Do not generate a random password here instead
+without checking with the human partner first — this was a deliberate,
+already-made call, not an oversight.
 
 **Files:**
 - Create: `migrations/0005_reset_producao.sql`
