@@ -31,6 +31,7 @@ function campoInputHtml(campo, opcoesFK) {
 }
 
 export async function renderCrud(container, config) {
+  if (!config.tela) throw new Error("renderCrud: config.tela é obrigatório");
   const permissao = permissaoDaTela(config.tela);
   if (!permissao.visualizar) {
     container.innerHTML = `<h2>${config.titulo}</h2><p>Você não tem permissão para visualizar esta tela.</p>`;
