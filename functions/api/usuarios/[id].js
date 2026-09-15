@@ -33,8 +33,13 @@ export async function onRequestPut(context) {
   if (erro) return erro;
   const body = await context.request.json();
 
-  if (body.admin !== undefined && usuario.admin !== 1) {
-    return error("Apenas administradores podem alterar o status de administrador de um usuário.", 403);
+  if (body.admin !== undefined) {
+    const alvo = await first(context.env.DB, "SELECT admin FROM usuarios WHERE id = ?", context.params.id);
+    if (!alvo) return error("Não encontrado", 404);
+    const novoAdmin = body.admin ? 1 : 0;
+    if (novoAdmin !== alvo.admin && usuario.admin !== 1) {
+      return error("Apenas administradores podem alterar o status de administrador de um usuário.", 403);
+    }
   }
 
   const colunas = ["nome", "setor_id"].filter((c) => body[c] !== undefined);
