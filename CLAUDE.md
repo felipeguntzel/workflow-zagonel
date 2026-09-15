@@ -10,8 +10,9 @@ todas as entidades, é um ambiente de testes reais.
 
 - Sem framework de frontend: HTML + CSS + JS puro, em módulos separados por
   responsabilidade.
-- Backend: Cloudflare Pages Functions + D1. Sem login com senha — usuário se
-  identifica escolhendo da lista.
+- Backend: Cloudflare Pages Functions + D1. Login real com usuário/senha,
+  sessão via token; grupos de permissão controlam acesso por tela/ação, com
+  um flag `admin` que libera tudo.
 - Todo campo/botão relevante da UI tem um ícone "i" com tooltip explicando a
   regra de negócio esperada.
 - Comunicação entre setores é sempre via comentários (estilo Redmine), nunca

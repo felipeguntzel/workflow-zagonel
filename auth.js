@@ -21,3 +21,13 @@ export function exigirLogin() {
   }
   return usuario;
 }
+
+export function permissaoDaTela(tela) {
+  const usuario = getUsuarioLogado();
+  const vazio = { visualizar: false, inserir: false, editar: false, excluir: false };
+  if (!usuario) return vazio;
+  if (usuario.admin) {
+    return { visualizar: true, inserir: true, editar: true, excluir: true, ver_todos_setores: true };
+  }
+  return usuario.permissoes?.[tela] ?? vazio;
+}

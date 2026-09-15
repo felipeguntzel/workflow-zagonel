@@ -24,14 +24,10 @@ chamados). Ordem não implica prioridade.
 
 Ver `docs/superpowers/specs/2026-09-14-autenticacao-login-senha-design.md`.
 
-- **Troca de senha pelo próprio usuário**: hoje a senha só é definida
-  automaticamente na criação (`1234` + login), sem tela para o usuário
-  trocar depois.
 - **Política de senha mais forte**: sem regra de complexidade além do
   padrão fixo.
 - **Limite de tentativas de login (rate limiting)**: sem proteção contra
   força bruta no `POST /api/login`.
-- **Obrigar troca de senha no primeiro acesso**.
 - **Layout padrão para as telas internas (operacionais) + PWA**: nav/sidebar
   consistente entre chamados/cadastros/fluxo/detalhe/geral, responsivo,
   ocupando a tela toda, manifest + service worker para instalar como app.
@@ -152,3 +148,13 @@ Ver `docs/superpowers/plans/2026-09-14-autenticacao-login-senha.md`.
   inválido (ex: com ponto ou espaço), o navegador mostra só a mensagem
   genérica de validação, sem explicar a regra. Um atributo `title` no
   `<input>` resolveria.
+
+## Fora de escopo da leva de permissões e administração
+
+Ver `docs/superpowers/specs/2026-09-14-permissoes-e-administracao-design.md`.
+
+- **Revogação de sessão antes da expiração** (ex.: "sair de todos os
+  dispositivos") — o token simplesmente expira em 8h.
+- **Auditoria de quem alterou o quê** (log de ações).
+- **Múltiplos níveis hierárquicos de grupo** (herança entre grupos) — grupos
+  são todos do mesmo nível, permissão efetiva é só a soma deles.

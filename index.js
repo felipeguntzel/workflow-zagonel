@@ -15,7 +15,7 @@ document.getElementById("form-login").addEventListener("submit", async (ev) => {
       },
     });
     setUsuarioLogado(usuario);
-    window.location.href = "chamados.html";
+    window.location.href = usuario.deve_trocar_senha ? "trocar-senha.html" : "chamados.html";
   } catch (e) {
     mensagemErro.textContent = e.message;
     mensagemErro.hidden = false;

@@ -5,7 +5,11 @@ import { api } from "./api.js";
 const usuario = exigirLogin();
 if (usuario) {
   document.getElementById("nav").replaceWith(montarNav(usuario));
-  iniciar();
+  iniciar().catch((e) => {
+    const mensagem = document.getElementById("mensagem-erro");
+    mensagem.textContent = e.message;
+    mensagem.hidden = false;
+  });
 }
 
 async function iniciar() {
@@ -33,7 +37,6 @@ async function iniciar() {
         body: {
           fluxo_template_id: Number(form.elements.fluxo_template_id.value),
           etapa_inicial_id: Number(form.elements.etapa_inicial_id.value),
-          solicitante_id: usuario.id,
           prazo: form.elements.prazo.value || null,
         },
       });

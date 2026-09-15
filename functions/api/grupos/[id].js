@@ -1,0 +1,56 @@
+import { all, first, run } from "../../_lib/db.js";
+import { json, error } from "../../_lib/http.js";
+import { exigirAdmin } from "../../_lib/permissoes.js";
+
+const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados"];
+
+async function carregarMatrizPermissoes(db, grupoId) {
+  const linhas = await all(db, "SELECT * FROM permissoes WHERE grupo_id = ?", grupoId);
+  const matriz = {};
+  for (const tela of TELAS) {
+    matriz[tela] = { visualizar: false, inserir: false, editar: false, excluir: false };
+  }
+  matriz.chamados.ver_todos_setores = false;
+  for (const linha of linhas) {
+    matriz[linha.tela] = {
+      visualizar: linha.visualizar === 1,
+      inserir: linha.inserir === 1,
+      editar: linha.editar === 1,
+      excluir: linha.excluir === 1,
+    };
+    if (linha.tela === "chamados") {
+      matriz.chamados.ver_todos_setores = linha.ver_todos_setores === 1;
+    }
+  }
+  return matriz;
+}
+
+export async function onRequestGet(context) {
+  const { erro } = await exigirAdmin(context);
+  if (erro) return erro;
+  const grupo = await first(context.env.DB, "SELECT * FROM grupos_permissao WHERE id = ?", context.params.id);
+  if (!grupo) return error("Não encontrado", 404);
+  grupo.permissoes = await carregarMatrizPermissoes(context.env.DB, grupo.id);
+  return json(grupo);
+}
+
+export async function onRequestPut(context) {
+  const { erro } = await exigirAdmin(context);
+  if (erro) return erro;
+  const body = await context.request.json();
+  if (!body.nome) return error("Campo obrigatório: nome");
+  await run(context.env.DB, "UPDATE grupos_permissao SET nome = ? WHERE id = ?", body.nome, context.params.id);
+  const atualizado = await first(context.env.DB, "SELECT * FROM grupos_permissao WHERE id = ?", context.params.id);
+  if (!atualizado) return error("Não encontrado", 404);
+  atualizado.permissoes = await carregarMatrizPermissoes(context.env.DB, atualizado.id);
+  return json(atualizado);
+}
+
+export async function onRequestDelete(context) {
+  const { erro } = await exigirAdmin(context);
+  if (erro) return erro;
+  await run(context.env.DB, "DELETE FROM usuario_grupos WHERE grupo_id = ?", context.params.id);
+  await run(context.env.DB, "DELETE FROM permissoes WHERE grupo_id = ?", context.params.id);
+  await run(context.env.DB, "DELETE FROM grupos_permissao WHERE id = ?", context.params.id);
+  return json({ ok: true });
+}

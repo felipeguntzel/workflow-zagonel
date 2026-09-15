@@ -1,9 +1,12 @@
-import { exigirLogin } from "./auth.js";
+import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { montarNav, info, mostrarErro } from "./ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
 const id = new URLSearchParams(window.location.search).get("id");
+const permissaoChamados = usuario
+  ? permissaoDaTela("chamados")
+  : { visualizar: false, inserir: false, editar: false, excluir: false };
 
 if (usuario && id) {
   document.getElementById("nav").replaceWith(montarNav(usuario));
@@ -13,37 +16,50 @@ if (usuario && id) {
 function iniciar() {
   document.getElementById("link-geral").addEventListener("click", async (ev) => {
     ev.preventDefault();
-    const chamado = await api(`/chamados/${id}`);
-    window.location.href = `geral.html?id=${chamado.chamado_mae_id ?? chamado.id}`;
-  });
-
-  document.getElementById("btn-excluir-chamado").addEventListener("click", async () => {
-    if (!window.confirm("Excluir este chamado e toda a sua subárvore? Isso não pode ser desfeito.")) {
-      return;
-    }
-    await api(`/chamados/${id}`, { method: "DELETE" });
-    window.location.href = "chamados.html";
-  });
-
-  document.getElementById("form-horas").addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const form = ev.target;
     try {
-      await api(`/chamados/${id}/horas`, {
-        method: "POST",
-        body: {
-          usuario_id: usuario.id,
-          data: form.elements.data.value,
-          horas: Number(form.elements.horas.value),
-          observacao: form.elements.observacao.value || null,
-        },
-      });
-      form.reset();
-      carregarHoras();
+      const chamado = await api(`/chamados/${id}`);
+      window.location.href = `geral.html?id=${chamado.chamado_mae_id ?? chamado.id}`;
     } catch (e) {
       mostrarErro(document.getElementById("mensagem-erro"), e);
     }
   });
+
+  const botaoExcluir = document.getElementById("btn-excluir-chamado");
+  if (permissaoChamados.excluir) {
+    botaoExcluir.addEventListener("click", async () => {
+      if (!window.confirm("Excluir este chamado e toda a sua subárvore? Isso não pode ser desfeito.")) {
+        return;
+      }
+      await api(`/chamados/${id}`, { method: "DELETE" });
+      window.location.href = "chamados.html";
+    });
+  } else {
+    botaoExcluir.hidden = true;
+  }
+
+  const formHoras = document.getElementById("form-horas");
+  if (permissaoChamados.inserir) {
+    formHoras.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const form = ev.target;
+      try {
+        await api(`/chamados/${id}/horas`, {
+          method: "POST",
+          body: {
+            data: form.elements.data.value,
+            horas: Number(form.elements.horas.value),
+            observacao: form.elements.observacao.value || null,
+          },
+        });
+        form.reset();
+        carregarHoras();
+      } catch (e) {
+        mostrarErro(document.getElementById("mensagem-erro"), e);
+      }
+    });
+  } else {
+    formHoras.hidden = true;
+  }
 
   document.getElementById("form-comentario").addEventListener("submit", async (ev) => {
     ev.preventDefault();
@@ -51,7 +67,7 @@ function iniciar() {
     try {
       await api(`/chamados/${id}/comentarios`, {
         method: "POST",
-        body: { usuario_id: usuario.id, texto: form.elements.texto.value },
+        body: { texto: form.elements.texto.value },
       });
       form.reset();
       carregarComentarios();
@@ -60,7 +76,7 @@ function iniciar() {
     }
   });
 
-  carregarTudo();
+  carregarTudo().catch((e) => mostrarErro(document.getElementById("mensagem-erro"), e));
 }
 
 async function carregarTudo() {
@@ -72,9 +88,9 @@ async function carregarDetalhe() {
   const finalizado = chamado.status_nome === "finalizado";
 
   document.getElementById("detalhe").innerHTML = `
-    <h1>#${chamado.id} — ${chamado.titulo}</h1>
+    <h1>#${chamado.id} - ${chamado.titulo}</h1>
     <p>Setor: ${chamado.setor_nome} ${info("Setor responsável por esta etapa/tarefa.")}</p>
-    <p>Status: ${chamado.status_nome} — Prazo: ${chamado.prazo} (${chamado.situacao_prazo})</p>
+    <p>Status: ${chamado.status_nome} - Prazo: ${chamado.prazo} (${chamado.situacao_prazo})</p>
     ${chamado.resultado ? `<p>Resultado: ${chamado.resultado}</p>` : ""}
     ${
       chamado.bloqueado
@@ -84,7 +100,7 @@ async function carregarDetalhe() {
   `;
 
   const acaoContainer = document.getElementById("acao");
-  if (finalizado) {
+  if (finalizado || !permissaoChamados.editar) {
     acaoContainer.innerHTML = "";
     return;
   }
@@ -129,7 +145,7 @@ async function renderAprovacao(chamado) {
     try {
       await api(`/chamados/${chamado.id}/decisao`, {
         method: "POST",
-        body: { ...corpo, usuario_id: usuario.id },
+        body: corpo,
       });
       carregarTudo();
     } catch (e) {
@@ -203,7 +219,7 @@ async function carregarHoras() {
   document.getElementById("lista-horas").innerHTML = resumo.lancamentos
     .map(
       (l) =>
-        `<li>${l.data} — ${l.usuario_nome} — ${l.horas}h ${l.observacao ? `(${l.observacao})` : ""}</li>`
+        `<li>${l.data} - ${l.usuario_nome} - ${l.horas}h ${l.observacao ? `(${l.observacao})` : ""}</li>`
     )
     .join("");
 }
@@ -214,7 +230,7 @@ async function carregarComentarios() {
     .map(
       (c) =>
         `<li><strong>${c.usuario_nome ?? "Sistema"}</strong> (${c.data})${
-          c.eh_justificativa ? " — justificativa" : ""
+          c.eh_justificativa ? " - justificativa" : ""
         }: ${c.texto}</li>`
     )
     .join("");

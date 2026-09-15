@@ -2,14 +2,16 @@ import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
 import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
 import { criarChamado, avancarFluxo, hojeISO } from "../../_lib/chamados.js";
+import { exigirPermissao } from "../../_lib/permissoes.js";
 
 export async function onRequestGet(context) {
-  const setorIdRaw = new URL(context.request.url).searchParams.get("setor_id");
-  if (!setorIdRaw) return error("Parâmetro obrigatório: setor_id");
-  // ponytail: COALESCE(...) has no column affinity in SQLite, so a bound TEXT
-  // param never matches an INTEGER column here — must coerce to a number.
-  const setorId = Number(setorIdRaw);
-  if (Number.isNaN(setorId)) return error("Parâmetro setor_id inválido");
+  const { usuario, permissoes, erro } = await exigirPermissao(context, "chamados", "visualizar");
+  if (erro) return erro;
+
+  const verTodos = usuario.admin === 1 || permissoes.chamados.ver_todos_setores;
+  const condicaoSetor = verTodos ? "1 = 1" : "COALESCE(e.setor_id, a.setor_destino_id) = ?";
+  const parametros = verTodos ? [] : [usuario.setor_id];
+
   const chamados = await all(
     context.env.DB,
     `SELECT
@@ -21,17 +23,19 @@ export async function onRequestGet(context) {
      LEFT JOIN etapas e ON e.id = c.etapa_id
      LEFT JOIN acoes a ON a.id = c.acao_origem_id
      LEFT JOIN status st ON st.id = c.status_id
-     WHERE COALESCE(e.setor_id, a.setor_destino_id) = ?
+     WHERE ${condicaoSetor}
      ORDER BY c.prazo`,
-    setorId
+    ...parametros
   );
   return json(chamados);
 }
 
 export async function onRequestPost(context) {
+  const { usuario, erro } = await exigirPermissao(context, "chamados", "inserir");
+  if (erro) return erro;
   const body = await context.request.json();
-  if (!body.fluxo_template_id || !body.etapa_inicial_id || !body.solicitante_id) {
-    return error("Campos obrigatórios: fluxo_template_id, etapa_inicial_id, solicitante_id");
+  if (!body.fluxo_template_id || !body.etapa_inicial_id) {
+    return error("Campos obrigatórios: fluxo_template_id, etapa_inicial_id");
   }
   const etapa = await carregarEtapaComAcoes(context.env.DB, body.etapa_inicial_id);
   if (!etapa || !etapa.eh_inicial || Number(etapa.fluxo_template_id) !== Number(body.fluxo_template_id)) {
@@ -40,9 +44,9 @@ export async function onRequestPost(context) {
   const solicitante = await first(
     context.env.DB,
     "SELECT u.id, s.empresa_id FROM usuarios u JOIN setores s ON s.id = u.setor_id WHERE u.id = ?",
-    body.solicitante_id
+    usuario.id
   );
-  if (!solicitante) return error("solicitante_id inválido");
+  if (!solicitante) return error("solicitante inválido");
 
   const mae = await criarChamado(context.env.DB, {
     fluxo_template_id: body.fluxo_template_id,
@@ -50,7 +54,7 @@ export async function onRequestPost(context) {
     chamado_mae_id: null,
     chamado_pai_id: null,
     empresa_id: solicitante.empresa_id,
-    solicitante_id: body.solicitante_id,
+    solicitante_id: usuario.id,
     prazo: body.prazo ?? null,
   });
 

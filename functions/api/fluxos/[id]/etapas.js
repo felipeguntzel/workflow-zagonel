@@ -1,7 +1,10 @@
 import { all, first, run } from "../../../_lib/db.js";
 import { json, error } from "../../../_lib/http.js";
+import { exigirPermissao } from "../../../_lib/permissoes.js";
 
 export async function onRequestGet(context) {
+  const { erro } = await exigirPermissao(context, "fluxos", "visualizar");
+  if (erro) return erro;
   const etapas = await all(
     context.env.DB,
     "SELECT * FROM etapas WHERE fluxo_template_id = ? ORDER BY id",
@@ -11,6 +14,8 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
+  const { erro } = await exigirPermissao(context, "fluxos", "inserir");
+  if (erro) return erro;
   const body = await context.request.json();
   if (!body.nome || !body.setor_id || !body.tipo) {
     return error("Campos obrigatórios: nome, setor_id, tipo");
