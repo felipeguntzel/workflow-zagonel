@@ -3,6 +3,16 @@ import { info, mostrarErro } from "./ui.js";
 import { permissaoDaTela } from "./auth.js";
 
 function valorExibicao(linha, campo, opcoesFK) {
+  if (campo.tipo === "checkbox") {
+    return linha[campo.nome] ? "Sim" : "Não";
+  }
+  if (campo.tipo === "multiselect") {
+    const opcoes = opcoesFK[campo.nome] ?? [];
+    return (linha[campo.nome] ?? [])
+      .map((id) => opcoes.find((o) => o.id === id)?.nome)
+      .filter(Boolean)
+      .join(", ");
+  }
   if (campo.opcoesEndpoint) {
     const opcoes = opcoesFK[campo.nome] ?? [];
     const alvo = opcoes.find((o) => o.id === linha[campo.nome]);
@@ -13,6 +23,22 @@ function valorExibicao(linha, campo, opcoesFK) {
 
 function campoInputHtml(campo, opcoesFK) {
   const rotulo = campo.dica ? `${campo.label} ${info(campo.dica)}` : campo.label;
+  if (campo.tipo === "checkbox") {
+    return `
+      <label>
+        <input type="checkbox" name="${campo.nome}">
+        ${rotulo}
+      </label>`;
+  }
+  if (campo.tipo === "multiselect") {
+    const opcoes = opcoesFK[campo.nome] ?? [];
+    return `
+      <label>${rotulo}
+        <select name="${campo.nome}" multiple>
+          ${opcoes.map((o) => `<option value="${o.id}">${o.nome}</option>`).join("")}
+        </select>
+      </label>`;
+  }
   if (campo.opcoesEndpoint) {
     const opcoes = campo.dependeDe ? [] : opcoesFK[campo.nome] ?? [];
     return `
@@ -103,6 +129,17 @@ export async function renderCrud(container, config) {
 
     for (const campo of config.campos) {
       if (campo.apenasFiltro) continue;
+      if (campo.tipo === "checkbox") {
+        form.elements[campo.nome].checked = !!linha[campo.nome];
+        continue;
+      }
+      if (campo.tipo === "multiselect") {
+        const selecionados = linha[campo.nome] ?? [];
+        for (const opcao of form.elements[campo.nome].options) {
+          opcao.selected = selecionados.includes(Number(opcao.value));
+        }
+        continue;
+      }
       form.elements[campo.nome].value = linha[campo.nome] ?? "";
     }
 
@@ -151,6 +188,14 @@ export async function renderCrud(container, config) {
       const corpo = {};
       for (const campo of config.campos) {
         if (campo.apenasFiltro) continue;
+        if (campo.tipo === "checkbox") {
+          corpo[campo.nome] = form.elements[campo.nome].checked ? 1 : 0;
+          continue;
+        }
+        if (campo.tipo === "multiselect") {
+          corpo[campo.nome] = Array.from(form.elements[campo.nome].selectedOptions).map((o) => Number(o.value));
+          continue;
+        }
         const valor = form.elements[campo.nome].value;
         corpo[campo.nome] = campo.tipo === "number" || campo.opcoesEndpoint ? Number(valor) : valor;
       }
