@@ -11,7 +11,7 @@ export async function obterUsuarioDaRequisicao(request, env) {
   if (!verificado) return null;
   const usuario = await first(
     env.DB,
-    "SELECT id, nome, setor_id, admin FROM usuarios WHERE id = ?",
+    "SELECT id, nome, setor_id, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
     verificado.usuarioId
   );
   return usuario ?? null;
@@ -59,6 +59,9 @@ export async function obterPermissoesDoUsuario(db, usuarioId) {
 export async function exigirPermissao(context, tela, acao) {
   const usuario = await obterUsuarioDaRequisicao(context.request, context.env);
   if (!usuario) return { erro: error("Não autenticado", 401) };
+  if (usuario.deve_trocar_senha === 1) {
+    return { erro: error("Troque sua senha antes de continuar", 403) };
+  }
   const permissoes = await obterPermissoesDoUsuario(context.env.DB, usuario.id);
   const permitido = usuario.admin === 1 || Boolean(permissoes[tela]?.[acao]);
   if (!permitido) return { erro: error("Acesso negado", 403) };
@@ -68,6 +71,9 @@ export async function exigirPermissao(context, tela, acao) {
 export async function exigirAdmin(context) {
   const usuario = await obterUsuarioDaRequisicao(context.request, context.env);
   if (!usuario) return { erro: error("Não autenticado", 401) };
+  if (usuario.deve_trocar_senha === 1) {
+    return { erro: error("Troque sua senha antes de continuar", 403) };
+  }
   if (usuario.admin !== 1) return { erro: error("Acesso restrito a administradores", 403) };
   return { usuario };
 }

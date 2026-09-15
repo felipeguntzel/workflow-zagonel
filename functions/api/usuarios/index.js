@@ -52,6 +52,9 @@ export async function onRequestPost(context) {
   if (!(await validarGruposExistem(context.env.DB, grupos))) {
     return error("Um ou mais grupos informados não existem.");
   }
+  if (grupos.length > 0 && usuario.admin !== 1) {
+    return error("Apenas administradores podem atribuir grupos a um usuário.", 403);
+  }
   const senhaHash = await hashSenha(body.senha);
   const admin = body.admin ? 1 : 0;
   const resultado = await run(

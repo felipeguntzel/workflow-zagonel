@@ -75,8 +75,17 @@ export async function onRequestPut(context) {
     valores.push(body.admin ? 1 : 0);
   }
 
-  if (Array.isArray(body.grupos) && !(await validarGruposExistem(context.env.DB, body.grupos))) {
-    return error("Um ou mais grupos informados não existem.");
+  if (Array.isArray(body.grupos)) {
+    if (!(await validarGruposExistem(context.env.DB, body.grupos))) {
+      return error("Um ou mais grupos informados não existem.");
+    }
+    const gruposAtuais = await carregarGruposDoUsuario(context.env.DB, context.params.id);
+    const mudouGrupos =
+      gruposAtuais.length !== body.grupos.length ||
+      gruposAtuais.some((g) => !body.grupos.includes(g));
+    if (mudouGrupos && usuario.admin !== 1) {
+      return error("Apenas administradores podem alterar os grupos de um usuário.", 403);
+    }
   }
 
   if (colunas.length === 0 && body.grupos === undefined) {
