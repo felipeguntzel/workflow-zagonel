@@ -11,6 +11,11 @@ if (usuario) {
     mensagemErro.hidden = true;
     const novaSenha = form.elements.nova_senha.value;
     const confirmarSenha = form.elements.confirmar_senha.value;
+    if (novaSenha.length < 8) {
+      mensagemErro.textContent = "A senha deve ter pelo menos 8 caracteres.";
+      mensagemErro.hidden = false;
+      return;
+    }
     if (novaSenha !== confirmarSenha) {
       mensagemErro.textContent = "As senhas digitadas não coincidem.";
       mensagemErro.hidden = false;
