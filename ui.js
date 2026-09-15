@@ -6,6 +6,13 @@ export function info(texto) {
 
 export function mostrarErro(elemento, erro) {
   elemento.textContent = erro && erro.message ? erro.message : String(erro);
+  elemento.className = "erro";
+  elemento.hidden = false;
+}
+
+export function mostrarMensagem(elemento, texto, tipo = "aviso") {
+  elemento.textContent = texto;
+  elemento.className = tipo === "sucesso" ? "mensagem-sucesso" : "mensagem-aviso";
   elemento.hidden = false;
 }
 
