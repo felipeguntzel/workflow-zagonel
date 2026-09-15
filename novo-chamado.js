@@ -1,10 +1,10 @@
 import { exigirLogin } from "./auth.js";
-import { montarNav } from "./ui.js";
+import { aplicarLayout } from "./layout.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
 if (usuario) {
-  document.getElementById("nav").replaceWith(montarNav(usuario));
+  aplicarLayout(usuario);
   iniciar().catch((e) => {
     const mensagem = document.getElementById("mensagem-erro");
     mensagem.textContent = e.message;
