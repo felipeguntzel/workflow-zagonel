@@ -1,18 +1,29 @@
-import { exigirLogin } from "./auth.js";
+import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { montarNav, info, mostrarErro } from "./ui.js";
 import { renderCrud } from "./crud-ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
+let permissaoFluxos = { visualizar: false, inserir: false, editar: false, excluir: false };
+
 if (usuario) {
   document.getElementById("nav").replaceWith(montarNav(usuario));
   const mensagemErro = document.getElementById("mensagem-erro");
+  permissaoFluxos = permissaoDaTela("fluxos");
+
   await renderCrud(document.getElementById("secao-fluxos"), {
     titulo: "Fluxos",
     endpoint: "/fluxos",
+    tela: "fluxos",
     campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
   }).catch((e) => mostrarErro(mensagemErro, e));
-  await iniciarSelecaoFluxo();
+
+  const secaoEditarEtapas = document.getElementById("secao-editar-etapas");
+  if (permissaoFluxos.visualizar) {
+    await iniciarSelecaoFluxo();
+  } else {
+    secaoEditarEtapas.hidden = true;
+  }
 }
 
 async function iniciarSelecaoFluxo() {
@@ -56,7 +67,7 @@ async function renderEtapas(fluxoId) {
             <td>${e.etapa_proxima_vinculo ?? "-"}</td>
             <td>
               ${e.tipo === "aprovacao" ? `<button type="button" class="btn-acoes" data-id="${e.id}">Ações</button>` : ""}
-              <button type="button" class="btn-excluir-etapa" data-id="${e.id}">Excluir</button>
+              ${permissaoFluxos.excluir ? `<button type="button" class="btn-excluir-etapa" data-id="${e.id}">Excluir</button>` : ""}
             </td>
           </tr>`
           )
@@ -64,6 +75,9 @@ async function renderEtapas(fluxoId) {
       </tbody>
     </table>
 
+    ${
+      permissaoFluxos.inserir
+        ? `
     <h4>Nova etapa</h4>
     <form class="formulario" id="form-etapa">
       <label>Nome <input name="nome" required></label>
@@ -99,6 +113,9 @@ async function renderEtapas(fluxoId) {
       </label>
       <button type="submit">Adicionar etapa</button>
     </form>
+    `
+        : ""
+    }
 
     <div id="secao-acoes"></div>
   `;
@@ -106,59 +123,63 @@ async function renderEtapas(fluxoId) {
   container.querySelectorAll(".btn-acoes").forEach((btn) =>
     btn.addEventListener("click", () => renderAcoes(Number(btn.dataset.id)))
   );
-  container.querySelectorAll(".btn-excluir-etapa").forEach((btn) =>
-    btn.addEventListener("click", async () => {
+  if (permissaoFluxos.excluir) {
+    container.querySelectorAll(".btn-excluir-etapa").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        try {
+          await api(`/etapas/${btn.dataset.id}`, { method: "DELETE" });
+          renderEtapas(fluxoId);
+        } catch (e) {
+          mostrarErro(document.getElementById("mensagem-erro"), e);
+        }
+      })
+    );
+  }
+
+  if (permissaoFluxos.inserir) {
+    document.getElementById("form-etapa").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const form = ev.target;
       try {
-        await api(`/etapas/${btn.dataset.id}`, { method: "DELETE" });
+        await api(`/fluxos/${fluxoId}/etapas`, {
+          method: "POST",
+          body: {
+            nome: form.elements.nome.value,
+            setor_id: Number(form.elements.setor_id.value),
+            tipo: form.elements.tipo.value,
+            eh_inicial: form.elements.eh_inicial.checked,
+            etapa_proxima_id: form.elements.etapa_proxima_id.value
+              ? Number(form.elements.etapa_proxima_id.value)
+              : null,
+            etapa_proxima_vinculo: form.elements.etapa_proxima_id.value
+              ? form.elements.etapa_proxima_vinculo.value
+              : null,
+          },
+        });
         renderEtapas(fluxoId);
       } catch (e) {
         mostrarErro(document.getElementById("mensagem-erro"), e);
       }
-    })
-  );
+    });
 
-  document.getElementById("form-etapa").addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const form = ev.target;
-    try {
-      await api(`/fluxos/${fluxoId}/etapas`, {
-        method: "POST",
-        body: {
-          nome: form.elements.nome.value,
-          setor_id: Number(form.elements.setor_id.value),
-          tipo: form.elements.tipo.value,
-          eh_inicial: form.elements.eh_inicial.checked,
-          etapa_proxima_id: form.elements.etapa_proxima_id.value
-            ? Number(form.elements.etapa_proxima_id.value)
-            : null,
-          etapa_proxima_vinculo: form.elements.etapa_proxima_id.value
-            ? form.elements.etapa_proxima_vinculo.value
-            : null,
-        },
-      });
-      renderEtapas(fluxoId);
-    } catch (e) {
-      mostrarErro(document.getElementById("mensagem-erro"), e);
+    const selectTipo = document.getElementById("form-etapa").elements.tipo;
+    const checkboxInicial = document.getElementById("form-etapa").elements.eh_inicial;
+    const campoProximaEtapa = document.getElementById("form-etapa").elements.etapa_proxima_id.closest("label");
+    const campoVinculo = document.getElementById("form-etapa").elements.etapa_proxima_vinculo.closest("label");
+
+    function atualizarCamposProximaEtapa() {
+      // Uma etapa tipo "tarefa" só avança o fluxo automaticamente quando é a
+      // etapa inicial (caso especial tratado na criação do chamado). Uma
+      // "tarefa" não-inicial com etapa_proxima_id configurada nunca avançaria
+      // sozinha, então escondemos os campos para não permitir essa combinação.
+      const oculto = selectTipo.value === "tarefa" && !checkboxInicial.checked;
+      campoProximaEtapa.hidden = oculto;
+      campoVinculo.hidden = oculto;
     }
-  });
-
-  const selectTipo = document.getElementById("form-etapa").elements.tipo;
-  const checkboxInicial = document.getElementById("form-etapa").elements.eh_inicial;
-  const campoProximaEtapa = document.getElementById("form-etapa").elements.etapa_proxima_id.closest("label");
-  const campoVinculo = document.getElementById("form-etapa").elements.etapa_proxima_vinculo.closest("label");
-
-  function atualizarCamposProximaEtapa() {
-    // Uma etapa tipo "tarefa" só avança o fluxo automaticamente quando é a
-    // etapa inicial (caso especial tratado na criação do chamado). Uma
-    // "tarefa" não-inicial com etapa_proxima_id configurada nunca avançaria
-    // sozinha, então escondemos os campos para não permitir essa combinação.
-    const oculto = selectTipo.value === "tarefa" && !checkboxInicial.checked;
-    campoProximaEtapa.hidden = oculto;
-    campoVinculo.hidden = oculto;
+    selectTipo.addEventListener("change", atualizarCamposProximaEtapa);
+    checkboxInicial.addEventListener("change", atualizarCamposProximaEtapa);
+    atualizarCamposProximaEtapa();
   }
-  selectTipo.addEventListener("change", atualizarCamposProximaEtapa);
-  checkboxInicial.addEventListener("change", atualizarCamposProximaEtapa);
-  atualizarCamposProximaEtapa();
 }
 
 async function renderAcoes(etapaId) {
@@ -183,12 +204,15 @@ async function renderAcoes(etapaId) {
                 ? etapa.acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-"
                 : "-"
             }</td>
-            <td><button type="button" class="btn-excluir-acao" data-id="${a.id}">Excluir</button></td>
+            <td>${permissaoFluxos.excluir ? `<button type="button" class="btn-excluir-acao" data-id="${a.id}">Excluir</button>` : ""}</td>
           </tr>`
           )
           .join("")}
       </tbody>
     </table>
+    ${
+      permissaoFluxos.inserir
+        ? `
     <h5>Nova ação</h5>
     <form class="formulario" id="form-acao">
       <label>Rótulo <input name="rotulo" required></label>
@@ -215,37 +239,44 @@ async function renderAcoes(etapaId) {
       </label>
       <button type="submit">Adicionar ação</button>
     </form>
+    `
+        : ""
+    }
   `;
 
-  container.querySelectorAll(".btn-excluir-acao").forEach((btn) =>
-    btn.addEventListener("click", async () => {
+  if (permissaoFluxos.excluir) {
+    container.querySelectorAll(".btn-excluir-acao").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        try {
+          await api(`/acoes/${btn.dataset.id}`, { method: "DELETE" });
+          renderAcoes(etapaId);
+        } catch (e) {
+          mostrarErro(document.getElementById("mensagem-erro"), e);
+        }
+      })
+    );
+  }
+
+  if (permissaoFluxos.inserir) {
+    document.getElementById("form-acao").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const form = ev.target;
       try {
-        await api(`/acoes/${btn.dataset.id}`, { method: "DELETE" });
+        await api(`/etapas/${etapaId}/acoes`, {
+          method: "POST",
+          body: {
+            rotulo: form.elements.rotulo.value,
+            setor_destino_id: Number(form.elements.setor_destino_id.value),
+            vinculo: form.elements.vinculo.value,
+            prerequisito_acao_id: form.elements.prerequisito_acao_id.value
+              ? Number(form.elements.prerequisito_acao_id.value)
+              : null,
+          },
+        });
         renderAcoes(etapaId);
       } catch (e) {
         mostrarErro(document.getElementById("mensagem-erro"), e);
       }
-    })
-  );
-
-  document.getElementById("form-acao").addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const form = ev.target;
-    try {
-      await api(`/etapas/${etapaId}/acoes`, {
-        method: "POST",
-        body: {
-          rotulo: form.elements.rotulo.value,
-          setor_destino_id: Number(form.elements.setor_destino_id.value),
-          vinculo: form.elements.vinculo.value,
-          prerequisito_acao_id: form.elements.prerequisito_acao_id.value
-            ? Number(form.elements.prerequisito_acao_id.value)
-            : null,
-        },
-      });
-      renderAcoes(etapaId);
-    } catch (e) {
-      mostrarErro(document.getElementById("mensagem-erro"), e);
-    }
-  });
+    });
+  }
 }
