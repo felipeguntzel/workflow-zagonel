@@ -155,6 +155,7 @@ th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--cor-b
 
 form.formulario { display: flex; flex-direction: column; gap: 0.5rem; max-width: 480px; }
 form.formulario label { display: flex; flex-direction: column; gap: 0.2rem; }
+form.formulario[hidden] { display: none; }
 
 .arvore ul { list-style: none; padding-left: 1.25rem; }
 .arvore > ul { padding-left: 0; }

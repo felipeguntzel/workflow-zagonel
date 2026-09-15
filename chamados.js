@@ -1,11 +1,14 @@
-import { exigirLogin } from "./auth.js";
-import { montarNav } from "./ui.js";
+import { exigirLogin, permissaoDaTela } from "./auth.js";
+import { montarNav, mostrarErro } from "./ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
 if (usuario) {
   document.getElementById("nav").replaceWith(montarNav(usuario));
-  carregarChamados();
+  if (!permissaoDaTela("chamados").inserir) {
+    document.getElementById("link-novo-chamado").hidden = true;
+  }
+  carregarChamados().catch((e) => mostrarErro(document.getElementById("mensagem-erro"), e));
 }
 
 function situacaoBadge(prazo, statusNome) {
@@ -18,7 +21,7 @@ function situacaoBadge(prazo, statusNome) {
 }
 
 async function carregarChamados() {
-  const chamados = await api(`/chamados?setor_id=${usuario.setor_id}`);
+  const chamados = await api("/chamados");
   document.getElementById("tabela-chamados").innerHTML = chamados
     .map(
       (c) => `
