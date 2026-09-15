@@ -5,7 +5,11 @@ import { api } from "./api.js";
 const usuario = exigirLogin();
 if (usuario) {
   document.getElementById("nav").replaceWith(montarNav(usuario));
-  iniciar();
+  iniciar().catch((e) => {
+    const mensagem = document.getElementById("mensagem-erro");
+    mensagem.textContent = e.message;
+    mensagem.hidden = false;
+  });
 }
 
 async function iniciar() {

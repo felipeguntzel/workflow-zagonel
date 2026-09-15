@@ -66,7 +66,7 @@ export async function renderCrud(container, config) {
 
   const opcoesFK = {};
   for (const campo of config.campos) {
-    if (campo.opcoesEndpoint) opcoesFK[campo.nome] = await api(campo.opcoesEndpoint);
+    if (campo.opcoesEndpoint) opcoesFK[campo.nome] = await api(campo.opcoesEndpoint).catch(() => []);
   }
 
   const camposTabela = config.campos.filter((c) => !c.apenasFiltro);

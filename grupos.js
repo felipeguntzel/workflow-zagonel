@@ -98,7 +98,7 @@ async function iniciar(container, mensagemErro) {
           <tr>
             <th>Tela</th>
             ${ACOES.map((a) => `<th>${a}</th>`).join("")}
-            <th>Ver todos os setores ${info("Só relevante para Chamados: enxerga chamados de todos os setores, não só do setor do usuário.")}</th>
+            <th>Ver todos os setores ${info("Só relevante para Chamados, e só afeta a listagem 'Meus chamados': sem esta permissão, o usuário só vê ali os chamados do próprio setor. Abrir um chamado específico por link (inclusive de outro setor) e ver a árvore/comentários do chamado mãe sempre funciona para qualquer usuário autenticado, com ou sem esta permissão — isso é proposital.")}</th>
           </tr>
         </thead>
         <tbody>

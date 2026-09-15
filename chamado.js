@@ -16,8 +16,12 @@ if (usuario && id) {
 function iniciar() {
   document.getElementById("link-geral").addEventListener("click", async (ev) => {
     ev.preventDefault();
-    const chamado = await api(`/chamados/${id}`);
-    window.location.href = `geral.html?id=${chamado.chamado_mae_id ?? chamado.id}`;
+    try {
+      const chamado = await api(`/chamados/${id}`);
+      window.location.href = `geral.html?id=${chamado.chamado_mae_id ?? chamado.id}`;
+    } catch (e) {
+      mostrarErro(document.getElementById("mensagem-erro"), e);
+    }
   });
 
   const botaoExcluir = document.getElementById("btn-excluir-chamado");
