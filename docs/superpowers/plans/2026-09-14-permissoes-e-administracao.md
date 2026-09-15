@@ -696,7 +696,7 @@ git commit -m "Permission-gate the generic CRUD factory: empresas, setores, stat
 - Consumes: `exigirPermissao` (Task 3), `hashSenha`/`validarFormatoLogin` (`functions/_lib/auth.js`).
 - Produces (HTTP): every response shape is now `{id, nome, setor_id, login, admin, deve_trocar_senha, grupos: [grupoId, ...]}` — `senha_hash` still never appears. `POST` now requires `senha` (the admin-chosen initial password) instead of auto-generating one, accepts `admin` (0/1) and `grupos` (array of grupo ids). `PUT` can optionally include `senha` (a reset — also re-sets `deve_trocar_senha=1`), `admin`, and `grupos` (replaces the user's group memberships entirely).
 
-**Isolation, same principle as Task 8's `exigirAdmin`:** `usuarios.editar`/`usuarios.inserir` are ordinary CRUD permissions a ranked group could plausibly hold — they must never be enough, by themselves, to grant the `admin` flag (that would let any such group promote any user, including its own members, to full system access, defeating the whole permission-group model). So touching `admin` at all — `POST` with a truthy `body.admin`, or `PUT` with `body.admin !== undefined` (whether setting it to `0` or `1`) — additionally requires the CALLER to already be `admin === 1`; a non-admin caller gets `403` on that specific attempt, even with full `usuarios.editar`/`inserir`. This is on top of, not instead of, the normal `exigirPermissao(context, "usuarios", acao)` gate every handler still has. Both `POST` and `PUT` also validate every id in a `grupos` array against `grupos_permissao` up front, before mutating anything — a request naming a nonexistent `grupo_id` is rejected whole (`400`) rather than partially applied.
+**Isolation, same principle as Task 8's `exigirAdmin`:** `usuarios.editar`/`usuarios.inserir` are ordinary CRUD permissions a ranked group could plausibly hold — they must never be enough, by themselves, to grant the `admin` flag (that would let any such group promote any user, including its own members, to full system access, defeating the whole permission-group model). So `POST` with a truthy `body.admin` additionally requires the CALLER to already be `admin === 1`; a non-admin caller gets `403` on that specific attempt, even with full `usuarios.inserir`. `PUT` applies the same rule but compares against the target user's CURRENT `admin` value rather than merely checking whether `body.admin` is present: it only requires the caller to already be admin when `body.admin` would actually CHANGE the target's admin status — a `PUT` that redundantly resends the target's existing `admin` value (as the frontend's generic form always does, whether or not the admin checkbox was touched — see Task 12) does not trip the gate. This is on top of, not instead of, the normal `exigirPermissao(context, "usuarios", acao)` gate every handler still has. Both `POST` and `PUT` also validate every id in a `grupos` array against `grupos_permissao` up front, before mutating anything — a request naming a nonexistent `grupo_id` is rejected whole (`400`) rather than partially applied.
 
 - [ ] **Step 1: Replace `functions/api/usuarios/index.js`**
 
@@ -830,8 +830,13 @@ export async function onRequestPut(context) {
   if (erro) return erro;
   const body = await context.request.json();
 
-  if (body.admin !== undefined && usuario.admin !== 1) {
-    return error("Apenas administradores podem alterar o status de administrador de um usuário.", 403);
+  if (body.admin !== undefined) {
+    const alvo = await first(context.env.DB, "SELECT admin FROM usuarios WHERE id = ?", context.params.id);
+    if (!alvo) return error("Não encontrado", 404);
+    const novoAdmin = body.admin ? 1 : 0;
+    if (novoAdmin !== alvo.admin && usuario.admin !== 1) {
+      return error("Apenas administradores podem alterar o status de administrador de um usuário.", 403);
+    }
   }
 
   const colunas = ["nome", "setor_id"].filter((c) => body[c] !== undefined);
@@ -940,10 +945,11 @@ wrangler d1 execute workflow_zagonel_db --local --command="INSERT INTO permissoe
 wrangler d1 execute workflow_zagonel_db --local --command="INSERT INTO usuario_grupos (usuario_id, grupo_id) SELECT id, (SELECT id FROM grupos_permissao WHERE nome = 'Teste - Usuarios CRUD') FROM usuarios WHERE login = 'bruno'"
 TOKEN2=$(curl -s -X POST http://localhost:8788/api/login -H "content-type: application/json" -d "{\"login\":\"bruno\",\"senha\":\"1234bruno\"}" | node -e "process.stdin.once('data', d => console.log(JSON.parse(d).token))")
 curl -s -X PUT http://localhost:8788/api/usuarios/<id-do-teste-silva> -H "content-type: application/json" -H "Authorization: Bearer $TOKEN2" -d "{\"nome\":\"Teste Silva Renomeado\"}" -w "\nHTTP:%{http_code}\n"
+curl -s -X PUT http://localhost:8788/api/usuarios/<id-do-teste-silva> -H "content-type: application/json" -H "Authorization: Bearer $TOKEN2" -d "{\"admin\":0}" -w "\nHTTP:%{http_code}\n"
 curl -s -X PUT http://localhost:8788/api/usuarios/<id-do-teste-silva> -H "content-type: application/json" -H "Authorization: Bearer $TOKEN2" -d "{\"admin\":1}" -w "\nHTTP:%{http_code}\n"
 curl -s -X POST http://localhost:8788/api/usuarios -H "content-type: application/json" -H "Authorization: Bearer $TOKEN2" -d "{\"nome\":\"Outro Admin\",\"setor_id\":1,\"login\":\"outroadmin\",\"senha\":\"x\",\"admin\":1}" -w "\nHTTP:%{http_code}\n"
 ```
-Expected: first call `200` (renaming is an ordinary edit, `usuarios.editar` is enough); second call `403` (bruno lacks admin, so cannot touch the `admin` field even though he has `usuarios.editar`); third call `403` for the same reason on creation. Then confirm an invalid `grupo_id` is rejected whole:
+Expected: first call `200` (renaming is an ordinary edit, `usuarios.editar` is enough); second call `200` — `testesilva` is already non-admin, so redundantly resending `admin:0` (exactly what the frontend's generic form always does, whether or not the checkbox was touched — see Task 12) is NOT a real change and must not 403 a non-admin editor; third call `403` (this one IS a real change, `0` → `1`, so bruno lacks the standing to make it even with full `usuarios.editar`); fourth call `403` for the analogous reason on creation. Then confirm an invalid `grupo_id` is rejected whole:
 ```bash
 curl -s -X PUT http://localhost:8788/api/usuarios/<id-do-teste-silva> -H "content-type: application/json" -H "Authorization: Bearer $TOKEN" -d "{\"grupos\":[999999]}" -w "\nHTTP:%{http_code}\n"
 ```
@@ -2460,6 +2466,16 @@ if (usuario) {
   }).catch((e) => mostrarErro(mensagemErro, e));
 }
 ```
+
+`crud-ui.js`'s generic submit loop (Task 11) sends every non-`apenasFiltro`
+field on every save, including `admin` — so a `PUT` from this form always
+carries `body.admin` (`0` or `1`), whether or not the checkbox was actually
+touched. This is safe because `functions/api/usuarios/[id].js` (Task 5) only
+requires the caller to already be admin when `body.admin` would actually
+CHANGE the target's stored value, not merely because it's present — see
+Task 5's `onRequestPut`. A non-admin editor with `usuarios.editar` can still
+save an ordinary edit (which redundantly resends the target's current,
+unchanged `admin` value) without hitting that gate.
 
 - [ ] **Step 3: Manually verify against the local dev server**
 
