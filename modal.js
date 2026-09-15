@@ -1,4 +1,4 @@
-export function abrirModal(conteudoElemento) {
+export function abrirModal(conteudoElemento, onOutsideClick) {
   const fundo = document.createElement("div");
   fundo.className = "modal-fundo";
   const modal = document.createElement("div");
@@ -11,7 +11,10 @@ export function abrirModal(conteudoElemento) {
     fundo.remove();
   }
   fundo.addEventListener("click", (ev) => {
-    if (ev.target === fundo) fechar();
+    if (ev.target === fundo) {
+      if (onOutsideClick) onOutsideClick();
+      fechar();
+    }
   });
 
   return fechar;
@@ -28,14 +31,27 @@ export function confirmarAcao(titulo, mensagem) {
         <button type="button" class="btn btn-perigo" id="modal-confirmar">Confirmar</button>
       </div>
     `;
-    const fechar = abrirModal(conteudo);
+    let resolved = false;
+    const onOutsideClick = () => {
+      if (!resolved) {
+        resolved = true;
+        resolve(false);
+      }
+    };
+    const fechar = abrirModal(conteudo, onOutsideClick);
     conteudo.querySelector("#modal-cancelar").addEventListener("click", () => {
-      fechar();
-      resolve(false);
+      if (!resolved) {
+        resolved = true;
+        fechar();
+        resolve(false);
+      }
     });
     conteudo.querySelector("#modal-confirmar").addEventListener("click", () => {
-      fechar();
-      resolve(true);
+      if (!resolved) {
+        resolved = true;
+        fechar();
+        resolve(true);
+      }
     });
   });
 }
