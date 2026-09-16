@@ -1,6 +1,13 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { chamadoComDetalhes, hojeISO, aplicarCascataAtraso, computarBloqueado } from "../../_lib/chamados.js";
+import {
+  chamadoComDetalhes,
+  hojeISO,
+  aplicarCascataAtraso,
+  computarBloqueado,
+  avancarFluxo,
+} from "../../_lib/chamados.js";
+import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
 
 export async function onRequestGet(context) {
@@ -31,6 +38,7 @@ export async function onRequestPut(context) {
       if (await computarBloqueado(context.env.DB, chamadoAtual)) {
         return error("Não é possível finalizar: chamado bloqueado aguardando pré-requisito.", 409);
       }
+      const jaFinalizado = chamadoAtual.status_id === body.status_id;
       await run(
         context.env.DB,
         `UPDATE chamados SET ${set}, data_finalizacao = COALESCE(data_finalizacao, ?) WHERE id = ?`,
@@ -38,6 +46,12 @@ export async function onRequestPut(context) {
         hoje,
         context.params.id
       );
+      if (!jaFinalizado && chamadoAtual.etapa_id) {
+        const etapa = await carregarEtapaComAcoes(context.env.DB, chamadoAtual.etapa_id);
+        if (etapa && etapa.tipo === "tarefa") {
+          await avancarFluxo(context.env.DB, chamadoAtual, etapa, {});
+        }
+      }
     } else {
       await run(
         context.env.DB,

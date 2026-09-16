@@ -46,18 +46,18 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   tem botão "Editar" em cada etapa e ação, reaproveitando os formulários
   "Nova etapa"/"Nova ação" existentes (preenche os campos e troca o `POST`
   pelo `PUT /api/etapas/:id` ou `PUT /api/acoes/:id` já existentes).
-- **Etapa tipo "tarefa" com "Próxima etapa" configurada**: `docs/modules/motor-fluxo.md`
-  descreve que finalizar uma etapa tarefa (inicial ou não) deveria avançar o
-  fluxo, mas o código só faz isso para a etapa inicial no momento da criação
-  do chamado mãe. Uma etapa tarefa não-inicial com `etapa_proxima_id`
-  configurado ficaria "presa" ao ser finalizada manualmente. Mitigado por
-  ora escondendo o campo "Próxima etapa" na tela de cadastro quando
-  `tipo = tarefa` e "É a etapa inicial?" não está marcado. Se precisar desse
-  caso no futuro, implementar `avancarFluxo` também no `PUT` de status.
-  - ~~**Gap residual conhecido nessa mitigação**~~ — **RESOLVIDO**:
-    `atualizarCamposProximaEtapa()` agora limpa os selects (`etapa_proxima_id`
-    e `etapa_proxima_vinculo`) ao escondê-los, então o valor antigo não é
-    mais reenviado silenciosamente no `POST`/`PUT`.
+- ~~**Etapa tipo "tarefa" com "Próxima etapa" configurada**~~ — **RESOLVIDO**:
+  `PUT /api/chamados/:id` agora chama `avancarFluxo` também quando finaliza um
+  chamado cuja etapa é `tipo = tarefa` (não só na criação da etapa inicial),
+  mesma lógica já usada em `decisao.js` para aprovação — guardado por
+  `chamadoAtual.status_id === body.status_id` para não duplicar filhos numa
+  segunda chamada de `PUT` sobre um chamado já finalizado. O campo "Próxima
+  etapa" (antes escondido em `fluxo.js` para tarefas não-iniciais) voltou a
+  ficar sempre visível. Coberto pelos testes existentes de
+  `resolverProximosChamados`/`estaBloqueado` (`functions/_lib/fluxo.test.js`);
+  não há harness de D1 fake para testar a rota `PUT` em si, então a
+  integração ponta a ponta não tem teste automatizado — mesma lacuna que já
+  existia para as outras rotas de `functions/api/chamados`.
 - ~~**Botão "Excluir chamado" (`chamado.js`) ainda não trata erro de rede/API**~~
   — **RESOLVIDO**: envolvido em try/catch com `mostrarErro()`, igual ao
   resto do arquivo.
@@ -95,34 +95,45 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   `chamado.js` agora mostra o responsável atual e um botão "Assumir"/"Liberar"
   (auto-atribuição — qualquer usuário com permissão de editar o chamado pode
   assumir ou se liberar; não há uma tela de "atribuir a outra pessoa").
-- **`pages_build_output_dir = "."` publica todo o repositório** como estático
-  no domínio público do Cloudflare Pages — incluindo `docs/`, `migrations/*.sql`
-  e `CLAUDE.md`. A partir da migração `0003_auth.sql` (login/senha), isso
-  passou a incluir hashes de senha reais, não só documentação. Tentamos
-  corrigir com um `.assetsignore` na raiz (`migrations/`, `docs/`, `.claude/`,
-  `*.md`), mas **verificado em deploy real que o Cloudflare Pages/wrangler
-  4.107.1 não respeita esse arquivo** — os caminhos continuaram públicos.
-  Corrigido de verdade com Pages Functions "catch-all" que interceptam essas
-  rotas antes de chegar aos arquivos estáticos e retornam 404
+- ~~**`pages_build_output_dir = "."` publica todo o repositório**~~ —
+  **RESOLVIDO**: os arquivos estáticos do frontend (html/js/css/favicon)
+  foram movidos para `public/`, e `pages_build_output_dir` (`wrangler.toml`)
+  agora aponta só para lá — `docs/`, `migrations/`, `.claude/` e `CLAUDE.md`
+  ficam fora do diretório publicado, sem depender de lembrar de bloquear
+  cada pasta nova. As 4 Pages Functions catch-all que faziam esse bloqueio
   (`functions/migrations/[[path]].js`, `functions/docs/[[path]].js`,
-  `functions/.claude/[[path]].js`, `functions/CLAUDE.md.js`) — confirmado
-  funcionando via deploy de teste real (`curl` retornando 404 nesses
-  caminhos, API e páginas continuando 200 normalmente). Solução robusta mas
-  não elegante: qualquer nova pasta/arquivo sensível na raiz do repo precisa
-  de uma função equivalente, já que não existe hoje um mecanismo real de
-  exclusão de assets estáticos nesse setup. Se o TI reimplementar isso,
-  vale mover os arquivos do frontend para uma subpasta dedicada (ex:
-  `public/`) e apontar `pages_build_output_dir` só para ela, em vez de
-  depender de rotas catch-all.
-- **`wrangler.toml`'s `compatibility_date` está fixado em 2026-07-09**
-  (abaixo do ideal). Confirmado nesta revisão: não dá pra só avançar a data
-  — o binário do `wrangler` 4.107.1 instalado localmente recusa rodar
-  (`This Worker requires compatibility date "…", but the newest date
-  supported by this server binary is "2026-07-09"`.). Precisa primeiro
-  atualizar o `wrangler` (`npm install -D wrangler@latest`, hoje disponível
-  4.132.0) e testar a Fase 1 inteira de novo antes de avançar a data —
-  deixado de fora desta rodada por ser uma troca de dependência, não um bug
-  isolado.
+  `functions/.claude/[[path]].js`, `functions/CLAUDE.md.js`) foram removidas
+  por ficarem redundantes — `functions/api/**` continua no lugar de sempre,
+  já que Pages Functions são sempre resolvidas a partir de `functions/` na
+  raiz do projeto, independente do `pages_build_output_dir`. `package.json`
+  (`npm run dev`/`npm run deploy`) atualizado para `wrangler pages dev
+  public`/`wrangler pages deploy public`.
+- ~~**`wrangler.toml`'s `compatibility_date` fixado em 2026-07-09**~~ —
+  **RESOLVIDO**: `wrangler` atualizado para 4.132.0 como `devDependency`
+  real do projeto (antes nem estava no `package.json`), `compatibility_date`
+  avançado para 2026-09-16. Testado localmente com `wrangler pages dev
+  public` (login com hash PBKDF2 e com hash legado, `/api/chamados` sem
+  `Authorization` continua `401`) e suite de testes 44/44.
+
+  Durante a validação em deploy de preview real, `POST /api/login` passou a
+  retornar 500 consistentemente para um usuário real — investigado a fundo
+  (achamos inicialmente que era o `compatibility_date`, revertemos,
+  continuou quebrado; só aí achamos a causa de verdade instrumentando
+  `functions/_middleware.js` temporariamente para logar `err.stack`):
+  **`SESSAO_SEGREDO` está configurada como variável de ambiente vazia no
+  ambiente de *Preview* do Cloudflare Pages, só existe de verdade em
+  *Production`.** Isso faz `crypto.subtle.importKey` em `gerarToken`
+  (`functions/_lib/sessao.js`) falhar com `DataError: Imported HMAC key
+  length (0)...` — chave HMAC de tamanho zero. Não é bug de código (mesmo
+  `login.js`/`auth.js`/`sessao.js` de sempre, mesmo banco D1; login normal
+  em produção o tempo todo) — é uma lacuna de configuração do painel
+  Cloudflare que provavelmente sempre existiu para *qualquer* preview deste
+  projeto, só nunca tinha sido testado com credenciais reais antes.
+  **Ação pendente (fora do código, precisa ser feita no painel):** em
+  Cloudflare Pages → workflow-zagonel → Settings → Environment variables,
+  adicionar `SESSAO_SEGREDO` (mesmo valor de produção) também para o
+  ambiente *Preview* (ou marcar "todos os ambientes" ao configurar a
+  variável).
 - ~~**Pequenos detalhes de UX**~~ — **RESOLVIDO**: `renderCrud` ganhou um
   callback opcional `aoSalvar`, usado por `fluxo.js` para recarregar o
   seletor de fluxo sozinho depois de cadastrar um novo FluxoTemplate; abrir
