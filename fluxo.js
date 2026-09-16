@@ -1,13 +1,15 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
-import { montarNav, info, mostrarErro } from "./ui.js";
+import { aplicarLayout } from "./layout.js";
+import { info, mostrarErro } from "./ui.js";
 import { renderCrud } from "./crud-ui.js";
+import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
 let permissaoFluxos = { visualizar: false, inserir: false, editar: false, excluir: false };
 
 if (usuario) {
-  document.getElementById("nav").replaceWith(montarNav(usuario));
+  aplicarLayout(usuario);
   const mensagemErro = document.getElementById("mensagem-erro");
   permissaoFluxos = permissaoDaTela("fluxos");
 
@@ -66,8 +68,8 @@ async function renderEtapas(fluxoId) {
             <td>${e.etapa_proxima_id ? nomeEtapa(e.etapa_proxima_id) : "-"}</td>
             <td>${e.etapa_proxima_vinculo ?? "-"}</td>
             <td>
-              ${e.tipo === "aprovacao" ? `<button type="button" class="btn-acoes" data-id="${e.id}">Ações</button>` : ""}
-              ${permissaoFluxos.excluir ? `<button type="button" class="btn-excluir-etapa" data-id="${e.id}">Excluir</button>` : ""}
+              ${e.tipo === "aprovacao" ? `<button type="button" class="btn btn-secundario btn-acoes" data-id="${e.id}">Ações</button>` : ""}
+              ${permissaoFluxos.excluir ? `<button type="button" class="btn btn-perigo btn-excluir-etapa" data-id="${e.id}">Excluir</button>` : ""}
             </td>
           </tr>`
           )
@@ -111,7 +113,7 @@ async function renderEtapas(fluxoId) {
           <option value="mae">Chamado mãe (raiz)</option>
         </select>
       </label>
-      <button type="submit">Adicionar etapa</button>
+      <button type="submit" class="btn btn-primario">Adicionar etapa</button>
     </form>
     `
         : ""
@@ -126,6 +128,8 @@ async function renderEtapas(fluxoId) {
   if (permissaoFluxos.excluir) {
     container.querySelectorAll(".btn-excluir-etapa").forEach((btn) =>
       btn.addEventListener("click", async () => {
+        const confirmado = await confirmarAcao("Excluir esta etapa?", "Essa ação não pode ser desfeita.");
+        if (!confirmado) return;
         try {
           await api(`/etapas/${btn.dataset.id}`, { method: "DELETE" });
           renderEtapas(fluxoId);
@@ -204,7 +208,7 @@ async function renderAcoes(etapaId) {
                 ? etapa.acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-"
                 : "-"
             }</td>
-            <td>${permissaoFluxos.excluir ? `<button type="button" class="btn-excluir-acao" data-id="${a.id}">Excluir</button>` : ""}</td>
+            <td>${permissaoFluxos.excluir ? `<button type="button" class="btn btn-perigo btn-excluir-acao" data-id="${a.id}">Excluir</button>` : ""}</td>
           </tr>`
           )
           .join("")}
@@ -237,7 +241,7 @@ async function renderAcoes(etapaId) {
           ${etapa.acoes.map((a) => `<option value="${a.id}">${a.rotulo}</option>`).join("")}
         </select>
       </label>
-      <button type="submit">Adicionar ação</button>
+      <button type="submit" class="btn btn-primario">Adicionar ação</button>
     </form>
     `
         : ""
@@ -247,6 +251,8 @@ async function renderAcoes(etapaId) {
   if (permissaoFluxos.excluir) {
     container.querySelectorAll(".btn-excluir-acao").forEach((btn) =>
       btn.addEventListener("click", async () => {
+        const confirmado = await confirmarAcao("Excluir esta ação?", "Essa ação não pode ser desfeita.");
+        if (!confirmado) return;
         try {
           await api(`/acoes/${btn.dataset.id}`, { method: "DELETE" });
           renderAcoes(etapaId);
