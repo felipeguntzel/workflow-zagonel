@@ -12,6 +12,7 @@ if (usuario) {
     titulo: "Empresas",
     endpoint: "/empresas",
     tela: "empresas",
+    larguraColuna1: 18,
     campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
   }).catch((e) => mostrarErro(mensagemErro, e));
 
@@ -19,6 +20,7 @@ if (usuario) {
     titulo: "Setores",
     endpoint: "/setores",
     tela: "setores",
+    larguraColuna1: 16,
     campos: [
       { nome: "nome", label: "Nome", obrigatorio: true },
       { nome: "empresa_id", label: "Empresa", obrigatorio: true, opcoesEndpoint: "/empresas" },
@@ -37,6 +39,7 @@ if (usuario) {
     titulo: "Usuários",
     endpoint: "/usuarios",
     tela: "usuarios",
+    larguraColuna1: 14,
     campos: [
       { nome: "nome", label: "Nome", obrigatorio: true },
       {
@@ -87,6 +90,7 @@ if (usuario) {
     titulo: "Status",
     endpoint: "/status",
     tela: "status",
+    larguraColuna1: 20,
     campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
   }).catch((e) => mostrarErro(mensagemErro, e));
 }

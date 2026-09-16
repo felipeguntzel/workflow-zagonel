@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { info, mostrarErro, escaparAtributo, escaparHtml } from "./ui.js";
+import { info, mostrarErro, escaparAtributo, escaparHtml, botaoIconeEditar, botaoIconeExcluir } from "./ui.js";
 import { permissaoDaTela } from "./auth.js";
 import { confirmarAcao } from "./modal.js";
 
@@ -74,19 +74,31 @@ export async function renderCrud(container, config) {
   const podeEscrever = permissao.inserir || permissao.editar;
   let editandoId = null;
 
+  const larguraColuna1 = config.larguraColuna1 ?? 12;
   container.innerHTML = `
     <h2>${config.titulo}</h2>
-    <table>
-      <thead><tr>${camposTabela.map((c) => `<th>${c.label}</th>`).join("")}<th></th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <div class="tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            ${camposTabela
+              .map((c, i) => (i === 0 ? `<th style="min-width:${larguraColuna1}ch">${c.label}</th>` : `<th>${c.label}</th>`))
+              .join("")}
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
     ${
       podeEscrever
-        ? `<h3>Novo / Editar</h3>
-           <form class="formulario">
-             ${config.campos.map((c) => campoInputHtml(c, opcoesFK)).join("")}
-             <button type="submit" class="btn btn-primario">Adicionar</button>
-           </form>`
+        ? `<div class="painel">
+             <h3>Novo / Editar</h3>
+             <form class="formulario">
+               ${config.campos.map((c) => campoInputHtml(c, opcoesFK)).join("")}
+               <button type="submit" class="btn btn-primario">Adicionar</button>
+             </form>
+           </div>`
         : ""
     }
   `;
@@ -154,9 +166,9 @@ export async function renderCrud(container, config) {
               (linha) => `
                 <tr data-id="${linha.id}">
                   ${camposTabela.map((c) => `<td title="${escaparAtributo(String(valorExibicao(linha, c, opcoesFK)))}">${escaparHtml(valorExibicao(linha, c, opcoesFK))}</td>`).join("")}
-                  <td>
-                    ${permissao.editar ? `<button type="button" class="btn btn-secundario btn-editar" data-id="${linha.id}">Editar</button>` : ""}
-                    ${permissao.excluir ? `<button type="button" class="btn btn-perigo btn-excluir" data-id="${linha.id}">Excluir</button>` : ""}
+                  <td class="td-acoes">
+                    ${permissao.editar ? botaoIconeEditar("btn-editar", linha.id) : ""}
+                    ${permissao.excluir ? botaoIconeExcluir("btn-excluir", linha.id) : ""}
                   </td>
                 </tr>`
             )

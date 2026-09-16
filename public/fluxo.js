@@ -17,6 +17,7 @@ if (usuario) {
     titulo: "Fluxos",
     endpoint: "/fluxos",
     tela: "fluxos",
+    larguraColuna1: 16,
     campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
     aoSalvar: () => permissaoFluxos.visualizar && iniciarSelecaoFluxo(),
   }).catch((e) => mostrarErro(mensagemErro, e));
