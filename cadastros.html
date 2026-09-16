@@ -7,6 +7,16 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="componentes.css">
+<script>
+(function () {
+  try {
+    var u = JSON.parse(localStorage.getItem("workflow_zagonel_usuario"));
+    document.documentElement.setAttribute("data-tema", (u && u.tema) || "claro");
+    document.documentElement.setAttribute("data-fonte", (u && u.fonte) || "arial");
+    document.documentElement.setAttribute("data-tamanho", (u && u.tamanho_fonte) || "m");
+  } catch (e) {}
+})();
+</script>
 </head>
 <body>
 <div id="nav"></div>

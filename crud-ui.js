@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { info, mostrarErro } from "./ui.js";
+import { info, mostrarErro, escaparAtributo } from "./ui.js";
 import { permissaoDaTela } from "./auth.js";
 import { confirmarAcao } from "./modal.js";
 
@@ -153,7 +153,7 @@ export async function renderCrud(container, config) {
             .map(
               (linha) => `
                 <tr data-id="${linha.id}">
-                  ${camposTabela.map((c) => `<td>${valorExibicao(linha, c, opcoesFK)}</td>`).join("")}
+                  ${camposTabela.map((c) => `<td title="${escaparAtributo(String(valorExibicao(linha, c, opcoesFK)))}">${valorExibicao(linha, c, opcoesFK)}</td>`).join("")}
                   <td>
                     ${permissao.editar ? `<button type="button" class="btn btn-secundario btn-editar" data-id="${linha.id}">Editar</button>` : ""}
                     ${permissao.excluir ? `<button type="button" class="btn btn-perigo btn-excluir" data-id="${linha.id}">Excluir</button>` : ""}

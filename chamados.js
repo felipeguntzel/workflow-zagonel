@@ -1,6 +1,6 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { mostrarErro } from "./ui.js";
+import { mostrarErro, escaparAtributo } from "./ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
@@ -30,7 +30,7 @@ async function carregarChamados() {
           .map(
             (c) => `
               <tr>
-                <td><a href="chamado.html?id=${c.id}" title="${c.titulo}">#${c.id} - ${c.titulo}</a></td>
+                <td><a href="chamado.html?id=${c.id}" title="${escaparAtributo(c.titulo)}">#${c.id} - ${c.titulo}</a></td>
                 <td>${c.status_nome}</td>
                 <td>${c.prazo}</td>
                 <td>${situacaoBadge(c.prazo, c.status_nome)}</td>

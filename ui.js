@@ -2,6 +2,10 @@ export function info(texto) {
   return `<span class="info" title="${texto.replace(/"/g, "&quot;")}">i</span>`;
 }
 
+export function escaparAtributo(texto) {
+  return String(texto).replace(/"/g, "&quot;");
+}
+
 export function mostrarErro(elemento, erro) {
   elemento.textContent = erro && erro.message ? erro.message : String(erro);
   elemento.className = "erro";

@@ -1,6 +1,6 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { info, mostrarErro } from "./ui.js";
+import { info, mostrarErro, escaparAtributo } from "./ui.js";
 import { renderCrud } from "./crud-ui.js";
 import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
@@ -64,11 +64,11 @@ async function renderEtapas(fluxoId) {
                 .map(
                   (e) => `
           <tr>
-            <td>${e.nome}</td>
-            <td>${nomeSetor(e.setor_id)}</td>
+            <td title="${escaparAtributo(e.nome)}">${e.nome}</td>
+            <td title="${escaparAtributo(nomeSetor(e.setor_id))}">${nomeSetor(e.setor_id)}</td>
             <td>${e.tipo}</td>
             <td>${e.eh_inicial ? "Sim" : "Não"}</td>
-            <td>${e.etapa_proxima_id ? nomeEtapa(e.etapa_proxima_id) : "-"}</td>
+            <td title="${escaparAtributo(e.etapa_proxima_id ? nomeEtapa(e.etapa_proxima_id) : "-")}">${e.etapa_proxima_id ? nomeEtapa(e.etapa_proxima_id) : "-"}</td>
             <td>${e.etapa_proxima_vinculo ?? "-"}</td>
             <td>
               ${e.tipo === "aprovacao" ? `<button type="button" class="btn btn-secundario btn-acoes" data-id="${e.id}">Ações</button>` : ""}
@@ -207,7 +207,7 @@ async function renderAcoes(etapaId) {
                 .map(
                   (a) => `
           <tr>
-            <td>${a.rotulo}</td>
+            <td title="${escaparAtributo(a.rotulo)}">${a.rotulo}</td>
             <td>${setores.find((s) => s.id === a.setor_destino_id)?.nome ?? a.setor_destino_id}</td>
             <td>${a.vinculo}</td>
             <td>${

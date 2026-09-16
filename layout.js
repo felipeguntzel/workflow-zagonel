@@ -95,6 +95,7 @@ function construirTopbar(usuario, sidebar) {
 
   topbar.querySelector("#link-preferencias").addEventListener("click", async (ev) => {
     ev.preventDefault();
+    ev.stopPropagation();
     menu.hidden = true;
     const { abrirPainelPreferencias } = await import("./preferencias.js");
     abrirPainelPreferencias();
