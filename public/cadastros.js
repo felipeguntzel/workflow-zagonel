@@ -48,7 +48,7 @@ if (usuario) {
         obrigatorio: true,
         opcoesEndpoint: "/empresas",
         apenasFiltro: true,
-        dica: "Filtra a lista de Setor abaixo. Não é salva diretamente — o setor escolhido já indica a empresa.",
+        dica: "Filtra a lista de Setor abaixo. Não é salva diretamente: o setor escolhido já indica a empresa.",
       },
       {
         nome: "setor_id",
@@ -68,7 +68,7 @@ if (usuario) {
         nome: "senha",
         label: "Senha",
         tipo: "password",
-        dica: "Obrigatória ao criar um novo usuário — o próprio usuário troca no primeiro login. Ao editar, deixe em branco para manter a senha atual; preencher define uma nova senha e exige troca no próximo login.",
+        dica: "Obrigatória ao criar um novo usuário: o próprio usuário troca no primeiro login. Ao editar, deixe em branco para manter a senha atual; preencher define uma nova senha e exige troca no próximo login.",
       },
       {
         nome: "admin",
