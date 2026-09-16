@@ -119,7 +119,7 @@ async function iniciar(container, mensagemErro) {
             ${TELAS.map(
               (t) => `
               <tr data-tela="${t.chave}">
-                <td title="${escaparHtml(t.label)}">${escaparHtml(t.label)}</td>
+                <td title="${escaparHtml(t.label)}" style="white-space:normal; overflow-wrap:anywhere">${escaparHtml(t.label)}</td>
                 ${ACOES.map(
                   (a) =>
                     `<td><input type="checkbox" data-acao="${a}" ${grupo.permissoes[t.chave][a] ? "checked" : ""}></td>`
