@@ -159,18 +159,14 @@ atributo `title`; menu da topbar reabrindo; tooltip faltando em algumas
 tabelas; flash de tema em alto contraste). Os itens abaixo ficaram
 deliberadamente de fora por serem menores/isolados:
 
-- **XSS mais amplo e pré-existente, NÃO introduzido por esta fase**: vários
-  pontos renderizam texto livre do usuário (título de chamado, nome de
-  etapa/ação/grupo, nome de setor/empresa/usuário) via `innerHTML` como
-  conteúdo visível, sem escapar `<`/`>`. Diferente do XSS de atributo já
-  corrigido nesta fase, este é injeção de elemento (`<img onerror=...>` etc).
-  Locais conhecidos: `chamados.js` (texto visível do título, o atributo
-  `title` já foi corrigido), `fluxo.js` (nomes de etapa/ação), `grupos.js`
-  (nome de grupo), `crud-ui.js` (colunas de qualquer cadastro), `chamado.js`
-  (comentários, observação de apontamento de horas). Risco real (token de
-  sessão em `localStorage`), mas correção abrange o app inteiro — fora do
-  escopo de um plano de design system. Já disparado como tarefa separada
-  numa sessão própria.
+- ~~**XSS mais amplo e pré-existente**~~ — **RESOLVIDO**: corrigido em
+  sessão separada (`escaparHtml()` em `ui.js`, aplicado em `chamado.js`,
+  `chamados.js`, `crud-ui.js`, `fluxo.js`, `geral.js`, `grupos.js`,
+  `novo-chamado.js`), commit `9bcd35f`, PR #6, mergeado direto em `master`.
+  Reconciliado com o layout novo desta fase via merge (`be68623`), mantendo
+  também o `escaparAtributo()` já usado nos atributos `title`. Verificado
+  em navegador real após o merge: nome de etapa com `<img src=x
+  onerror=...>` renderiza como texto, sem executar.
 - **Estados vazios da Task 15 não cobriram `chamado.js`**: as listas de
   "Apontamento de horas" e "Comentários" de um chamado recém-aberto mostram
   o título da seção sem nenhum texto abaixo, em vez de uma mensagem como
