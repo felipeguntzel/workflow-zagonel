@@ -30,7 +30,7 @@ async function carregarChamados() {
           .map(
             (c) => `
               <tr>
-                <td><a href="chamado.html?id=${c.id}" title="${escaparAtributo(c.titulo)}">#${c.id} - ${escaparHtml(c.titulo)}</a></td>
+                <td title="${escaparAtributo(c.titulo)}"><a href="chamado.html?id=${c.id}">#${c.id} - ${escaparHtml(c.titulo)}</a></td>
                 <td>${escaparHtml(c.status_nome)}</td>
                 <td>${c.prazo}</td>
                 <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
