@@ -1,5 +1,7 @@
 import { exigirLogin } from "./auth.js";
-import { montarNav, mostrarErro, info } from "./ui.js";
+import { aplicarLayout } from "./layout.js";
+import { mostrarErro, info } from "./ui.js";
+import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
 
 const TELAS = [
@@ -14,7 +16,7 @@ const ACOES = ["visualizar", "inserir", "editar", "excluir"];
 
 const usuario = exigirLogin();
 if (usuario) {
-  document.getElementById("nav").replaceWith(montarNav(usuario));
+  aplicarLayout(usuario);
   const mensagemErro = document.getElementById("mensagem-erro");
   const container = document.getElementById("conteudo");
 
@@ -33,7 +35,7 @@ async function iniciar(container, mensagemErro) {
       <label>Novo grupo
         <input type="text" name="nome" required>
       </label>
-      <button type="submit">Criar</button>
+      <button type="submit" class="btn btn-primario">Criar</button>
     </form>
     <div id="detalhe-grupo"></div>
   `;
@@ -49,8 +51,8 @@ async function iniciar(container, mensagemErro) {
       .map(
         (g) => `
         <li data-id="${g.id}">
-          <button type="button" class="btn-selecionar" data-id="${g.id}">${g.nome}</button>
-          <button type="button" class="btn-excluir" data-id="${g.id}">Excluir</button>
+          <button type="button" class="btn btn-secundario btn-selecionar" data-id="${g.id}">${g.nome}</button>
+          <button type="button" class="btn btn-perigo btn-excluir" data-id="${g.id}">Excluir</button>
         </li>`
       )
       .join("");
@@ -66,7 +68,11 @@ async function iniciar(container, mensagemErro) {
     );
     lista.querySelectorAll(".btn-excluir").forEach((btn) =>
       btn.addEventListener("click", async () => {
-        if (!window.confirm("Excluir este grupo? Usuários vinculados perdem as permissões dele.")) return;
+        const confirmado = await confirmarAcao(
+          "Excluir este grupo?",
+          "Usuários vinculados perdem as permissões dele."
+        );
+        if (!confirmado) return;
         try {
           await api(`/grupos/${btn.dataset.id}`, { method: "DELETE" });
           if (grupoSelecionadoId === Number(btn.dataset.id)) {
@@ -91,7 +97,7 @@ async function iniciar(container, mensagemErro) {
         <label>Nome
           <input type="text" name="nome" value="${grupo.nome}" required>
         </label>
-        <button type="submit">Salvar nome</button>
+        <button type="submit" class="btn btn-primario">Salvar nome</button>
       </form>
       <table>
         <thead>
@@ -121,7 +127,7 @@ async function iniciar(container, mensagemErro) {
           ).join("")}
         </tbody>
       </table>
-      <button type="button" id="btn-salvar-permissoes">Salvar permissões</button>
+      <button type="button" id="btn-salvar-permissoes" class="btn btn-primario">Salvar permissões</button>
     `;
 
     detalhe.querySelector("#form-renomear").addEventListener("submit", async (ev) => {
