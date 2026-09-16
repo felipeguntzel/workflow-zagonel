@@ -85,3 +85,29 @@
   border: var(--cor-borda-largura) solid var(--cor-borda);
   border-left-width: 6px;
 }
+
+.btn-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 0.35rem;
+  border: var(--cor-borda-largura) solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+.btn-icone + .btn-icone { margin-left: 0.35rem; }
+.btn-icone--editar { color: var(--cor-primaria); border-color: var(--cor-primaria); }
+.btn-icone--editar:hover { background: var(--cor-fundo); }
+.btn-icone--excluir { color: var(--cor-vencido); border-color: var(--cor-vencido); }
+.btn-icone--excluir:hover { background: var(--cor-fundo); }
+
+.painel {
+  background: var(--cor-fundo-elevado);
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 1.25rem 1.5rem;
+  margin-top: 1.5rem;
+}
