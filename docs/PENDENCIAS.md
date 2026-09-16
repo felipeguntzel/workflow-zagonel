@@ -108,16 +108,30 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   raiz do projeto, independente do `pages_build_output_dir`. `package.json`
   (`npm run dev`/`npm run deploy`) atualizado para `wrangler pages dev
   public`/`wrangler pages deploy public`.
-- ~~**`wrangler.toml`'s `compatibility_date` fixado em 2026-07-09**~~ —
-  **RESOLVIDO**: `wrangler` atualizado de 4.107.1 (só instalado
-  globalmente/via cache do `npx`, nem estava no `package.json`) para
-  4.132.0 como `devDependency` real do projeto, e `compatibility_date`
-  avançado para 2026-09-16. Testado localmente com `wrangler pages dev
-  public`: build compila, `/` e as rotas fora de `public/` (`/docs/...`,
-  `/CLAUDE.md`, `/migrations/...`) caem no fallback padrão (servem
-  `index.html`, sem vazar conteúdo real), e `/api/chamados` sem
-  `Authorization` continua `401` — mesmo comportamento de antes da
-  atualização. Suite de testes (`node --test`) segue com 44/44 passando.
+- **`wrangler.toml`'s `compatibility_date` fixado em 2026-07-09**: ainda
+  pendente. Tentamos avançar para 2026-09-16 junto com o upgrade do
+  `wrangler` para 4.132.0 (agora `devDependency` real do projeto — antes
+  nem estava no `package.json`) e testamos localmente com `wrangler pages
+  dev public`: build compila, login com hash PBKDF2 e com hash legado
+  (rehash automático) funcionam, `/api/chamados` sem `Authorization`
+  continua `401`. **Porém, no deploy de preview real do Cloudflare Pages, o
+  login (`POST /api/login`) passou a retornar 500 consistentemente** (5/5
+  tentativas) para um usuário real, mesmo com senha correta — sem nenhuma
+  exceção capturada pelo `wrangler pages deployment tail` (a resposta 500
+  é devolvida pelo `catch` genérico de `functions/_middleware.js`, que não
+  loga o erro original, só o mascara). Login funcionando normalmente em
+  produção (mesmo código de `login.js`/`auth.js`, mesmo banco D1)
+  descartou regressão de código; a suspeita recai sobre o `compatibility_date`
+  em si (é lido pela plataforma da Cloudflare direto do `wrangler.toml`,
+  independente da versão do `wrangler` instalada localmente) se comportando
+  diferente no runtime de borda real do que no `wrangler pages dev` local.
+  `compatibility_date` revertido para 2026-07-09 (voltou a funcionar) — o
+  upgrade do `wrangler` como devDependency foi mantido (não é a causa, e é
+  só ferramenta local). Antes de tentar de novo, vale instrumentar
+  `functions/_middleware.js` temporariamente para logar `err.stack` no
+  catch (hoje ele só mascara o erro) e reproduzir com `wrangler pages
+  deployment tail` apontando pro preview antes de decidir avançar a data
+  de novo.
 - ~~**Pequenos detalhes de UX**~~ — **RESOLVIDO**: `renderCrud` ganhou um
   callback opcional `aoSalvar`, usado por `fluxo.js` para recarregar o
   seletor de fluxo sozinho depois de cadastrar um novo FluxoTemplate; abrir
