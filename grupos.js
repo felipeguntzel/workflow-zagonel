@@ -1,5 +1,5 @@
 import { exigirLogin } from "./auth.js";
-import { montarNav, mostrarErro, info } from "./ui.js";
+import { montarNav, mostrarErro, info, escaparHtml } from "./ui.js";
 import { api } from "./api.js";
 
 const TELAS = [
@@ -49,7 +49,7 @@ async function iniciar(container, mensagemErro) {
       .map(
         (g) => `
         <li data-id="${g.id}">
-          <button type="button" class="btn-selecionar" data-id="${g.id}">${g.nome}</button>
+          <button type="button" class="btn-selecionar" data-id="${g.id}">${escaparHtml(g.nome)}</button>
           <button type="button" class="btn-excluir" data-id="${g.id}">Excluir</button>
         </li>`
       )
@@ -86,10 +86,10 @@ async function iniciar(container, mensagemErro) {
     const grupo = await api(`/grupos/${id}`);
 
     detalhe.innerHTML = `
-      <h3>${grupo.nome}</h3>
+      <h3>${escaparHtml(grupo.nome)}</h3>
       <form class="formulario" id="form-renomear">
         <label>Nome
-          <input type="text" name="nome" value="${grupo.nome}" required>
+          <input type="text" name="nome" value="${escaparHtml(grupo.nome)}" required>
         </label>
         <button type="submit">Salvar nome</button>
       </form>

@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { info, mostrarErro } from "./ui.js";
+import { info, mostrarErro, escaparHtml } from "./ui.js";
 import { permissaoDaTela } from "./auth.js";
 
 function valorExibicao(linha, campo, opcoesFK) {
@@ -35,7 +35,7 @@ function campoInputHtml(campo, opcoesFK) {
     return `
       <label>${rotulo}
         <select name="${campo.nome}" multiple>
-          ${opcoes.map((o) => `<option value="${o.id}">${o.nome}</option>`).join("")}
+          ${opcoes.map((o) => `<option value="${o.id}">${escaparHtml(o.nome)}</option>`).join("")}
         </select>
       </label>`;
   }
@@ -45,7 +45,7 @@ function campoInputHtml(campo, opcoesFK) {
       <label>${rotulo}
         <select name="${campo.nome}" ${campo.obrigatorio ? "required" : ""}>
           <option value="">Selecione…</option>
-          ${opcoes.map((o) => `<option value="${o.id}">${o.nome}</option>`).join("")}
+          ${opcoes.map((o) => `<option value="${o.id}">${escaparHtml(o.nome)}</option>`).join("")}
         </select>
       </label>`;
   }
@@ -105,7 +105,7 @@ export async function renderCrud(container, config) {
         );
         selectFilho.innerHTML =
           `<option value="">Selecione…</option>` +
-          opcoes.map((o) => `<option value="${o.id}">${o.nome}</option>`).join("");
+          opcoes.map((o) => `<option value="${o.id}">${escaparHtml(o.nome)}</option>`).join("");
       });
     }
   }
@@ -152,7 +152,7 @@ export async function renderCrud(container, config) {
       .map(
         (linha) => `
           <tr data-id="${linha.id}">
-            ${camposTabela.map((c) => `<td>${valorExibicao(linha, c, opcoesFK)}</td>`).join("")}
+            ${camposTabela.map((c) => `<td>${escaparHtml(valorExibicao(linha, c, opcoesFK))}</td>`).join("")}
             <td>
               ${permissao.editar ? `<button type="button" class="btn-editar" data-id="${linha.id}">Editar</button>` : ""}
               ${permissao.excluir ? `<button type="button" class="btn-excluir" data-id="${linha.id}">Excluir</button>` : ""}

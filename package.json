@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test functions/_lib/**/*.test.js",
+    "test": "node --test",
     "dev": "wrangler pages dev .",
     "deploy": "wrangler pages deploy ."
   }

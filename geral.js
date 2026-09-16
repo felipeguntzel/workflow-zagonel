@@ -1,5 +1,5 @@
 import { exigirLogin } from "./auth.js";
-import { montarNav } from "./ui.js";
+import { montarNav, escaparHtml } from "./ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
@@ -28,8 +28,8 @@ function nodeHtml(no) {
     <li>
       <details>
         <summary>
-          #${no.id} - ${no.titulo} (${no.setor_nome}) - ${no.status_nome}
-          ${no.resultado ? ` - ${no.resultado}` : ""}
+          #${no.id} - ${escaparHtml(no.titulo)} (${escaparHtml(no.setor_nome)}) - ${escaparHtml(no.status_nome)}
+          ${no.resultado ? ` - ${escaparHtml(no.resultado)}` : ""}
           - prazo ${no.prazo}${no.data_finalizacao ? `, finalizado em ${no.data_finalizacao}` : ""}
         </summary>
         <div class="comentarios-no" data-id="${no.id}">Carregando comentários…</div>
@@ -58,7 +58,7 @@ async function carregarArvore() {
             : `<ul>${comentarios
                 .map(
                   (c) =>
-                    `<li><strong>${c.usuario_nome ?? "Sistema"}</strong> (${c.data}): ${c.texto}</li>`
+                    `<li><strong>${escaparHtml(c.usuario_nome ?? "Sistema")}</strong> (${c.data}): ${escaparHtml(c.texto)}</li>`
                 )
                 .join("")}</ul>`;
       },
