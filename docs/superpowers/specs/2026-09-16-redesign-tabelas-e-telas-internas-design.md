@@ -55,11 +55,15 @@ matriz de permissões em `grupos.js`, tabela de etapas/ações em `fluxo.js`).
   no maior rótulo esperado da tela, não um valor mágico único pra todo o
   sistema) suficiente pra não truncar em uso normal.
 - **Truncamento vira exceção, não regra**: a regra hoje universal (`td {
-  max-width: 0; ... }`) sai do seletor genérico `td` e passa a ser uma
-  classe opcional (`.td-truncar`), aplicada só onde o conteúdo real pode
-  ser arbitrariamente longo (ex.: observação, comentário, nome de fluxo
-  longo). Continua com `title` no atributo pra mostrar o texto completo no
-  hover, como já funciona hoje em `crud-ui.js`.
+  max-width: 0; ... }`) sai do seletor genérico `td` e passa a valer só
+  para `td[title]`, reaproveitando o atributo `title` que já existe nos
+  `<td>` com conteúdo potencialmente longo (ex.: observação, comentário,
+  nome de fluxo longo), em vez de uma classe nova. Continua mostrando o
+  texto completo no hover, como já funciona hoje em `crud-ui.js`. Onde o
+  texto precisa ficar sempre legível por completo (nunca truncar), a
+  célula não recebe `title` nenhum e quebra linha normalmente em vez de
+  reticências (ex.: coluna "Tela" da matriz de permissões, "Nome" das
+  Etapas, "Rótulo" das Ações).
 - **Tabelas densas ganham scroll horizontal próprio**: um container com
   `overflow-x: auto` em volta da tabela, sem quebrar o layout da página ao
   redor. Cobre principalmente a matriz de permissões (6 colunas de ação +
