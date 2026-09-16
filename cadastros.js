@@ -1,10 +1,11 @@
 import { exigirLogin } from "./auth.js";
-import { montarNav, mostrarErro } from "./ui.js";
+import { aplicarLayout } from "./layout.js";
+import { mostrarErro } from "./ui.js";
 import { renderCrud } from "./crud-ui.js";
 
 const usuario = exigirLogin();
 if (usuario) {
-  document.getElementById("nav").replaceWith(montarNav(usuario));
+  aplicarLayout(usuario);
   const mensagemErro = document.getElementById("mensagem-erro");
 
   renderCrud(document.getElementById("secao-empresas"), {

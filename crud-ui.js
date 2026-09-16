@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import { info, mostrarErro } from "./ui.js";
 import { permissaoDaTela } from "./auth.js";
+import { confirmarAcao } from "./modal.js";
 
 function valorExibicao(linha, campo, opcoesFK) {
   if (campo.tipo === "checkbox") {
@@ -84,7 +85,7 @@ export async function renderCrud(container, config) {
         ? `<h3>Novo / Editar</h3>
            <form class="formulario">
              ${config.campos.map((c) => campoInputHtml(c, opcoesFK)).join("")}
-             <button type="submit">Adicionar</button>
+             <button type="submit" class="btn btn-primario">Adicionar</button>
            </form>`
         : ""
     }
@@ -114,9 +115,6 @@ export async function renderCrud(container, config) {
     if (!form) return;
     editandoId = linha.id;
 
-    // Primeiro os campos "pai": derivam seu valor a partir da linha e
-    // disparam o evento de mudança, que popula as opções do campo
-    // dependente antes de definirmos o valor dele no passo seguinte.
     for (const campo of config.campos) {
       if (!campo.apenasFiltro) continue;
       const dependente = config.campos.find((c) => c.dependeDe === campo.nome);
@@ -154,8 +152,8 @@ export async function renderCrud(container, config) {
           <tr data-id="${linha.id}">
             ${camposTabela.map((c) => `<td>${valorExibicao(linha, c, opcoesFK)}</td>`).join("")}
             <td>
-              ${permissao.editar ? `<button type="button" class="btn-editar" data-id="${linha.id}">Editar</button>` : ""}
-              ${permissao.excluir ? `<button type="button" class="btn-excluir" data-id="${linha.id}">Excluir</button>` : ""}
+              ${permissao.editar ? `<button type="button" class="btn btn-secundario btn-editar" data-id="${linha.id}">Editar</button>` : ""}
+              ${permissao.excluir ? `<button type="button" class="btn btn-perigo btn-excluir" data-id="${linha.id}">Excluir</button>` : ""}
             </td>
           </tr>`
       )
@@ -171,6 +169,8 @@ export async function renderCrud(container, config) {
     if (permissao.excluir) {
       container.querySelectorAll(".btn-excluir").forEach((btn) =>
         btn.addEventListener("click", async () => {
+          const confirmado = await confirmarAcao("Excluir este item?", "Essa ação não pode ser desfeita.");
+          if (!confirmado) return;
           try {
             await api(`${config.endpoint}/${btn.dataset.id}`, { method: "DELETE" });
             recarregar();
