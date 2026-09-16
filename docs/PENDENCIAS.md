@@ -120,20 +120,20 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   (achamos inicialmente que era o `compatibility_date`, revertemos,
   continuou quebrado; só aí achamos a causa de verdade instrumentando
   `functions/_middleware.js` temporariamente para logar `err.stack`):
-  **`SESSAO_SEGREDO` está configurada como variável de ambiente vazia no
-  ambiente de *Preview* do Cloudflare Pages, só existe de verdade em
-  *Production`.** Isso faz `crypto.subtle.importKey` em `gerarToken`
+  **`SESSAO_SEGREDO` estava configurada como variável de ambiente vazia no
+  ambiente de *Preview* do Cloudflare Pages, só existia de verdade em
+  *Production*.** Isso fazia `crypto.subtle.importKey` em `gerarToken`
   (`functions/_lib/sessao.js`) falhar com `DataError: Imported HMAC key
-  length (0)...` — chave HMAC de tamanho zero. Não é bug de código (mesmo
+  length (0)...` — chave HMAC de tamanho zero. Não era bug de código (mesmo
   `login.js`/`auth.js`/`sessao.js` de sempre, mesmo banco D1; login normal
-  em produção o tempo todo) — é uma lacuna de configuração do painel
+  em produção o tempo todo) — era uma lacuna de configuração do painel
   Cloudflare que provavelmente sempre existiu para *qualquer* preview deste
   projeto, só nunca tinha sido testado com credenciais reais antes.
-  **Ação pendente (fora do código, precisa ser feita no painel):** em
-  Cloudflare Pages → workflow-zagonel → Settings → Environment variables,
-  adicionar `SESSAO_SEGREDO` (mesmo valor de produção) também para o
-  ambiente *Preview* (ou marcar "todos os ambientes" ao configurar a
-  variável).
+  **RESOLVIDO**: adicionada uma `SESSAO_SEGREDO` própria (não precisa ser
+  igual à de produção — cada ambiente assina/verifica os próprios tokens)
+  também para o ambiente *Preview* em Cloudflare Pages → workflow-zagonel →
+  Settings → Environment variables. Confirmado funcionando em deploy de
+  preview real após a mudança.
 - ~~**Pequenos detalhes de UX**~~ — **RESOLVIDO**: `renderCrud` ganhou um
   callback opcional `aoSalvar`, usado por `fluxo.js` para recarregar o
   seletor de fluxo sozinho depois de cadastrar um novo FluxoTemplate; abrir
