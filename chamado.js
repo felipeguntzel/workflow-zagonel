@@ -13,6 +13,12 @@ const permissaoChamados = usuario
 if (usuario && id) {
   aplicarLayout(usuario);
   iniciar();
+} else if (usuario) {
+  aplicarLayout(usuario);
+  mostrarErro(document.getElementById("mensagem-erro"), new Error("Chamado não informado."));
+  document.querySelector("main").querySelectorAll(":scope > :not(#mensagem-erro)").forEach((el) => {
+    el.hidden = true;
+  });
 }
 
 function iniciar() {
@@ -34,8 +40,12 @@ function iniciar() {
         "Toda a subárvore é excluída junto. Isso não pode ser desfeito."
       );
       if (!confirmado) return;
-      await api(`/chamados/${id}`, { method: "DELETE" });
-      window.location.href = "chamados.html";
+      try {
+        await api(`/chamados/${id}`, { method: "DELETE" });
+        window.location.href = "chamados.html";
+      } catch (e) {
+        mostrarErro(document.getElementById("mensagem-erro"), e);
+      }
     });
   } else {
     botaoExcluir.hidden = true;
@@ -95,6 +105,17 @@ async function carregarDetalhe() {
     <h1>#${chamado.id} - ${escaparHtml(chamado.titulo)}</h1>
     <p>Setor: ${escaparHtml(chamado.setor_nome)} ${info("Setor responsável por esta etapa/tarefa.")}</p>
     <p>Status: ${escaparHtml(chamado.status_nome)} - Prazo: ${chamado.prazo} (${chamado.situacao_prazo})</p>
+    <p>Responsável: ${chamado.responsavel_nome ? escaparHtml(chamado.responsavel_nome) : "Ninguém"} ${info(
+      "Usuário que assumiu a execução desta etapa/tarefa. Qualquer um do setor pode assumir ou liberar."
+    )}
+      ${
+        !finalizado && permissaoChamados.editar
+          ? chamado.responsavel_id === usuario.id
+            ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario">Liberar</button>`
+            : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario">Assumir</button>`
+          : ""
+      }
+    </p>
     ${chamado.resultado ? `<p>Resultado: ${escaparHtml(chamado.resultado)}</p>` : ""}
     ${
       chamado.bloqueado
@@ -102,6 +123,17 @@ async function carregarDetalhe() {
         : ""
     }
   `;
+
+  async function definirResponsavel(responsavelId) {
+    try {
+      await api(`/chamados/${chamado.id}`, { method: "PUT", body: { responsavel_id: responsavelId } });
+      carregarDetalhe();
+    } catch (e) {
+      mostrarErro(document.getElementById("mensagem-erro"), e);
+    }
+  }
+  document.getElementById("btn-assumir-responsavel")?.addEventListener("click", () => definirResponsavel(usuario.id));
+  document.getElementById("btn-liberar-responsavel")?.addEventListener("click", () => definirResponsavel(null));
 
   const acaoContainer = document.getElementById("acao");
   if (finalizado || !permissaoChamados.editar) {

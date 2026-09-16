@@ -39,7 +39,12 @@ export async function onRequestPut(context) {
         context.params.id
       );
     } else {
-      await run(context.env.DB, `UPDATE chamados SET ${set} WHERE id = ?`, ...valores, context.params.id);
+      await run(
+        context.env.DB,
+        `UPDATE chamados SET ${set}, data_finalizacao = NULL WHERE id = ?`,
+        ...valores,
+        context.params.id
+      );
     }
   } else {
     await run(context.env.DB, `UPDATE chamados SET ${set} WHERE id = ?`, ...valores, context.params.id);

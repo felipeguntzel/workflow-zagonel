@@ -18,6 +18,7 @@ if (usuario) {
     endpoint: "/fluxos",
     tela: "fluxos",
     campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
+    aoSalvar: () => permissaoFluxos.visualizar && iniciarSelecaoFluxo(),
   }).catch((e) => mostrarErro(mensagemErro, e));
 
   const secaoEditarEtapas = document.getElementById("secao-editar-etapas");
@@ -41,6 +42,7 @@ async function iniciarSelecaoFluxo() {
 }
 
 async function renderEtapas(fluxoId) {
+  let editandoEtapaId = null;
   const [etapas, setores] = await Promise.all([
     api(`/fluxos/${fluxoId}/etapas`),
     api("/setores"),
@@ -72,6 +74,7 @@ async function renderEtapas(fluxoId) {
             <td>${e.etapa_proxima_vinculo ?? "-"}</td>
             <td>
               ${e.tipo === "aprovacao" ? `<button type="button" class="btn btn-secundario btn-acoes" data-id="${e.id}">Ações</button>` : ""}
+              ${permissaoFluxos.editar ? `<button type="button" class="btn btn-secundario btn-editar-etapa" data-id="${e.id}">Editar</button>` : ""}
               ${permissaoFluxos.excluir ? `<button type="button" class="btn btn-perigo btn-excluir-etapa" data-id="${e.id}">Excluir</button>` : ""}
             </td>
           </tr>`
@@ -82,9 +85,9 @@ async function renderEtapas(fluxoId) {
     </table>
 
     ${
-      permissaoFluxos.inserir
+      permissaoFluxos.inserir || permissaoFluxos.editar
         ? `
-    <h4>Nova etapa</h4>
+    <h4>Nova / editar etapa</h4>
     <form class="formulario" id="form-etapa">
       <label>Nome <input name="nome" required></label>
       <label>Setor
@@ -144,26 +147,28 @@ async function renderEtapas(fluxoId) {
     );
   }
 
-  if (permissaoFluxos.inserir) {
+  if (permissaoFluxos.inserir || permissaoFluxos.editar) {
     document.getElementById("form-etapa").addEventListener("submit", async (ev) => {
       ev.preventDefault();
       const form = ev.target;
+      const corpo = {
+        nome: form.elements.nome.value,
+        setor_id: Number(form.elements.setor_id.value),
+        tipo: form.elements.tipo.value,
+        eh_inicial: form.elements.eh_inicial.checked,
+        etapa_proxima_id: form.elements.etapa_proxima_id.value
+          ? Number(form.elements.etapa_proxima_id.value)
+          : null,
+        etapa_proxima_vinculo: form.elements.etapa_proxima_id.value
+          ? form.elements.etapa_proxima_vinculo.value
+          : null,
+      };
       try {
-        await api(`/fluxos/${fluxoId}/etapas`, {
-          method: "POST",
-          body: {
-            nome: form.elements.nome.value,
-            setor_id: Number(form.elements.setor_id.value),
-            tipo: form.elements.tipo.value,
-            eh_inicial: form.elements.eh_inicial.checked,
-            etapa_proxima_id: form.elements.etapa_proxima_id.value
-              ? Number(form.elements.etapa_proxima_id.value)
-              : null,
-            etapa_proxima_vinculo: form.elements.etapa_proxima_id.value
-              ? form.elements.etapa_proxima_vinculo.value
-              : null,
-          },
-        });
+        if (editandoEtapaId) {
+          await api(`/etapas/${editandoEtapaId}`, { method: "PUT", body: corpo });
+        } else {
+          await api(`/fluxos/${fluxoId}/etapas`, { method: "POST", body: corpo });
+        }
         renderEtapas(fluxoId);
       } catch (e) {
         mostrarErro(document.getElementById("mensagem-erro"), e);
@@ -183,14 +188,37 @@ async function renderEtapas(fluxoId) {
       const oculto = selectTipo.value === "tarefa" && !checkboxInicial.checked;
       campoProximaEtapa.hidden = oculto;
       campoVinculo.hidden = oculto;
+      if (oculto) {
+        campoProximaEtapa.querySelector("select").value = "";
+        campoVinculo.querySelector("select").value = "pai";
+      }
     }
     selectTipo.addEventListener("change", atualizarCamposProximaEtapa);
     checkboxInicial.addEventListener("change", atualizarCamposProximaEtapa);
     atualizarCamposProximaEtapa();
+
+    if (permissaoFluxos.editar) {
+      container.querySelectorAll(".btn-editar-etapa").forEach((btn) =>
+        btn.addEventListener("click", () => {
+          const e = etapas.find((x) => x.id === Number(btn.dataset.id));
+          const form = document.getElementById("form-etapa");
+          editandoEtapaId = e.id;
+          form.elements.nome.value = e.nome;
+          form.elements.setor_id.value = e.setor_id;
+          form.elements.tipo.value = e.tipo;
+          form.elements.eh_inicial.checked = !!e.eh_inicial;
+          form.elements.etapa_proxima_id.value = e.etapa_proxima_id ?? "";
+          form.elements.etapa_proxima_vinculo.value = e.etapa_proxima_vinculo ?? "pai";
+          atualizarCamposProximaEtapa();
+          form.querySelector("button[type=submit]").textContent = "Salvar etapa";
+        })
+      );
+    }
   }
 }
 
 async function renderAcoes(etapaId) {
+  let editandoAcaoId = null;
   const etapa = await api(`/etapas/${etapaId}`);
   const setores = await api("/setores");
   const container = document.getElementById("secao-acoes");
@@ -215,7 +243,10 @@ async function renderAcoes(etapaId) {
                 ? escaparHtml(etapa.acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-")
                 : "-"
             }</td>
-            <td>${permissaoFluxos.excluir ? `<button type="button" class="btn btn-perigo btn-excluir-acao" data-id="${a.id}">Excluir</button>` : ""}</td>
+            <td>
+              ${permissaoFluxos.editar ? `<button type="button" class="btn btn-secundario btn-editar-acao" data-id="${a.id}">Editar</button>` : ""}
+              ${permissaoFluxos.excluir ? `<button type="button" class="btn btn-perigo btn-excluir-acao" data-id="${a.id}">Excluir</button>` : ""}
+            </td>
           </tr>`
                 )
                 .join("")
@@ -223,9 +254,9 @@ async function renderAcoes(etapaId) {
       </tbody>
     </table>
     ${
-      permissaoFluxos.inserir
+      permissaoFluxos.inserir || permissaoFluxos.editar
         ? `
-    <h5>Nova ação</h5>
+    <h5>Nova / editar ação</h5>
     <form class="formulario" id="form-acao">
       <label>Rótulo <input name="rotulo" required></label>
       <label>Setor destino
@@ -271,22 +302,39 @@ async function renderAcoes(etapaId) {
     );
   }
 
-  if (permissaoFluxos.inserir) {
+  if (permissaoFluxos.editar) {
+    container.querySelectorAll(".btn-editar-acao").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const a = etapa.acoes.find((x) => x.id === Number(btn.dataset.id));
+        const form = document.getElementById("form-acao");
+        editandoAcaoId = a.id;
+        form.elements.rotulo.value = a.rotulo;
+        form.elements.setor_destino_id.value = a.setor_destino_id;
+        form.elements.vinculo.value = a.vinculo;
+        form.elements.prerequisito_acao_id.value = a.prerequisito_acao_id ?? "";
+        form.querySelector("button[type=submit]").textContent = "Salvar ação";
+      })
+    );
+  }
+
+  if (permissaoFluxos.inserir || permissaoFluxos.editar) {
     document.getElementById("form-acao").addEventListener("submit", async (ev) => {
       ev.preventDefault();
       const form = ev.target;
+      const corpo = {
+        rotulo: form.elements.rotulo.value,
+        setor_destino_id: Number(form.elements.setor_destino_id.value),
+        vinculo: form.elements.vinculo.value,
+        prerequisito_acao_id: form.elements.prerequisito_acao_id.value
+          ? Number(form.elements.prerequisito_acao_id.value)
+          : null,
+      };
       try {
-        await api(`/etapas/${etapaId}/acoes`, {
-          method: "POST",
-          body: {
-            rotulo: form.elements.rotulo.value,
-            setor_destino_id: Number(form.elements.setor_destino_id.value),
-            vinculo: form.elements.vinculo.value,
-            prerequisito_acao_id: form.elements.prerequisito_acao_id.value
-              ? Number(form.elements.prerequisito_acao_id.value)
-              : null,
-          },
-        });
+        if (editandoAcaoId) {
+          await api(`/acoes/${editandoAcaoId}`, { method: "PUT", body: corpo });
+        } else {
+          await api(`/etapas/${etapaId}/acoes`, { method: "POST", body: corpo });
+        }
         renderAcoes(etapaId);
       } catch (e) {
         mostrarErro(document.getElementById("mensagem-erro"), e);

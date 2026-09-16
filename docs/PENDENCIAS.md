@@ -42,52 +42,51 @@ do escopo desta fase (prototipo). Cada um é pequeno e isolado, sem risco de
 segurança real dado que é um ambiente interno de usuários confiáveis — mas
 documentado aqui para não serem esquecidos numa reimplementação futura.
 
-- **Editar Etapas/Ações não tem UI**: `PUT /api/etapas/:id` e `PUT /api/acoes/:id`
-  existem e funcionam (Task 5), mas a tela de Fluxos (`fluxo.js`) só tem
-  botões de Adicionar/Excluir, sem "Editar". Endpoint acessível só via API
-  direta hoje.
+- ~~**Editar Etapas/Ações não tem UI**~~ — **RESOLVIDO**: `fluxo.js` agora
+  tem botão "Editar" em cada etapa e ação, reaproveitando os formulários
+  "Nova etapa"/"Nova ação" existentes (preenche os campos e troca o `POST`
+  pelo `PUT /api/etapas/:id` ou `PUT /api/acoes/:id` já existentes).
 - **Etapa tipo "tarefa" com "Próxima etapa" configurada**: `docs/modules/motor-fluxo.md`
   descreve que finalizar uma etapa tarefa (inicial ou não) deveria avançar o
   fluxo, mas o código só faz isso para a etapa inicial no momento da criação
   do chamado mãe. Uma etapa tarefa não-inicial com `etapa_proxima_id`
   configurado ficaria "presa" ao ser finalizada manualmente. Mitigado por
   ora escondendo o campo "Próxima etapa" na tela de cadastro quando
-  `tipo = tarefa` e "É a etapa inicial?" não está marcado (ver commit da
-  correção pós-revisão final). Se precisar desse caso no futuro, implementar
-  `avancarFluxo` também no `PUT` de status.
-  - **Gap residual conhecido nessa mitigação**: esconder os campos não limpa
-    o valor selecionado neles antes de esconder — se alguém escolher uma
-    "Próxima etapa" com tipo=aprovação e DEPOIS trocar para tipo=tarefa (sem
-    marcar inicial), o valor antigo continua selecionado (só invisível) e
-    ainda é enviado no `POST`, recriando o problema original de forma mais
-    silenciosa. Baixa probabilidade (exige reordenar os campos fora do fluxo
-    natural do formulário), mas vale corrigir limpando os selects ao
-    escondê-los, ou ignorando o valor no envio quando o campo estiver oculto.
-- **Botão "Excluir chamado" (`chamado.js`) ainda não trata erro de rede/API**:
-  a correção pós-revisão final cobriu 9 pontos de mutação do frontend, mas
-  esse botão específico não estava na lista original e ficou de fora — se o
-  `DELETE` falhar (ex.: chamado com filhos e algum erro inesperado), a tela
-  não mostra nada. Mesma classe do item de exibição de erro já corrigido em
-  outros lugares; só falta replicar o padrão `mostrarErro()` aqui também.
-- **Regra de "vencido" não exclui status "suspenso"**: `docs/modules/prazos-horas.md`
-  diz que um chamado suspenso não deveria aparecer como vencido, mas
-  `situacaoPrazo`/`chamadoComDetalhes` não checam esse status hoje.
-- **`data_finalizacao` nunca é limpo**: ao mover um chamado de volta de
-  "finalizado" para outro status via `PUT`, a coluna `data_finalizacao`
-  permanece preenchida, podendo destravar incorretamente uma ação dependente
-  (`estaBloqueado` verifica só `data_finalizacao == null`). Não é alcançável
-  pela UI atual (o seletor de status some quando finalizado), só via API
-  direta.
-- **`PUT` genérico do CRUD não repete a validação de campos obrigatórios do
-  `POST`**: dá pra mandar um `PUT` com `nome: ""` num cadastro e zerar um
-  campo obrigatório.
-- **`DELETE` do CRUD genérico retorna 200 mesmo se o id não existir**,
-  inconsistente com `GET`/`PUT` do mesmo arquivo que retornam 404.
+  `tipo = tarefa` e "É a etapa inicial?" não está marcado. Se precisar desse
+  caso no futuro, implementar `avancarFluxo` também no `PUT` de status.
+  - ~~**Gap residual conhecido nessa mitigação**~~ — **RESOLVIDO**:
+    `atualizarCamposProximaEtapa()` agora limpa os selects (`etapa_proxima_id`
+    e `etapa_proxima_vinculo`) ao escondê-los, então o valor antigo não é
+    mais reenviado silenciosamente no `POST`/`PUT`.
+- ~~**Botão "Excluir chamado" (`chamado.js`) ainda não trata erro de rede/API**~~
+  — **RESOLVIDO**: envolvido em try/catch com `mostrarErro()`, igual ao
+  resto do arquivo.
+- ~~**Regra de "vencido" não exclui status "suspenso"**~~ — **RESOLVIDO**:
+  `situacaoPrazo`/`chamadoComDetalhes` (backend) e `situacaoBadge` em
+  `chamados.js` (frontend, tinha uma reimplementação duplicada da mesma
+  regra) agora tratam `suspenso` igual a `finalizado` para efeito de
+  vencido/alerta.
+- ~~**`data_finalizacao` nunca é limpo**~~ — **RESOLVIDO**: `PUT /api/chamados/:id`
+  agora limpa `data_finalizacao` (`= NULL`) sempre que o `status_id` muda
+  para algo diferente de "finalizado".
+- ~~**`PUT` genérico do CRUD não repete a validação de campos obrigatórios do
+  `POST`**~~ — **RESOLVIDO**: `crudItemHandlers` agora rejeita `PUT` que
+  envie um campo `required` vazio/nulo, mesma regra do `POST`.
+- ~~**`DELETE` do CRUD genérico retorna 200 mesmo se o id não existir**~~ —
+  **RESOLVIDO**: agora checa `resultado.meta.changes` e retorna 404,
+  consistente com `GET`/`PUT`.
 - **Sem CHECK constraint** garantindo que cada chamado tenha exatamente um
   de `etapa_id`/`acao_origem_id` preenchido (hoje é só uma convenção do
-  código).
-- **`responsavel_id` nunca é definido nem exibido** em nenhuma tela, apesar
-  de a coluna e a regra de negócio existirem.
+  código). Avaliado nesta rodada e deixado de fora deliberadamente: SQLite
+  não suporta `ALTER TABLE ADD CONSTRAINT`, então corrigir de verdade exige
+  recriar a tabela `chamados` inteira (que hoje já tem dados reais em
+  produção, com FKs próprias — `chamado_mae_id`/`chamado_pai_id` — e duas
+  tabelas filhas). Risco de uma migração dessas em produção real não parece
+  compensar, dado que não é alcançável pela UI atual, só via API direta.
+- ~~**`responsavel_id` nunca é definido nem exibido**~~ — **RESOLVIDO**:
+  `chamado.js` agora mostra o responsável atual e um botão "Assumir"/"Liberar"
+  (auto-atribuição — qualquer usuário com permissão de editar o chamado pode
+  assumir ou se liberar; não há uma tela de "atribuir a outra pessoa").
 - **`pages_build_output_dir = "."` publica todo o repositório** como estático
   no domínio público do Cloudflare Pages — incluindo `docs/`, `migrations/*.sql`
   e `CLAUDE.md`. A partir da migração `0003_auth.sql` (login/senha), isso
@@ -111,27 +110,28 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   (abaixo do ideal) só para funcionar com a versão do `wrangler` instalada
   localmente durante a Fase 1. Atualizar o `wrangler` e avançar essa data é
   a correção correta quando alguém for mexer nisso de novo.
-- **Pequenos detalhes de UX**: o seletor de fluxo na tela de Fluxos não
-  atualiza sozinho depois de cadastrar um novo FluxoTemplate na tabela acima
-  (precisa recarregar a página); abrir `chamado.html` sem `?id=` ou com um id
-  inválido mostra página em branco sem mensagem de erro.
+- ~~**Pequenos detalhes de UX**~~ — **RESOLVIDO**: `renderCrud` ganhou um
+  callback opcional `aoSalvar`, usado por `fluxo.js` para recarregar o
+  seletor de fluxo sozinho depois de cadastrar um novo FluxoTemplate; abrir
+  `chamado.html` sem `?id=` agora mostra "Chamado não informado." e esconde
+  o resto da página (um id inválido mas presente já mostrava erro via
+  `carregarTudo().catch()`, isso não mudou).
 
 ## Achados da revisão final de branch (Autenticação login/senha) não corrigidos agora
 
 Ver `docs/superpowers/plans/2026-09-14-autenticacao-login-senha.md`.
 
-- **Autenticação sem autorização real**: este projeto tem uma tela de login,
-  mas nenhuma rota da API verifica sessão/token — qualquer chamada direta
-  (`curl`, etc.) continua funcionando sem passar pelo login, e o objeto do
-  usuário salvo no navegador (`localStorage`, incluindo `setor_id`) pode ser
-  editado pelo próprio usuário. Combinado com `GET /api/usuarios` (público,
-  lista todos os logins) e a senha padrão previsível (`1234` + login, sem
-  tela de troca), o sistema hoje autentica visualmente mas não protege de
-  verdade. Isso é esperado para um protótipo interno, mas precisa ser dito
-  explicitamente na apresentação/handoff para o TI: "tem autenticação" não
-  significa "está protegido". Uma implementação real precisaria de sessões
-  ou tokens server-side e autorização por rota, além de um KDF com salt
-  (bcrypt/scrypt/PBKDF2) em vez do SHA-256 sem salt usado aqui.
+- ~~**Autenticação sem autorização real**~~ — **RESOLVIDO** pela leva de
+  Permissões e Administração (`docs/superpowers/plans/2026-09-14-permissoes-e-administracao.md`,
+  PR #5): toda rota da API hoje passa por `exigirPermissao`/`exigirAdmin`
+  ou, no mínimo, `obterUsuarioDaRequisicao` (`functions/_lib/permissoes.js`)
+  — verificado nesta revisão em todos os arquivos de `functions/api/**`, e
+  confirmado manualmente que `PUT`/`DELETE` sem `Authorization: Bearer`
+  retornam 401. `GET /api/usuarios` também exige permissão
+  (`usuarios.visualizar`) e não é mais público. Continua verdade, e não
+  resolvido: as senhas usam SHA-256 sem salt (`functions/_lib/auth.js`) em
+  vez de um KDF como bcrypt/scrypt/PBKDF2 — aceitável para um protótipo
+  interno, mas vale dizer explicitamente no handoff para o TI.
 - **Condição de corrida na checagem de login único**: `usuarios/index.js` e
   `[id].js` checam duplicidade de `login` com um `SELECT` antes do `INSERT`/
   `UPDATE` (TOCTOU) — em teoria, duas requisições simultâneas criando o

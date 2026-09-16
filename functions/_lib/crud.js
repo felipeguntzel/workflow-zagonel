@@ -2,6 +2,15 @@ import { all, first, run } from "./db.js";
 import { json, error } from "./http.js";
 import { exigirPermissao } from "./permissoes.js";
 
+export function campoObrigatorioFaltando(body, required, { exigirPresente = false } = {}) {
+  for (const campo of required) {
+    const vazio = body[campo] === null || body[campo] === "";
+    const ausente = exigirPresente && body[campo] === undefined;
+    if (vazio || ausente) return campo;
+  }
+  return null;
+}
+
 export function crudHandlers(table, { required = [], optional = [], tela } = {}) {
   const campos = [...required, ...optional];
 
@@ -15,11 +24,8 @@ export function crudHandlers(table, { required = [], optional = [], tela } = {})
     const { erro } = await exigirPermissao(context, tela, "inserir");
     if (erro) return erro;
     const body = await context.request.json();
-    for (const campo of required) {
-      if (body[campo] === undefined || body[campo] === null || body[campo] === "") {
-        return error(`Campo obrigatório: ${campo}`);
-      }
-    }
+    const faltando = campoObrigatorioFaltando(body, required, { exigirPresente: true });
+    if (faltando) return error(`Campo obrigatório: ${faltando}`);
     const colunas = campos.filter((c) => body[c] !== undefined);
     const placeholders = colunas.map(() => "?").join(", ");
     const valores = colunas.map((c) => body[c]);
@@ -54,6 +60,8 @@ export function crudItemHandlers(table, { required = [], optional = [], tela } =
     const { erro } = await exigirPermissao(context, tela, "editar");
     if (erro) return erro;
     const body = await context.request.json();
+    const faltando = campoObrigatorioFaltando(body, required);
+    if (faltando) return error(`Campo obrigatório: ${faltando}`);
     const colunas = campos.filter((c) => body[c] !== undefined);
     if (colunas.length === 0) return error("Nenhum campo para atualizar");
     const set = colunas.map((c) => `${c} = ?`).join(", ");
@@ -67,7 +75,8 @@ export function crudItemHandlers(table, { required = [], optional = [], tela } =
   async function onRequestDelete(context) {
     const { erro } = await exigirPermissao(context, tela, "excluir");
     if (erro) return erro;
-    await run(context.env.DB, `DELETE FROM ${table} WHERE id = ?`, context.params.id);
+    const resultado = await run(context.env.DB, `DELETE FROM ${table} WHERE id = ?`, context.params.id);
+    if (resultado.meta.changes === 0) return error("Não encontrado", 404);
     return json({ ok: true });
   }
 
