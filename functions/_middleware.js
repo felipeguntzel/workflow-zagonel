@@ -4,7 +4,6 @@ export async function onRequest(context) {
   try {
     return await context.next();
   } catch (err) {
-    console.error("DEBUG_TEMP", err && err.stack ? err.stack : err);
     const message = err && err.message ? err.message : String(err);
     if (message.includes("FOREIGN KEY constraint failed")) {
       return error("Não é possível excluir: existem registros vinculados a este item.", 409);
