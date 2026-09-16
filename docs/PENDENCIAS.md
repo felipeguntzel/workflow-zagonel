@@ -213,3 +213,26 @@ Ver `docs/superpowers/specs/2026-09-14-permissoes-e-administracao-design.md`.
 - **Auditoria de quem alterou o quê** (log de ações).
 - **Múltiplos níveis hierárquicos de grupo** (herança entre grupos) — grupos
   são todos do mesmo nível, permissão efetiva é só a soma deles.
+
+## Reorganização de menus (futuro)
+
+- **Separar "Cadastros" em subtelas dedicadas**: hoje é uma tela só; dividir
+  em menus próprios para Empresas, Usuários, Setores, Status, Grupos de
+  Permissão e Fluxos.
+- **Novo menu "Dashboards"**: ainda não existe nenhuma tela desse tipo hoje.
+- **Reordenar menus principais em ordem alfabética**: Cadastros, Chamados,
+  Dashboards.
+- **Identificador numérico por tela + atalho de navegação (ex.: F1)**: cada
+  tela ganha um número de identificação; ao pressionar F1 (ou atalho
+  equivalente), abrir um campo para digitar o número ou nome da tela e
+  navegar direto até ela.
+- **Mover o botão com o nome do usuário logado para o rodapé do sidebar**;
+  ao clicar nele, mostrar as opções "Preferências" e "Sair" (em vez de botões
+  fixos separados).
+
+## Cor por status (futuro)
+
+- **Selecionar cor única por status na tela de cadastro de Status**, com
+  validação: não pode repetir cor já usada por outro status.
+- **Restringir as opções a uma paleta de cores principais/padronizadas**
+  (não permitir escolher qualquer cor livremente).
