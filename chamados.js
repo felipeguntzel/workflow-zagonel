@@ -23,15 +23,18 @@ function situacaoBadge(prazo, statusNome) {
 
 async function carregarChamados() {
   const chamados = await api("/chamados");
-  document.getElementById("tabela-chamados").innerHTML = chamados
-    .map(
-      (c) => `
-        <tr>
-          <td><a href="chamado.html?id=${c.id}">#${c.id} - ${c.titulo}</a></td>
-          <td>${c.status_nome}</td>
-          <td>${c.prazo}</td>
-          <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
-        </tr>`
-    )
-    .join("");
+  document.getElementById("tabela-chamados").innerHTML =
+    chamados.length === 0
+      ? `<tr><td colspan="4">Nenhum chamado encontrado.</td></tr>`
+      : chamados
+          .map(
+            (c) => `
+              <tr>
+                <td><a href="chamado.html?id=${c.id}" title="${c.titulo}">#${c.id} - ${c.titulo}</a></td>
+                <td>${c.status_nome}</td>
+                <td>${c.prazo}</td>
+                <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
+              </tr>`
+          )
+          .join("");
 }

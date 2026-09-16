@@ -1,6 +1,6 @@
 import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { mostrarErro, info } from "./ui.js";
+import { mostrarErro, mostrarMensagem, info } from "./ui.js";
 import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
 
@@ -47,15 +47,18 @@ async function iniciar(container, mensagemErro) {
 
   async function recarregarLista() {
     const grupos = await api("/grupos");
-    lista.innerHTML = grupos
-      .map(
-        (g) => `
-        <li data-id="${g.id}">
-          <button type="button" class="btn btn-secundario btn-selecionar" data-id="${g.id}">${g.nome}</button>
-          <button type="button" class="btn btn-perigo btn-excluir" data-id="${g.id}">Excluir</button>
-        </li>`
-      )
-      .join("");
+    lista.innerHTML =
+      grupos.length === 0
+        ? `<li>Nenhum grupo cadastrado ainda.</li>`
+        : grupos
+            .map(
+              (g) => `
+              <li data-id="${g.id}">
+                <button type="button" class="btn btn-secundario btn-selecionar" data-id="${g.id}">${g.nome}</button>
+                <button type="button" class="btn btn-perigo btn-excluir" data-id="${g.id}">Excluir</button>
+              </li>`
+            )
+            .join("");
 
     lista.querySelectorAll(".btn-selecionar").forEach((btn) =>
       btn.addEventListener("click", async () => {
@@ -135,6 +138,7 @@ async function iniciar(container, mensagemErro) {
       const nome = ev.target.elements.nome.value;
       try {
         await api(`/grupos/${id}`, { method: "PUT", body: { nome } });
+        mostrarMensagem(mensagemErro, "Nome atualizado.", "sucesso");
         await recarregarLista();
       } catch (e) {
         mostrarErro(mensagemErro, e);
@@ -155,6 +159,7 @@ async function iniciar(container, mensagemErro) {
       }
       try {
         await api(`/grupos/${id}/permissoes`, { method: "PUT", body: matriz });
+        mostrarMensagem(mensagemErro, "Permissões salvas.", "sucesso");
       } catch (e) {
         mostrarErro(mensagemErro, e);
       }

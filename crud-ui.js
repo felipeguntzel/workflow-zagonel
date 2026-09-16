@@ -146,18 +146,21 @@ export async function renderCrud(container, config) {
 
   async function recarregar() {
     const dados = await api(config.endpoint);
-    container.querySelector("tbody").innerHTML = dados
-      .map(
-        (linha) => `
-          <tr data-id="${linha.id}">
-            ${camposTabela.map((c) => `<td>${valorExibicao(linha, c, opcoesFK)}</td>`).join("")}
-            <td>
-              ${permissao.editar ? `<button type="button" class="btn btn-secundario btn-editar" data-id="${linha.id}">Editar</button>` : ""}
-              ${permissao.excluir ? `<button type="button" class="btn btn-perigo btn-excluir" data-id="${linha.id}">Excluir</button>` : ""}
-            </td>
-          </tr>`
-      )
-      .join("");
+    container.querySelector("tbody").innerHTML =
+      dados.length === 0
+        ? `<tr><td colspan="${camposTabela.length + 1}">Nenhum registro encontrado.</td></tr>`
+        : dados
+            .map(
+              (linha) => `
+                <tr data-id="${linha.id}">
+                  ${camposTabela.map((c) => `<td>${valorExibicao(linha, c, opcoesFK)}</td>`).join("")}
+                  <td>
+                    ${permissao.editar ? `<button type="button" class="btn btn-secundario btn-editar" data-id="${linha.id}">Editar</button>` : ""}
+                    ${permissao.excluir ? `<button type="button" class="btn btn-perigo btn-excluir" data-id="${linha.id}">Excluir</button>` : ""}
+                  </td>
+                </tr>`
+            )
+            .join("");
     if (permissao.editar) {
       container.querySelectorAll(".btn-editar").forEach((btn) =>
         btn.addEventListener("click", () => {

@@ -57,9 +57,12 @@ async function renderEtapas(fluxoId) {
         <tr><th>Nome</th><th>Setor</th><th>Tipo</th><th>Inicial?</th><th>Próxima etapa</th><th>Vínculo</th><th></th></tr>
       </thead>
       <tbody>
-        ${etapas
-          .map(
-            (e) => `
+        ${
+          etapas.length === 0
+            ? `<tr><td colspan="7">Nenhuma etapa cadastrada ainda.</td></tr>`
+            : etapas
+                .map(
+                  (e) => `
           <tr>
             <td>${e.nome}</td>
             <td>${nomeSetor(e.setor_id)}</td>
@@ -72,8 +75,9 @@ async function renderEtapas(fluxoId) {
               ${permissaoFluxos.excluir ? `<button type="button" class="btn btn-perigo btn-excluir-etapa" data-id="${e.id}">Excluir</button>` : ""}
             </td>
           </tr>`
-          )
-          .join("")}
+                )
+                .join("")
+        }
       </tbody>
     </table>
 
@@ -196,9 +200,12 @@ async function renderAcoes(etapaId) {
     <table>
       <thead><tr><th>Rótulo</th><th>Setor destino</th><th>Vínculo</th><th>Pré-requisito</th><th></th></tr></thead>
       <tbody>
-        ${etapa.acoes
-          .map(
-            (a) => `
+        ${
+          etapa.acoes.length === 0
+            ? `<tr><td colspan="5">Nenhuma ação cadastrada ainda.</td></tr>`
+            : etapa.acoes
+                .map(
+                  (a) => `
           <tr>
             <td>${a.rotulo}</td>
             <td>${setores.find((s) => s.id === a.setor_destino_id)?.nome ?? a.setor_destino_id}</td>
@@ -210,8 +217,9 @@ async function renderAcoes(etapaId) {
             }</td>
             <td>${permissaoFluxos.excluir ? `<button type="button" class="btn btn-perigo btn-excluir-acao" data-id="${a.id}">Excluir</button>` : ""}</td>
           </tr>`
-          )
-          .join("")}
+                )
+                .join("")
+        }
       </tbody>
     </table>
     ${
