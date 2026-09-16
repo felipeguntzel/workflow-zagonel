@@ -212,6 +212,7 @@ export async function renderCrud(container, config) {
         form.reset();
         botaoSalvar.textContent = "Adicionar";
         recarregar();
+        config.aoSalvar?.();
       } catch (e) {
         mostrarErro(document.getElementById("mensagem-erro"), e);
       }

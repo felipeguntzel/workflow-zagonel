@@ -13,7 +13,7 @@ if (usuario) {
 }
 
 function situacaoBadge(prazo, statusNome) {
-  if (statusNome === "finalizado") return "";
+  if (statusNome === "finalizado" || statusNome === "suspenso") return "";
   const hoje = new Date().toISOString().slice(0, 10);
   const diff = Math.round((new Date(prazo) - new Date(hoje)) / 86400000);
   if (diff < 0) return `<span class="badge badge-vencido">Vencido</span>`;

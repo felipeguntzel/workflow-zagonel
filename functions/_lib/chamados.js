@@ -158,17 +158,23 @@ export async function chamadoComDetalhes(db, id) {
        s.nome AS setor_nome,
        COALESCE(e.nome, a.rotulo) AS titulo,
        e.tipo AS etapa_tipo,
-       st.nome AS status_nome
+       st.nome AS status_nome,
+       resp.nome AS responsavel_nome
      FROM chamados c
      LEFT JOIN etapas e ON e.id = c.etapa_id
      LEFT JOIN acoes a ON a.id = c.acao_origem_id
      LEFT JOIN setores s ON s.id = COALESCE(e.setor_id, a.setor_destino_id)
      LEFT JOIN status st ON st.id = c.status_id
+     LEFT JOIN usuarios resp ON resp.id = c.responsavel_id
      WHERE c.id = ?`,
     id
   );
   if (!chamado) return null;
   const bloqueado = await computarBloqueado(db, chamado);
-  const situacao = situacaoPrazo(chamado.prazo, hojeISO(), chamado.data_finalizacao != null);
+  const situacao = situacaoPrazo(
+    chamado.prazo,
+    hojeISO(),
+    chamado.data_finalizacao != null || chamado.status_nome === "suspenso"
+  );
   return { ...chamado, bloqueado, situacao_prazo: situacao };
 }
