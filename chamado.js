@@ -1,5 +1,5 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
-import { montarNav, info, mostrarErro } from "./ui.js";
+import { montarNav, info, mostrarErro, escaparHtml } from "./ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
@@ -88,10 +88,10 @@ async function carregarDetalhe() {
   const finalizado = chamado.status_nome === "finalizado";
 
   document.getElementById("detalhe").innerHTML = `
-    <h1>#${chamado.id} - ${chamado.titulo}</h1>
-    <p>Setor: ${chamado.setor_nome} ${info("Setor responsável por esta etapa/tarefa.")}</p>
-    <p>Status: ${chamado.status_nome} - Prazo: ${chamado.prazo} (${chamado.situacao_prazo})</p>
-    ${chamado.resultado ? `<p>Resultado: ${chamado.resultado}</p>` : ""}
+    <h1>#${chamado.id} - ${escaparHtml(chamado.titulo)}</h1>
+    <p>Setor: ${escaparHtml(chamado.setor_nome)} ${info("Setor responsável por esta etapa/tarefa.")}</p>
+    <p>Status: ${escaparHtml(chamado.status_nome)} - Prazo: ${chamado.prazo} (${chamado.situacao_prazo})</p>
+    ${chamado.resultado ? `<p>Resultado: ${escaparHtml(chamado.resultado)}</p>` : ""}
     ${
       chamado.bloqueado
         ? `<p class="erro">Bloqueado: aguardando outra ação pré-requisito finalizar.</p>`
@@ -127,7 +127,7 @@ async function renderAprovacao(chamado) {
              ${etapa.acoes
                .map(
                  (a) =>
-                   `<label><input type="checkbox" name="acao-${a.id}" value="${a.id}"> ${a.rotulo}</label>`
+                   `<label><input type="checkbox" name="acao-${a.id}" value="${a.id}"> ${escaparHtml(a.rotulo)}</label>`
                )
                .join("")}
            </fieldset>`
@@ -187,7 +187,7 @@ async function renderStatusManual(chamado) {
       ${statusList
         .map(
           (s) =>
-            `<option value="${s.id}" ${s.id === chamado.status_id ? "selected" : ""}>${s.nome}</option>`
+            `<option value="${s.id}" ${s.id === chamado.status_id ? "selected" : ""}>${escaparHtml(s.nome)}</option>`
         )
         .join("")}
     </select>
@@ -219,7 +219,7 @@ async function carregarHoras() {
   document.getElementById("lista-horas").innerHTML = resumo.lancamentos
     .map(
       (l) =>
-        `<li>${l.data} - ${l.usuario_nome} - ${l.horas}h ${l.observacao ? `(${l.observacao})` : ""}</li>`
+        `<li>${l.data} - ${escaparHtml(l.usuario_nome)} - ${l.horas}h ${l.observacao ? `(${escaparHtml(l.observacao)})` : ""}</li>`
     )
     .join("");
 }
@@ -229,9 +229,9 @@ async function carregarComentarios() {
   document.getElementById("lista-comentarios").innerHTML = comentarios
     .map(
       (c) =>
-        `<li><strong>${c.usuario_nome ?? "Sistema"}</strong> (${c.data})${
+        `<li><strong>${escaparHtml(c.usuario_nome ?? "Sistema")}</strong> (${c.data})${
           c.eh_justificativa ? " - justificativa" : ""
-        }: ${c.texto}</li>`
+        }: ${escaparHtml(c.texto)}</li>`
     )
     .join("");
 }

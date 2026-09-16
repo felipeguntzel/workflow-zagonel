@@ -1,5 +1,11 @@
 import { logout, permissaoDaTela } from "./auth.js";
 
+const ENTIDADES_HTML = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+export function escaparHtml(texto) {
+  return String(texto ?? "").replace(/[&<>"']/g, (c) => ENTIDADES_HTML[c]);
+}
+
 export function info(texto) {
   return `<span class="info" title="${texto.replace(/"/g, "&quot;")}">i</span>`;
 }
@@ -29,7 +35,7 @@ export function montarNav(usuario) {
     ${podeVerCadastros ? `<a href="cadastros.html">Cadastros</a>` : ""}
     ${podeVerFluxos ? `<a href="fluxo.html">Fluxos</a>` : ""}
     ${usuario?.admin ? `<a href="grupos.html">Grupos de Permissão</a>` : ""}
-    <span class="nav-usuario">${usuario ? usuario.nome : ""}</span>
+    <span class="nav-usuario">${usuario ? escaparHtml(usuario.nome) : ""}</span>
     <a href="#" id="link-sair">Sair</a>
   `;
   nav.querySelector("#link-sair").addEventListener("click", (ev) => {
