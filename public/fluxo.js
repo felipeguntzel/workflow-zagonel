@@ -175,28 +175,6 @@ async function renderEtapas(fluxoId) {
       }
     });
 
-    const selectTipo = document.getElementById("form-etapa").elements.tipo;
-    const checkboxInicial = document.getElementById("form-etapa").elements.eh_inicial;
-    const campoProximaEtapa = document.getElementById("form-etapa").elements.etapa_proxima_id.closest("label");
-    const campoVinculo = document.getElementById("form-etapa").elements.etapa_proxima_vinculo.closest("label");
-
-    function atualizarCamposProximaEtapa() {
-      // Uma etapa tipo "tarefa" só avança o fluxo automaticamente quando é a
-      // etapa inicial (caso especial tratado na criação do chamado). Uma
-      // "tarefa" não-inicial com etapa_proxima_id configurada nunca avançaria
-      // sozinha, então escondemos os campos para não permitir essa combinação.
-      const oculto = selectTipo.value === "tarefa" && !checkboxInicial.checked;
-      campoProximaEtapa.hidden = oculto;
-      campoVinculo.hidden = oculto;
-      if (oculto) {
-        campoProximaEtapa.querySelector("select").value = "";
-        campoVinculo.querySelector("select").value = "pai";
-      }
-    }
-    selectTipo.addEventListener("change", atualizarCamposProximaEtapa);
-    checkboxInicial.addEventListener("change", atualizarCamposProximaEtapa);
-    atualizarCamposProximaEtapa();
-
     if (permissaoFluxos.editar) {
       container.querySelectorAll(".btn-editar-etapa").forEach((btn) =>
         btn.addEventListener("click", () => {
@@ -209,7 +187,6 @@ async function renderEtapas(fluxoId) {
           form.elements.eh_inicial.checked = !!e.eh_inicial;
           form.elements.etapa_proxima_id.value = e.etapa_proxima_id ?? "";
           form.elements.etapa_proxima_vinculo.value = e.etapa_proxima_vinculo ?? "pai";
-          atualizarCamposProximaEtapa();
           form.querySelector("button[type=submit]").textContent = "Salvar etapa";
         })
       );
