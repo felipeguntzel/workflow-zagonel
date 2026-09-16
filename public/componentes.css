@@ -108,6 +108,7 @@
   background: var(--cor-fundo-elevado);
   border-radius: 0.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: var(--cor-borda-largura) solid var(--cor-borda);
   padding: 1.25rem 1.5rem;
   margin-top: 1.5rem;
 }

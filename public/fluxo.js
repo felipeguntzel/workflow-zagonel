@@ -68,7 +68,7 @@ async function renderEtapas(fluxoId) {
                   .map(
                     (e) => `
             <tr>
-              <td title="${escaparAtributo(e.nome)}" style="white-space:normal; overflow-wrap:anywhere">${escaparHtml(e.nome)}</td>
+              <td>${escaparHtml(e.nome)}</td>
               <td title="${escaparAtributo(nomeSetor(e.setor_id))}">${escaparHtml(nomeSetor(e.setor_id))}</td>
               <td>${e.tipo}</td>
               <td>${e.eh_inicial ? "Sim" : "Não"}</td>
@@ -218,7 +218,7 @@ async function renderAcoes(etapaId) {
                   .map(
                     (a) => `
             <tr>
-              <td title="${escaparAtributo(a.rotulo)}" style="white-space:normal; overflow-wrap:anywhere">${escaparHtml(a.rotulo)}</td>
+              <td>${escaparHtml(a.rotulo)}</td>
               <td>${escaparHtml(setores.find((s) => s.id === a.setor_destino_id)?.nome ?? a.setor_destino_id)}</td>
               <td>${a.vinculo}</td>
               <td>${

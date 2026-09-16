@@ -166,6 +166,7 @@ td[title] { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space
   border-radius: 0.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   background: var(--cor-fundo-elevado);
+  border: var(--cor-borda-largura) solid var(--cor-borda);
   margin-top: 1rem;
 }
 .tabela-wrap table { margin-top: 0; }
