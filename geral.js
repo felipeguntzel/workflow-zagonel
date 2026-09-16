@@ -1,12 +1,12 @@
 import { exigirLogin } from "./auth.js";
-import { montarNav } from "./ui.js";
+import { aplicarLayout } from "./layout.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
 const id = new URLSearchParams(window.location.search).get("id");
 
 if (usuario && id) {
-  document.getElementById("nav").replaceWith(montarNav(usuario));
+  aplicarLayout(usuario);
   carregarArvore();
 }
 
