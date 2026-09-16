@@ -13,7 +13,7 @@ export async function onRequestPost(context) {
   const senhaHash = await hashSenha(body.senha);
   const usuario = await first(
     context.env.DB,
-    "SELECT id, nome, setor_id, admin, deve_trocar_senha FROM usuarios WHERE login = ? AND senha_hash = ?",
+    "SELECT id, nome, setor_id, admin, deve_trocar_senha, fonte, tamanho_fonte, tema FROM usuarios WHERE login = ? AND senha_hash = ?",
     loginNormalizado,
     senhaHash
   );

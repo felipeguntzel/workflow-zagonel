@@ -1,5 +1,7 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
-import { montarNav, info, mostrarErro, escaparHtml } from "./ui.js";
+import { aplicarLayout } from "./layout.js";
+import { info, mostrarErro, escaparHtml } from "./ui.js";
+import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
@@ -9,7 +11,7 @@ const permissaoChamados = usuario
   : { visualizar: false, inserir: false, editar: false, excluir: false };
 
 if (usuario && id) {
-  document.getElementById("nav").replaceWith(montarNav(usuario));
+  aplicarLayout(usuario);
   iniciar();
 }
 
@@ -27,9 +29,11 @@ function iniciar() {
   const botaoExcluir = document.getElementById("btn-excluir-chamado");
   if (permissaoChamados.excluir) {
     botaoExcluir.addEventListener("click", async () => {
-      if (!window.confirm("Excluir este chamado e toda a sua subárvore? Isso não pode ser desfeito.")) {
-        return;
-      }
+      const confirmado = await confirmarAcao(
+        "Excluir este chamado?",
+        "Toda a subárvore é excluída junto. Isso não pode ser desfeito."
+      );
+      if (!confirmado) return;
       await api(`/chamados/${id}`, { method: "DELETE" });
       window.location.href = "chamados.html";
     });
@@ -133,11 +137,11 @@ async function renderAprovacao(chamado) {
            </fieldset>`
         : ""
     }
-    <button type="button" id="btn-aprovar">Aprovar</button>
+    <button type="button" id="btn-aprovar" class="btn btn-primario">Aprovar</button>
     <label>Justificativa (obrigatória para reprovar)
       <textarea id="justificativa"></textarea>
     </label>
-    <button type="button" id="btn-reprovar">Reprovar</button>
+    <button type="button" id="btn-reprovar" class="btn btn-perigo">Reprovar</button>
     <p id="erro-decisao" class="erro" hidden></p>
   `;
 
@@ -191,7 +195,7 @@ async function renderStatusManual(chamado) {
         )
         .join("")}
     </select>
-    <button type="button" id="btn-salvar-status">Salvar status</button>
+    <button type="button" id="btn-salvar-status" class="btn btn-primario">Salvar status</button>
     <p id="erro-status" class="erro" hidden></p>
   `;
 

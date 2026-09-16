@@ -28,11 +28,12 @@ Ver `docs/superpowers/specs/2026-09-14-autenticacao-login-senha-design.md`.
   padrão fixo.
 - **Limite de tentativas de login (rate limiting)**: sem proteção contra
   força bruta no `POST /api/login`.
-- **Layout padrão para as telas internas (operacionais) + PWA**: nav/sidebar
-  consistente entre chamados/cadastros/fluxo/detalhe/geral, responsivo,
-  ocupando a tela toda, manifest + service worker para instalar como app.
-  Pedido pelo usuário junto com a autenticação, mas tratado como projeto
-  separado (desenho próprio depois desta leva).
+- **PWA**: manifest + service worker, instalável, funcionamento offline.
+  Pedido pelo usuário junto com a autenticação, tratado como Fase 2 do
+  projeto de layout/design system — a Fase 1 (sidebar/topbar responsivos,
+  temas, tipografia, componentes) já foi implementada, ver
+  `docs/superpowers/specs/2026-09-15-layout-interno-e-temas-design.md` e a
+  seção própria abaixo.
 
 ## Achados da revisão final de branch (Fase 1) não corrigidos agora
 
@@ -148,6 +149,43 @@ Ver `docs/superpowers/plans/2026-09-14-autenticacao-login-senha.md`.
   inválido (ex: com ponto ou espaço), o navegador mostra só a mensagem
   genérica de validação, sem explicar a regra. Um atributo `title` no
   `<input>` resolveria.
+
+## Achados da revisão final de branch (Layout interno e sistema de design) não corrigidos agora
+
+Ver `docs/superpowers/plans/2026-09-15-layout-interno-e-temas.md`. A revisão
+final encontrou 2 problemas críticos e 3 importantes, todos corrigidos antes
+do merge (CSS de erro faltando em login/troca de senha; XSS armazenado num
+atributo `title`; menu da topbar reabrindo; tooltip faltando em algumas
+tabelas; flash de tema em alto contraste). Os itens abaixo ficaram
+deliberadamente de fora por serem menores/isolados:
+
+- ~~**XSS mais amplo e pré-existente**~~ — **RESOLVIDO**: corrigido em
+  sessão separada (`escaparHtml()` em `ui.js`, aplicado em `chamado.js`,
+  `chamados.js`, `crud-ui.js`, `fluxo.js`, `geral.js`, `grupos.js`,
+  `novo-chamado.js`), commit `9bcd35f`, PR #6, mergeado direto em `master`.
+  Reconciliado com o layout novo desta fase via merge (`be68623`), mantendo
+  também o `escaparAtributo()` já usado nos atributos `title`. Verificado
+  em navegador real após o merge: nome de etapa com `<img src=x
+  onerror=...>` renderiza como texto, sem executar.
+- **Estados vazios da Task 15 não cobriram `chamado.js`**: as listas de
+  "Apontamento de horas" e "Comentários" de um chamado recém-aberto mostram
+  o título da seção sem nenhum texto abaixo, em vez de uma mensagem como
+  "Nenhum lançamento ainda."/"Nenhum comentário ainda." (o padrão foi
+  aplicado em `chamados.js`, `crud-ui.js`, `fluxo.js` e `grupos.js`, mas não
+  aqui).
+- **Mensagem de sucesso em Grupos de Permissão nunca desaparece**:
+  `grupos.js` chama `mostrarMensagem(..., "sucesso")` ao salvar nome ou
+  permissões, mas nada volta a escondê-la — "Permissões salvas." fica na
+  tela indefinidamente até a próxima ação que sobrescreva o elemento.
+- **Código morto isolado**: `.card` em `componentes.css` (definida, nunca
+  usada); `--cor-primaria-escura` em `style.css` (definida nos dois temas,
+  nunca usada — o gradiente do login está com a cor hardcoded); `situacaoClasse`
+  em `ui.js` (função exportada sem nenhum import restante no projeto).
+- **`novo-chamado.js` não usa o helper `mostrarErro()` compartilhado** —
+  única das 7 telas migradas que ainda faz `textContent`/`hidden` na mão.
+  Funciona igual, só não se beneficia do reset de `className` que o helper
+  faz (mesma classe de inconsistência já registrada para `index.js` na
+  leva de autenticação).
 
 ## Fora de escopo da leva de permissões e administração
 

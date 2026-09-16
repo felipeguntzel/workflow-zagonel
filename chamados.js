@@ -1,10 +1,11 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
-import { montarNav, mostrarErro, escaparHtml } from "./ui.js";
+import { aplicarLayout } from "./layout.js";
+import { mostrarErro, escaparAtributo, escaparHtml } from "./ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
 if (usuario) {
-  document.getElementById("nav").replaceWith(montarNav(usuario));
+  aplicarLayout(usuario);
   if (!permissaoDaTela("chamados").inserir) {
     document.getElementById("link-novo-chamado").hidden = true;
   }
@@ -22,15 +23,18 @@ function situacaoBadge(prazo, statusNome) {
 
 async function carregarChamados() {
   const chamados = await api("/chamados");
-  document.getElementById("tabela-chamados").innerHTML = chamados
-    .map(
-      (c) => `
-        <tr>
-          <td><a href="chamado.html?id=${c.id}">#${c.id} - ${escaparHtml(c.titulo)}</a></td>
-          <td>${escaparHtml(c.status_nome)}</td>
-          <td>${c.prazo}</td>
-          <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
-        </tr>`
-    )
-    .join("");
+  document.getElementById("tabela-chamados").innerHTML =
+    chamados.length === 0
+      ? `<tr><td colspan="4">Nenhum chamado encontrado.</td></tr>`
+      : chamados
+          .map(
+            (c) => `
+              <tr>
+                <td><a href="chamado.html?id=${c.id}" title="${escaparAtributo(c.titulo)}">#${c.id} - ${escaparHtml(c.titulo)}</a></td>
+                <td>${escaparHtml(c.status_nome)}</td>
+                <td>${c.prazo}</td>
+                <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
+              </tr>`
+          )
+          .join("");
 }

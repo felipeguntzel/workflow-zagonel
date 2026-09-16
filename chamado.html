@@ -2,9 +2,21 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WorkFlow Zagonel - Chamado</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="componentes.css">
+<script>
+(function () {
+  try {
+    var u = JSON.parse(localStorage.getItem("workflow_zagonel_usuario"));
+    document.documentElement.setAttribute("data-tema", (u && u.tema) || "claro");
+    document.documentElement.setAttribute("data-fonte", (u && u.fonte) || "arial");
+    document.documentElement.setAttribute("data-tamanho", (u && u.tamanho_fonte) || "m");
+  } catch (e) {}
+})();
+</script>
 </head>
 <body>
 <div id="nav"></div>
@@ -13,7 +25,7 @@
   <p id="mensagem-erro" class="erro" hidden></p>
   <div id="detalhe"></div>
   <div id="acao"></div>
-  <p><button type="button" id="btn-excluir-chamado">Excluir chamado</button></p>
+  <p><button type="button" id="btn-excluir-chamado" class="btn btn-perigo">Excluir chamado</button></p>
   <section>
     <h2>Apontamento de horas <span id="total-horas"></span></h2>
     <ul id="lista-horas"></ul>
@@ -21,7 +33,7 @@
       <label>Data <input type="date" name="data" required></label>
       <label>Horas <input type="number" step="0.5" min="0.5" name="horas" required></label>
       <label>Observação <input type="text" name="observacao"></label>
-      <button type="submit">Lançar horas</button>
+      <button type="submit" class="btn btn-primario">Lançar horas</button>
     </form>
   </section>
   <section>
@@ -29,7 +41,7 @@
     <ul id="lista-comentarios"></ul>
     <form class="formulario" id="form-comentario">
       <label>Novo comentário <textarea name="texto" required></textarea></label>
-      <button type="submit">Comentar</button>
+      <button type="submit" class="btn btn-primario">Comentar</button>
     </form>
   </section>
 </main>

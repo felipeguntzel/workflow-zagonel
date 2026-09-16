@@ -1,13 +1,15 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
-import { montarNav, info, mostrarErro, escaparHtml } from "./ui.js";
+import { aplicarLayout } from "./layout.js";
+import { info, mostrarErro, escaparAtributo, escaparHtml } from "./ui.js";
 import { renderCrud } from "./crud-ui.js";
+import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
 let permissaoFluxos = { visualizar: false, inserir: false, editar: false, excluir: false };
 
 if (usuario) {
-  document.getElementById("nav").replaceWith(montarNav(usuario));
+  aplicarLayout(usuario);
   const mensagemErro = document.getElementById("mensagem-erro");
   permissaoFluxos = permissaoDaTela("fluxos");
 
@@ -55,23 +57,27 @@ async function renderEtapas(fluxoId) {
         <tr><th>Nome</th><th>Setor</th><th>Tipo</th><th>Inicial?</th><th>Próxima etapa</th><th>Vínculo</th><th></th></tr>
       </thead>
       <tbody>
-        ${etapas
-          .map(
-            (e) => `
+        ${
+          etapas.length === 0
+            ? `<tr><td colspan="7">Nenhuma etapa cadastrada ainda.</td></tr>`
+            : etapas
+                .map(
+                  (e) => `
           <tr>
-            <td>${escaparHtml(e.nome)}</td>
-            <td>${escaparHtml(nomeSetor(e.setor_id))}</td>
+            <td title="${escaparAtributo(e.nome)}">${escaparHtml(e.nome)}</td>
+            <td title="${escaparAtributo(nomeSetor(e.setor_id))}">${escaparHtml(nomeSetor(e.setor_id))}</td>
             <td>${e.tipo}</td>
             <td>${e.eh_inicial ? "Sim" : "Não"}</td>
-            <td>${e.etapa_proxima_id ? escaparHtml(nomeEtapa(e.etapa_proxima_id)) : "-"}</td>
+            <td title="${escaparAtributo(e.etapa_proxima_id ? nomeEtapa(e.etapa_proxima_id) : "-")}">${e.etapa_proxima_id ? escaparHtml(nomeEtapa(e.etapa_proxima_id)) : "-"}</td>
             <td>${e.etapa_proxima_vinculo ?? "-"}</td>
             <td>
-              ${e.tipo === "aprovacao" ? `<button type="button" class="btn-acoes" data-id="${e.id}">Ações</button>` : ""}
-              ${permissaoFluxos.excluir ? `<button type="button" class="btn-excluir-etapa" data-id="${e.id}">Excluir</button>` : ""}
+              ${e.tipo === "aprovacao" ? `<button type="button" class="btn btn-secundario btn-acoes" data-id="${e.id}">Ações</button>` : ""}
+              ${permissaoFluxos.excluir ? `<button type="button" class="btn btn-perigo btn-excluir-etapa" data-id="${e.id}">Excluir</button>` : ""}
             </td>
           </tr>`
-          )
-          .join("")}
+                )
+                .join("")
+        }
       </tbody>
     </table>
 
@@ -111,7 +117,7 @@ async function renderEtapas(fluxoId) {
           <option value="mae">Chamado mãe (raiz)</option>
         </select>
       </label>
-      <button type="submit">Adicionar etapa</button>
+      <button type="submit" class="btn btn-primario">Adicionar etapa</button>
     </form>
     `
         : ""
@@ -126,6 +132,8 @@ async function renderEtapas(fluxoId) {
   if (permissaoFluxos.excluir) {
     container.querySelectorAll(".btn-excluir-etapa").forEach((btn) =>
       btn.addEventListener("click", async () => {
+        const confirmado = await confirmarAcao("Excluir esta etapa?", "Essa ação não pode ser desfeita.");
+        if (!confirmado) return;
         try {
           await api(`/etapas/${btn.dataset.id}`, { method: "DELETE" });
           renderEtapas(fluxoId);
@@ -192,11 +200,14 @@ async function renderAcoes(etapaId) {
     <table>
       <thead><tr><th>Rótulo</th><th>Setor destino</th><th>Vínculo</th><th>Pré-requisito</th><th></th></tr></thead>
       <tbody>
-        ${etapa.acoes
-          .map(
-            (a) => `
+        ${
+          etapa.acoes.length === 0
+            ? `<tr><td colspan="5">Nenhuma ação cadastrada ainda.</td></tr>`
+            : etapa.acoes
+                .map(
+                  (a) => `
           <tr>
-            <td>${escaparHtml(a.rotulo)}</td>
+            <td title="${escaparAtributo(a.rotulo)}">${escaparHtml(a.rotulo)}</td>
             <td>${escaparHtml(setores.find((s) => s.id === a.setor_destino_id)?.nome ?? a.setor_destino_id)}</td>
             <td>${a.vinculo}</td>
             <td>${
@@ -204,10 +215,11 @@ async function renderAcoes(etapaId) {
                 ? escaparHtml(etapa.acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-")
                 : "-"
             }</td>
-            <td>${permissaoFluxos.excluir ? `<button type="button" class="btn-excluir-acao" data-id="${a.id}">Excluir</button>` : ""}</td>
+            <td>${permissaoFluxos.excluir ? `<button type="button" class="btn btn-perigo btn-excluir-acao" data-id="${a.id}">Excluir</button>` : ""}</td>
           </tr>`
-          )
-          .join("")}
+                )
+                .join("")
+        }
       </tbody>
     </table>
     ${
@@ -237,7 +249,7 @@ async function renderAcoes(etapaId) {
           ${etapa.acoes.map((a) => `<option value="${a.id}">${escaparHtml(a.rotulo)}</option>`).join("")}
         </select>
       </label>
-      <button type="submit">Adicionar ação</button>
+      <button type="submit" class="btn btn-primario">Adicionar ação</button>
     </form>
     `
         : ""
@@ -247,6 +259,8 @@ async function renderAcoes(etapaId) {
   if (permissaoFluxos.excluir) {
     container.querySelectorAll(".btn-excluir-acao").forEach((btn) =>
       btn.addEventListener("click", async () => {
+        const confirmado = await confirmarAcao("Excluir esta ação?", "Essa ação não pode ser desfeita.");
+        if (!confirmado) return;
         try {
           await api(`/acoes/${btn.dataset.id}`, { method: "DELETE" });
           renderAcoes(etapaId);

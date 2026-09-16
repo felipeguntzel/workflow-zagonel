@@ -1,0 +1,94 @@
+.btn {
+  display: inline-block;
+  border: none;
+  border-radius: 0.35rem;
+  padding: 0.6rem 1.1rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-primario {
+  background: var(--cor-primaria);
+  color: var(--cor-primaria-texto);
+}
+.btn-primario:hover { filter: brightness(0.92); }
+.btn-secundario {
+  background: var(--cor-fundo-elevado);
+  color: var(--cor-primaria);
+  border: var(--cor-borda-largura) solid var(--cor-primaria);
+}
+.btn-secundario:hover { background: var(--cor-fundo); }
+.btn-perigo {
+  background: var(--cor-vencido);
+  color: white;
+}
+:root[data-tema="alto-contraste"] .btn-perigo { color: #000; }
+.btn-perigo:hover { filter: brightness(0.9); }
+.btn:disabled {
+  background: var(--cor-borda);
+  color: var(--cor-texto-secundario);
+  cursor: not-allowed;
+  filter: none;
+}
+
+.card {
+  background: var(--cor-fundo-elevado);
+  border: var(--cor-borda-largura) solid var(--cor-borda);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.modal-fundo {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal {
+  background: var(--cor-fundo-elevado);
+  color: var(--cor-texto);
+  border: var(--cor-borda-largura) solid var(--cor-borda);
+  border-radius: 0.6rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  padding: 1.5rem;
+  max-width: 360px;
+  width: calc(100% - 2rem);
+}
+.modal__titulo {
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+}
+.modal__mensagem {
+  font-size: 0.9rem;
+  color: var(--cor-texto-secundario);
+  margin: 0 0 1.25rem;
+}
+.modal__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.erro, .mensagem-aviso, .mensagem-sucesso {
+  border-left: 4px solid transparent;
+  border-radius: 0.3rem;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.88rem;
+}
+.erro { background: #fdecea; border-left-color: var(--cor-vencido); color: #7d2b1f; }
+.mensagem-aviso { background: #fef6e0; border-left-color: var(--cor-alerta); color: #6b5100; }
+.mensagem-sucesso { background: #eaf3ee; border-left-color: var(--cor-ok); color: #1d4a35; }
+:root[data-tema="alto-contraste"] .erro,
+:root[data-tema="alto-contraste"] .mensagem-aviso,
+:root[data-tema="alto-contraste"] .mensagem-sucesso {
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  border-left-width: 6px;
+  border: var(--cor-borda-largura) solid var(--cor-borda);
+  border-left-width: 6px;
+}
