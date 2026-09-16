@@ -1,16 +1,42 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { hashSenha, validarFormatoLogin } from "./auth.js";
+import { hashSenha, verificarSenha, ehHashLegado, validarFormatoLogin } from "./auth.js";
 
-test("hashSenha computes the SHA-256 hex digest of the input", async () => {
+test("hashSenha produces a self-describing pbkdf2$iterações$salt$hash string", async () => {
   const hash = await hashSenha("1234ana");
-  assert.equal(hash, "4176647594e2a5ba663e60d7240a308d6562755d22c70d717a704b48448648b3");
+  assert.match(hash, /^pbkdf2\$\d+\$[0-9a-f]{32}\$[0-9a-f]{64}$/);
 });
 
-test("hashSenha produces different hashes for different inputs", async () => {
+test("hashSenha salts each call, so the same password hashes differently every time", async () => {
   const a = await hashSenha("1234ana");
-  const b = await hashSenha("1234bruno");
+  const b = await hashSenha("1234ana");
   assert.notEqual(a, b);
+});
+
+test("verificarSenha accepts the correct password against a pbkdf2 hash", async () => {
+  const hash = await hashSenha("1234ana");
+  assert.equal(await verificarSenha("1234ana", hash), true);
+});
+
+test("verificarSenha rejects the wrong password against a pbkdf2 hash", async () => {
+  const hash = await hashSenha("1234ana");
+  assert.equal(await verificarSenha("outrasenha", hash), false);
+});
+
+test("verificarSenha still accepts the legacy SHA-256-without-salt hash (pre-migration users)", async () => {
+  const hashLegado = "4176647594e2a5ba663e60d7240a308d6562755d22c70d717a704b48448648b3";
+  assert.equal(await verificarSenha("1234ana", hashLegado), true);
+  assert.equal(await verificarSenha("senhaerrada", hashLegado), false);
+});
+
+test("verificarSenha returns false for a missing/null stored hash instead of throwing", async () => {
+  assert.equal(await verificarSenha("qualquer", null), false);
+});
+
+test("ehHashLegado tells apart the old plain SHA-256 hash from the new pbkdf2$ format", async () => {
+  const novo = await hashSenha("1234ana");
+  assert.equal(ehHashLegado(novo), false);
+  assert.equal(ehHashLegado("4176647594e2a5ba663e60d7240a308d6562755d22c70d717a704b48448648b3"), true);
 });
 
 test("validarFormatoLogin accepts lowercase letters and digits only", () => {

@@ -252,22 +252,28 @@ async function renderStatusManual(chamado) {
 async function carregarHoras() {
   const resumo = await api(`/chamados/${id}/horas`);
   document.getElementById("total-horas").textContent = `(total: ${resumo.total_horas}h)`;
-  document.getElementById("lista-horas").innerHTML = resumo.lancamentos
-    .map(
-      (l) =>
-        `<li>${l.data} - ${escaparHtml(l.usuario_nome)} - ${l.horas}h ${l.observacao ? `(${escaparHtml(l.observacao)})` : ""}</li>`
-    )
-    .join("");
+  document.getElementById("lista-horas").innerHTML =
+    resumo.lancamentos.length === 0
+      ? `<li>Nenhum lançamento ainda.</li>`
+      : resumo.lancamentos
+          .map(
+            (l) =>
+              `<li>${l.data} - ${escaparHtml(l.usuario_nome)} - ${l.horas}h ${l.observacao ? `(${escaparHtml(l.observacao)})` : ""}</li>`
+          )
+          .join("");
 }
 
 async function carregarComentarios() {
   const comentarios = await api(`/chamados/${id}/comentarios`);
-  document.getElementById("lista-comentarios").innerHTML = comentarios
-    .map(
-      (c) =>
-        `<li><strong>${escaparHtml(c.usuario_nome ?? "Sistema")}</strong> (${c.data})${
-          c.eh_justificativa ? " - justificativa" : ""
-        }: ${escaparHtml(c.texto)}</li>`
-    )
-    .join("");
+  document.getElementById("lista-comentarios").innerHTML =
+    comentarios.length === 0
+      ? `<li>Nenhum comentário ainda.</li>`
+      : comentarios
+          .map(
+            (c) =>
+              `<li><strong>${escaparHtml(c.usuario_nome ?? "Sistema")}</strong> (${c.data})${
+                c.eh_justificativa ? " - justificativa" : ""
+              }: ${escaparHtml(c.texto)}</li>`
+          )
+          .join("");
 }

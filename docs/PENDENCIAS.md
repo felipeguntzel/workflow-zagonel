@@ -75,14 +75,22 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
 - ~~**`DELETE` do CRUD genérico retorna 200 mesmo se o id não existir**~~ —
   **RESOLVIDO**: agora checa `resultado.meta.changes` e retorna 404,
   consistente com `GET`/`PUT`.
-- **Sem CHECK constraint** garantindo que cada chamado tenha exatamente um
-  de `etapa_id`/`acao_origem_id` preenchido (hoje é só uma convenção do
-  código). Avaliado nesta rodada e deixado de fora deliberadamente: SQLite
-  não suporta `ALTER TABLE ADD CONSTRAINT`, então corrigir de verdade exige
-  recriar a tabela `chamados` inteira (que hoje já tem dados reais em
-  produção, com FKs próprias — `chamado_mae_id`/`chamado_pai_id` — e duas
-  tabelas filhas). Risco de uma migração dessas em produção real não parece
-  compensar, dado que não é alcançável pela UI atual, só via API direta.
+- ~~**Sem CHECK constraint**~~ — **RESOLVIDO** (`migrations/0007_check_chamados_etapa_ou_acao.sql`):
+  liberado pelo dono do sistema pois ainda não há uso real em produção.
+  SQLite não suporta `ALTER TABLE ADD CONSTRAINT`, e o D1 aplica foreign
+  keys sempre (`PRAGMA foreign_keys=OFF` não teve efeito, testado
+  localmente), então a tabela `chamados` foi recriada com
+  `CHECK ((etapa_id IS NOT NULL) != (acao_origem_id IS NOT NULL))`
+  renomeando a tabela antiga primeiro (o `RENAME` do SQLite atualiza
+  sozinho as FKs de quem aponta pra ela — o auto-relacionamento
+  `chamado_mae_id`/`chamado_pai_id` e as FKs de `comentarios`/
+  `apontamentos_horas`) e copiando os dados em ordem de `id` antes de
+  reapontar essas duas tabelas filhas pra `chamados` nova. Verificado
+  localmente: dados existentes preservados (inclusive hierarquia
+  mãe/pai), `INSERT` com os dois campos preenchidos ou os dois vazios
+  falha com `CHECK constraint failed`, e o fluxo real do app (criar
+  chamado mãe, aprovar etapa, gerar chamado via ação) continua
+  funcionando normalmente.
 - ~~**`responsavel_id` nunca é definido nem exibido**~~ — **RESOLVIDO**:
   `chamado.js` agora mostra o responsável atual e um botão "Assumir"/"Liberar"
   (auto-atribuição — qualquer usuário com permissão de editar o chamado pode
@@ -107,9 +115,14 @@ documentado aqui para não serem esquecidos numa reimplementação futura.
   `public/`) e apontar `pages_build_output_dir` só para ela, em vez de
   depender de rotas catch-all.
 - **`wrangler.toml`'s `compatibility_date` está fixado em 2026-07-09**
-  (abaixo do ideal) só para funcionar com a versão do `wrangler` instalada
-  localmente durante a Fase 1. Atualizar o `wrangler` e avançar essa data é
-  a correção correta quando alguém for mexer nisso de novo.
+  (abaixo do ideal). Confirmado nesta revisão: não dá pra só avançar a data
+  — o binário do `wrangler` 4.107.1 instalado localmente recusa rodar
+  (`This Worker requires compatibility date "…", but the newest date
+  supported by this server binary is "2026-07-09"`.). Precisa primeiro
+  atualizar o `wrangler` (`npm install -D wrangler@latest`, hoje disponível
+  4.132.0) e testar a Fase 1 inteira de novo antes de avançar a data —
+  deixado de fora desta rodada por ser uma troca de dependência, não um bug
+  isolado.
 - ~~**Pequenos detalhes de UX**~~ — **RESOLVIDO**: `renderCrud` ganhou um
   callback opcional `aoSalvar`, usado por `fluxo.js` para recarregar o
   seletor de fluxo sozinho depois de cadastrar um novo FluxoTemplate; abrir
@@ -128,27 +141,32 @@ Ver `docs/superpowers/plans/2026-09-14-autenticacao-login-senha.md`.
   — verificado nesta revisão em todos os arquivos de `functions/api/**`, e
   confirmado manualmente que `PUT`/`DELETE` sem `Authorization: Bearer`
   retornam 401. `GET /api/usuarios` também exige permissão
-  (`usuarios.visualizar`) e não é mais público. Continua verdade, e não
-  resolvido: as senhas usam SHA-256 sem salt (`functions/_lib/auth.js`) em
-  vez de um KDF como bcrypt/scrypt/PBKDF2 — aceitável para um protótipo
-  interno, mas vale dizer explicitamente no handoff para o TI.
-- **Condição de corrida na checagem de login único**: `usuarios/index.js` e
-  `[id].js` checam duplicidade de `login` com um `SELECT` antes do `INSERT`/
-  `UPDATE` (TOCTOU) — em teoria, duas requisições simultâneas criando o
-  mesmo login poderiam ambas passar a checagem e uma delas cair no
-  `UNIQUE INDEX` do banco, que hoje não é tratado por `functions/_middleware.js`
-  (só trata `FOREIGN KEY constraint failed`), resultando num 500 em vez de
-  400. Probabilidade muito baixa no uso real (poucos usuários, cadastro
-  raro), mas o fix é uma linha a mais no middleware. O mesmo vale para
-  `status.nome`, que também é `UNIQUE` e não tem checagem amigável no CRUD
-  genérico.
-- **`index.js` (tela de login) não reaproveita `mostrarErro()` de `ui.js`**:
-  faz `textContent`/`hidden` na mão em vez de chamar o helper compartilhado
-  que todo o resto do app usa — funciona igual, só não é consistente.
-- **Campo de login sem `title` no atributo `pattern`**: ao digitar um login
-  inválido (ex: com ponto ou espaço), o navegador mostra só a mensagem
-  genérica de validação, sem explicar a regra. Um atributo `title` no
-  `<input>` resolveria.
+  (`usuarios.visualizar`) e não é mais público. O outro ponto do achado
+  (SHA-256 sem salt) também está **RESOLVIDO**: `hashSenha()` passou a
+  usar PBKDF2 (100.000 iterações, SHA-256) com salt aleatório de 16
+  bytes por usuário, formato auto-descritivo `pbkdf2$iterações$salt$hash`.
+  Migração transparente: `POST /api/login` aceita o hash legado (SHA-256
+  sem salt) uma última vez e, se a senha bater, re-hasheia com PBKDF2 e
+  salva no banco na hora — sem exigir troca de senha nem risco de ninguém
+  ficar bloqueado no próximo deploy (que é automático ao dar push em
+  `master`, sem gate manual — trocar o algoritmo sem esse caminho de
+  migração teria travado o próprio admin no ar). Verificado manualmente:
+  login com o hash antigo funciona e migra sozinho; login seguinte já usa
+  o hash novo; senha errada continua rejeitada nos dois formatos; usuário
+  novo e troca de senha já nascem em PBKDF2 direto.
+- ~~**Condição de corrida na checagem de login único**~~ — **RESOLVIDO**:
+  `functions/_middleware.js` agora também trata `UNIQUE constraint failed`
+  (400 "Já existe um registro com esse valor."), cobrindo genericamente
+  `usuarios.login`, `status.nome` e qualquer outra coluna `UNIQUE` do CRUD —
+  não corrige o TOCTOU em si (ainda dá pra duas requisições simultâneas
+  passarem pelo `SELECT` de checagem), mas garante que o resultado final é
+  um 400 amigável em vez de 500. Verificado manualmente via `curl`.
+- ~~**`index.js` (tela de login) não reaproveita `mostrarErro()` de `ui.js`**~~
+  — **RESOLVIDO**.
+- ~~**Campo de login sem `title` no atributo `pattern`**~~ — **RESOLVIDO**:
+  adicionado `title="Use apenas letras e números, sem espaços, pontos ou
+  caracteres especiais"`, mesma mensagem já usada no backend
+  (`validarFormatoLogin`).
 
 ## Achados da revisão final de branch (Layout interno e sistema de design) não corrigidos agora
 
@@ -167,25 +185,24 @@ deliberadamente de fora por serem menores/isolados:
   também o `escaparAtributo()` já usado nos atributos `title`. Verificado
   em navegador real após o merge: nome de etapa com `<img src=x
   onerror=...>` renderiza como texto, sem executar.
-- **Estados vazios da Task 15 não cobriram `chamado.js`**: as listas de
-  "Apontamento de horas" e "Comentários" de um chamado recém-aberto mostram
-  o título da seção sem nenhum texto abaixo, em vez de uma mensagem como
-  "Nenhum lançamento ainda."/"Nenhum comentário ainda." (o padrão foi
-  aplicado em `chamados.js`, `crud-ui.js`, `fluxo.js` e `grupos.js`, mas não
-  aqui).
-- **Mensagem de sucesso em Grupos de Permissão nunca desaparece**:
-  `grupos.js` chama `mostrarMensagem(..., "sucesso")` ao salvar nome ou
-  permissões, mas nada volta a escondê-la — "Permissões salvas." fica na
-  tela indefinidamente até a próxima ação que sobrescreva o elemento.
-- **Código morto isolado**: `.card` em `componentes.css` (definida, nunca
-  usada); `--cor-primaria-escura` em `style.css` (definida nos dois temas,
-  nunca usada — o gradiente do login está com a cor hardcoded); `situacaoClasse`
-  em `ui.js` (função exportada sem nenhum import restante no projeto).
-- **`novo-chamado.js` não usa o helper `mostrarErro()` compartilhado** —
-  única das 7 telas migradas que ainda faz `textContent`/`hidden` na mão.
-  Funciona igual, só não se beneficia do reset de `className` que o helper
-  faz (mesma classe de inconsistência já registrada para `index.js` na
-  leva de autenticação).
+- ~~**Estados vazios da Task 15 não cobriram `chamado.js`**~~ —
+  **RESOLVIDO**: `carregarHoras()`/`carregarComentarios()` agora mostram
+  "Nenhum lançamento ainda."/"Nenhum comentário ainda." quando a lista vem
+  vazia, mesmo padrão já usado em `chamados.js`, `crud-ui.js`, `fluxo.js` e
+  `grupos.js`.
+- ~~**Mensagem de sucesso em Grupos de Permissão nunca desaparece**~~ —
+  **RESOLVIDO**: `mostrarMensagem()` em `ui.js` agora esconde a mensagem
+  sozinha depois de 3s (`setTimeout`, reiniciado a cada chamada) — corrige
+  para qualquer tela que use o helper, não só Grupos.
+- ~~**Código morto isolado**~~ — **RESOLVIDO**: `.card` removida de
+  `componentes.css`; `situacaoClasse` removida de `ui.js`; o gradiente do
+  login em `style.css` passou a usar `var(--cor-primaria)`/
+  `var(--cor-primaria-escura)` em vez das cores hardcoded (visualmente
+  idêntico hoje, já que `index.html` nunca seta `data-tema` — mas agora a
+  variável é de fato usada, e o login herda o tema se isso mudar no
+  futuro).
+- ~~**`novo-chamado.js` não usa o helper `mostrarErro()` compartilhado**~~ —
+  **RESOLVIDO**.
 
 ## Fora de escopo da leva de permissões e administração
 
