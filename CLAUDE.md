@@ -3,7 +3,7 @@
 Protótipo funcional (não descartável) de um sistema de gestão de chamados de
 alteração/criação de produto, para apresentar à direção e depois ser
 reimplementado/integrado pelo TI. Roda em produção no Cloudflare (Pages +
-Functions + D1) desde o início — CRUD completo (criar, editar, excluir) em
+Functions + D1) desde o início: CRUD completo (criar, editar, excluir) em
 todas as entidades, é um ambiente de testes reais.
 
 ## Regras gerais
@@ -19,6 +19,8 @@ todas as entidades, é um ambiente de testes reais.
   campos estruturados paralelos.
 - Empresa do chamado é sempre herdada do setor do solicitante, nunca um campo
   manual.
+- Proibido usar travessão ("—") em qualquer texto: código, copy da UI,
+  documentação, commits, PRs. Use vírgula, dois-pontos ou ponto e vírgula.
 - Deploy: push em `master` → Cloudflare Pages publica automaticamente
   (`felipeguntzel/workflow-zagonel`).
 

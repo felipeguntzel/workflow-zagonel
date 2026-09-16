@@ -150,7 +150,31 @@ body {
 
 table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
 th, td { text-align: left; padding: 0.5rem; border-bottom: var(--cor-borda-largura) solid var(--cor-borda); }
-td { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Truncamento é exceção, não regra: só em <td> com atributo title (conteúdo
+   potencialmente longo). Colunas curtas (status, tipo, Sim/Não, ações) nunca
+   tiveram title e não são afetadas. */
+td[title] { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Coluna de ações nunca encolhe, sempre cabe os ícones. */
+.td-acoes { white-space: nowrap; width: 1%; }
+
+/* Tabela elevada: container com sombra, cabeçalho preenchido, scroll
+   horizontal próprio quando não couber (matriz de permissões, etapas). */
+.tabela-wrap {
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: var(--cor-fundo-elevado);
+  border: var(--cor-borda-largura) solid var(--cor-borda);
+  margin-top: 1rem;
+}
+.tabela-wrap table { margin-top: 0; }
+.tabela-wrap th { background: var(--cor-primaria); color: var(--cor-primaria-texto); }
+.tabela-wrap tbody tr:hover td { background: var(--cor-fundo); }
+
+main h2 { margin-top: 0; margin-bottom: 1rem; }
+main h3, main h4, main h5 { margin-top: 2rem; margin-bottom: 0.75rem; }
 
 .info {
   display: inline-flex;

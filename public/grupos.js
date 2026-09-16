@@ -31,12 +31,14 @@ async function iniciar(container, mensagemErro) {
   container.innerHTML = `
     <h2>Grupos de Permissão</h2>
     <ul id="lista-grupos"></ul>
-    <form class="formulario" id="form-novo-grupo">
-      <label>Novo grupo
-        <input type="text" name="nome" required>
-      </label>
-      <button type="submit" class="btn btn-primario">Criar</button>
-    </form>
+    <div class="painel">
+      <form class="formulario" id="form-novo-grupo">
+        <label>Novo grupo
+          <input type="text" name="nome" required>
+        </label>
+        <button type="submit" class="btn btn-primario">Criar</button>
+      </form>
+    </div>
     <div id="detalhe-grupo"></div>
   `;
 
@@ -95,41 +97,45 @@ async function iniciar(container, mensagemErro) {
     const grupo = await api(`/grupos/${id}`);
 
     detalhe.innerHTML = `
-      <h3>${escaparHtml(grupo.nome)}</h3>
-      <form class="formulario" id="form-renomear">
-        <label>Nome
-          <input type="text" name="nome" value="${escaparHtml(grupo.nome)}" required>
-        </label>
-        <button type="submit" class="btn btn-primario">Salvar nome</button>
-      </form>
-      <table>
-        <thead>
-          <tr>
-            <th>Tela</th>
-            ${ACOES.map((a) => `<th>${a}</th>`).join("")}
-            <th>Ver todos os setores ${info("Só relevante para Chamados, e só afeta a listagem 'Meus chamados': sem esta permissão, o usuário só vê ali os chamados do próprio setor. Abrir um chamado específico por link (inclusive de outro setor) e ver a árvore/comentários do chamado mãe sempre funciona para qualquer usuário autenticado, com ou sem esta permissão — isso é proposital.")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${TELAS.map(
-            (t) => `
-            <tr data-tela="${t.chave}">
-              <td>${t.label}</td>
-              ${ACOES.map(
-                (a) =>
-                  `<td><input type="checkbox" data-acao="${a}" ${grupo.permissoes[t.chave][a] ? "checked" : ""}></td>`
-              ).join("")}
-              <td>
-                ${
-                  t.chave === "chamados"
-                    ? `<input type="checkbox" data-acao="ver_todos_setores" ${grupo.permissoes.chamados.ver_todos_setores ? "checked" : ""}>`
-                    : ""
-                }
-              </td>
-            </tr>`
-          ).join("")}
-        </tbody>
-      </table>
+      <div class="painel">
+        <h3>${escaparHtml(grupo.nome)}</h3>
+        <form class="formulario" id="form-renomear">
+          <label>Nome
+            <input type="text" name="nome" value="${escaparHtml(grupo.nome)}" required>
+          </label>
+          <button type="submit" class="btn btn-primario">Salvar nome</button>
+        </form>
+      </div>
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="min-width:12ch">Tela</th>
+              ${ACOES.map((a) => `<th>${a}</th>`).join("")}
+              <th>Ver todos os setores ${info("Só relevante para Chamados, e só afeta a listagem 'Meus chamados': sem esta permissão, o usuário só vê ali os chamados do próprio setor. Abrir um chamado específico por link (inclusive de outro setor) e ver a árvore/comentários do chamado mãe sempre funciona para qualquer usuário autenticado, com ou sem esta permissão, isso é proposital.")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${TELAS.map(
+              (t) => `
+              <tr data-tela="${t.chave}">
+                <td>${escaparHtml(t.label)}</td>
+                ${ACOES.map(
+                  (a) =>
+                    `<td><input type="checkbox" data-acao="${a}" ${grupo.permissoes[t.chave][a] ? "checked" : ""}></td>`
+                ).join("")}
+                <td>
+                  ${
+                    t.chave === "chamados"
+                      ? `<input type="checkbox" data-acao="ver_todos_setores" ${grupo.permissoes.chamados.ver_todos_setores ? "checked" : ""}>`
+                      : ""
+                  }
+                </td>
+              </tr>`
+            ).join("")}
+          </tbody>
+        </table>
+      </div>
       <button type="button" id="btn-salvar-permissoes" class="btn btn-primario">Salvar permissões</button>
     `;
 
