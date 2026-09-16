@@ -1,3 +1,9 @@
+const ENTIDADES_HTML = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+export function escaparHtml(texto) {
+  return String(texto ?? "").replace(/[&<>"']/g, (c) => ENTIDADES_HTML[c]);
+}
+
 export function info(texto) {
   return `<span class="info" title="${texto.replace(/"/g, "&quot;")}">i</span>`;
 }
@@ -23,4 +29,3 @@ export function situacaoClasse(situacao) {
   if (situacao === "alerta") return "badge badge-alerta";
   return "badge badge-ok";
 }
-

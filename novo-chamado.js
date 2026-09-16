@@ -1,5 +1,6 @@
 import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
+import { escaparHtml } from "./ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
@@ -15,13 +16,13 @@ if (usuario) {
 async function iniciar() {
   const fluxos = await api("/fluxos");
   const selectFluxo = document.getElementById("select-fluxo");
-  selectFluxo.innerHTML = fluxos.map((f) => `<option value="${f.id}">${f.nome}</option>`).join("");
+  selectFluxo.innerHTML = fluxos.map((f) => `<option value="${f.id}">${escaparHtml(f.nome)}</option>`).join("");
 
   async function carregarEtapasIniciais() {
     const etapas = await api(`/fluxos/${selectFluxo.value}/etapas`);
     const iniciais = etapas.filter((e) => e.eh_inicial);
     document.getElementById("select-etapa-inicial").innerHTML = iniciais
-      .map((e) => `<option value="${e.id}">${e.nome}</option>`)
+      .map((e) => `<option value="${e.id}">${escaparHtml(e.nome)}</option>`)
       .join("");
   }
 

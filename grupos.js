@@ -1,6 +1,6 @@
 import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { mostrarErro, mostrarMensagem, info } from "./ui.js";
+import { mostrarErro, mostrarMensagem, info, escaparHtml } from "./ui.js";
 import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
 
@@ -54,7 +54,7 @@ async function iniciar(container, mensagemErro) {
             .map(
               (g) => `
               <li data-id="${g.id}">
-                <button type="button" class="btn btn-secundario btn-selecionar" data-id="${g.id}">${g.nome}</button>
+                <button type="button" class="btn btn-secundario btn-selecionar" data-id="${g.id}">${escaparHtml(g.nome)}</button>
                 <button type="button" class="btn btn-perigo btn-excluir" data-id="${g.id}">Excluir</button>
               </li>`
             )
@@ -95,10 +95,10 @@ async function iniciar(container, mensagemErro) {
     const grupo = await api(`/grupos/${id}`);
 
     detalhe.innerHTML = `
-      <h3>${grupo.nome}</h3>
+      <h3>${escaparHtml(grupo.nome)}</h3>
       <form class="formulario" id="form-renomear">
         <label>Nome
-          <input type="text" name="nome" value="${grupo.nome}" required>
+          <input type="text" name="nome" value="${escaparHtml(grupo.nome)}" required>
         </label>
         <button type="submit" class="btn btn-primario">Salvar nome</button>
       </form>

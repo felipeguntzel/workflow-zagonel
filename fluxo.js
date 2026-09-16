@@ -1,6 +1,6 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { info, mostrarErro, escaparAtributo } from "./ui.js";
+import { info, mostrarErro, escaparAtributo, escaparHtml } from "./ui.js";
 import { renderCrud } from "./crud-ui.js";
 import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
@@ -33,7 +33,7 @@ async function iniciarSelecaoFluxo() {
   const select = document.getElementById("select-fluxo");
   select.innerHTML =
     `<option value="">Selecione um fluxo…</option>` +
-    fluxos.map((f) => `<option value="${f.id}">${f.nome}</option>`).join("");
+    fluxos.map((f) => `<option value="${f.id}">${escaparHtml(f.nome)}</option>`).join("");
   select.addEventListener("change", () => {
     if (select.value) renderEtapas(Number(select.value));
     else document.getElementById("secao-etapas").innerHTML = "";
@@ -64,11 +64,11 @@ async function renderEtapas(fluxoId) {
                 .map(
                   (e) => `
           <tr>
-            <td title="${escaparAtributo(e.nome)}">${e.nome}</td>
-            <td title="${escaparAtributo(nomeSetor(e.setor_id))}">${nomeSetor(e.setor_id)}</td>
+            <td title="${escaparAtributo(e.nome)}">${escaparHtml(e.nome)}</td>
+            <td title="${escaparAtributo(nomeSetor(e.setor_id))}">${escaparHtml(nomeSetor(e.setor_id))}</td>
             <td>${e.tipo}</td>
             <td>${e.eh_inicial ? "Sim" : "Não"}</td>
-            <td title="${escaparAtributo(e.etapa_proxima_id ? nomeEtapa(e.etapa_proxima_id) : "-")}">${e.etapa_proxima_id ? nomeEtapa(e.etapa_proxima_id) : "-"}</td>
+            <td title="${escaparAtributo(e.etapa_proxima_id ? nomeEtapa(e.etapa_proxima_id) : "-")}">${e.etapa_proxima_id ? escaparHtml(nomeEtapa(e.etapa_proxima_id)) : "-"}</td>
             <td>${e.etapa_proxima_vinculo ?? "-"}</td>
             <td>
               ${e.tipo === "aprovacao" ? `<button type="button" class="btn btn-secundario btn-acoes" data-id="${e.id}">Ações</button>` : ""}
@@ -89,7 +89,7 @@ async function renderEtapas(fluxoId) {
       <label>Nome <input name="nome" required></label>
       <label>Setor
         <select name="setor_id" required>
-          ${setores.map((s) => `<option value="${s.id}">${s.nome}</option>`).join("")}
+          ${setores.map((s) => `<option value="${s.id}">${escaparHtml(s.nome)}</option>`).join("")}
         </select>
       </label>
       <label>Tipo
@@ -106,7 +106,7 @@ async function renderEtapas(fluxoId) {
       )}
         <select name="etapa_proxima_id">
           <option value="">Nenhuma / usar Ações</option>
-          ${etapas.map((e) => `<option value="${e.id}">${e.nome}</option>`).join("")}
+          ${etapas.map((e) => `<option value="${e.id}">${escaparHtml(e.nome)}</option>`).join("")}
         </select>
       </label>
       <label>Vínculo da próxima etapa ${info(
@@ -196,7 +196,7 @@ async function renderAcoes(etapaId) {
   const container = document.getElementById("secao-acoes");
 
   container.innerHTML = `
-    <h4>Ações de "${etapa.nome}"</h4>
+    <h4>Ações de "${escaparHtml(etapa.nome)}"</h4>
     <table>
       <thead><tr><th>Rótulo</th><th>Setor destino</th><th>Vínculo</th><th>Pré-requisito</th><th></th></tr></thead>
       <tbody>
@@ -207,12 +207,12 @@ async function renderAcoes(etapaId) {
                 .map(
                   (a) => `
           <tr>
-            <td title="${escaparAtributo(a.rotulo)}">${a.rotulo}</td>
-            <td>${setores.find((s) => s.id === a.setor_destino_id)?.nome ?? a.setor_destino_id}</td>
+            <td title="${escaparAtributo(a.rotulo)}">${escaparHtml(a.rotulo)}</td>
+            <td>${escaparHtml(setores.find((s) => s.id === a.setor_destino_id)?.nome ?? a.setor_destino_id)}</td>
             <td>${a.vinculo}</td>
             <td>${
               a.prerequisito_acao_id
-                ? etapa.acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-"
+                ? escaparHtml(etapa.acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-")
                 : "-"
             }</td>
             <td>${permissaoFluxos.excluir ? `<button type="button" class="btn btn-perigo btn-excluir-acao" data-id="${a.id}">Excluir</button>` : ""}</td>
@@ -230,7 +230,7 @@ async function renderAcoes(etapaId) {
       <label>Rótulo <input name="rotulo" required></label>
       <label>Setor destino
         <select name="setor_destino_id" required>
-          ${setores.map((s) => `<option value="${s.id}">${s.nome}</option>`).join("")}
+          ${setores.map((s) => `<option value="${s.id}">${escaparHtml(s.nome)}</option>`).join("")}
         </select>
       </label>
       <label>Vínculo ${info(
@@ -246,7 +246,7 @@ async function renderAcoes(etapaId) {
       )}
         <select name="prerequisito_acao_id">
           <option value="">Nenhum</option>
-          ${etapa.acoes.map((a) => `<option value="${a.id}">${a.rotulo}</option>`).join("")}
+          ${etapa.acoes.map((a) => `<option value="${a.id}">${escaparHtml(a.rotulo)}</option>`).join("")}
         </select>
       </label>
       <button type="submit" class="btn btn-primario">Adicionar ação</button>
