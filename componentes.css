@@ -32,13 +32,6 @@
   filter: none;
 }
 
-.card {
-  background: var(--cor-fundo-elevado);
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  border-radius: 0.5rem;
-  padding: 1rem;
-}
-
 .modal-fundo {
   position: fixed;
   inset: 0;

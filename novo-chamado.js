@@ -1,16 +1,12 @@
 import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { escaparHtml } from "./ui.js";
+import { escaparHtml, mostrarErro } from "./ui.js";
 import { api } from "./api.js";
 
 const usuario = exigirLogin();
 if (usuario) {
   aplicarLayout(usuario);
-  iniciar().catch((e) => {
-    const mensagem = document.getElementById("mensagem-erro");
-    mensagem.textContent = e.message;
-    mensagem.hidden = false;
-  });
+  iniciar().catch((e) => mostrarErro(document.getElementById("mensagem-erro"), e));
 }
 
 async function iniciar() {
@@ -43,9 +39,7 @@ async function iniciar() {
       });
       window.location.href = `chamado.html?id=${resultado.chamado.id}`;
     } catch (e) {
-      const mensagem = document.getElementById("mensagem-erro");
-      mensagem.textContent = e.message;
-      mensagem.hidden = false;
+      mostrarErro(document.getElementById("mensagem-erro"), e);
     }
   });
 }

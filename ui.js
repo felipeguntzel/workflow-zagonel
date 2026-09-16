@@ -22,10 +22,8 @@ export function mostrarMensagem(elemento, texto, tipo = "aviso") {
   elemento.textContent = texto;
   elemento.className = tipo === "sucesso" ? "mensagem-sucesso" : "mensagem-aviso";
   elemento.hidden = false;
-}
-
-export function situacaoClasse(situacao) {
-  if (situacao === "vencido") return "badge badge-vencido";
-  if (situacao === "alerta") return "badge badge-alerta";
-  return "badge badge-ok";
+  clearTimeout(elemento._timeoutMensagem);
+  elemento._timeoutMensagem = setTimeout(() => {
+    elemento.hidden = true;
+  }, 3000);
 }

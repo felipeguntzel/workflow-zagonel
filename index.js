@@ -1,5 +1,6 @@
 import { api } from "./api.js";
 import { setUsuarioLogado } from "./auth.js";
+import { mostrarErro } from "./ui.js";
 
 document.getElementById("form-login").addEventListener("submit", async (ev) => {
   ev.preventDefault();
@@ -17,7 +18,6 @@ document.getElementById("form-login").addEventListener("submit", async (ev) => {
     setUsuarioLogado(usuario);
     window.location.href = usuario.deve_trocar_senha ? "trocar-senha.html" : "chamados.html";
   } catch (e) {
-    mensagemErro.textContent = e.message;
-    mensagemErro.hidden = false;
+    mostrarErro(mensagemErro, e);
   }
 });
