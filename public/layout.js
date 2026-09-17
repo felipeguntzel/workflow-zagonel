@@ -16,6 +16,8 @@ export const TELAS_SISTEMA = [
   { numero: "08", codigo: "8", id: "novo-chamado", titulo: "Abrir novo chamado", grupo: "Chamados", href: "novo-chamado.html", telaPerm: "chamados", acaoPerm: "inserir" },
   // Dashboards
   { numero: "09", codigo: "9", id: "dashboards", titulo: "Dashboards", grupo: "Dashboards", href: "dashboards.html" },
+  // Administração (apenas admin)
+  { numero: "10", codigo: "10", id: "sql", titulo: "Editor SQL", grupo: "Administração", href: "sql.html", adminApenas: true },
 ];
 
 export function podeAcessarTela(tela, usuario) {
@@ -129,7 +131,7 @@ function construirSidebar(usuario, modalBusca) {
   const paginaAtual = window.location.pathname.split("/").pop() || "empresas.html";
   const telasPermitidas = TELAS_SISTEMA.filter((t) => podeAcessarTela(t, usuario));
 
-  const grupos = ["Cadastros", "Chamados", "Dashboards"];
+  const grupos = ["Cadastros", "Chamados", "Dashboards", "Administração"];
 
   const navHtml = grupos
     .map((nomeGrupo) => {

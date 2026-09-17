@@ -299,7 +299,7 @@ async function iniciar(container, mensagemErro) {
                             ${
                               t.chave === "chamados"
                                 ? `<input type="checkbox" data-acao="ver_todos_setores" ${p.ver_todos_setores ? "checked" : ""}>`
-                                : '<span style="color:var(--cor-texto-secundario); font-size:0.8rem;">—</span>'
+                                : '<span style="color:var(--cor-texto-secundario); font-size:0.8rem;">-</span>'
                             }
                           </td>
                         </tr>

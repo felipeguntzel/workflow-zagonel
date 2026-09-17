@@ -24,7 +24,7 @@ test("verificarToken rejects a tampered payload", async () => {
 
 test("verificarToken rejects an expired token", async () => {
   // Constructs a validly-signed but already-expired token directly, since
-  // gerarToken() always issues one with a fixed future validity window —
+  // gerarToken() always issues one with a fixed future validity window,
   // this is the one place the signing logic is re-derived rather than
   // reused, specifically to build a fixture gerarToken cannot produce.
   const payload = "42." + (Date.now() - 1000);

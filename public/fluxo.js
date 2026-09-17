@@ -321,7 +321,7 @@ async function iniciar(container, mensagemErro) {
                 const botaoAcoes =
                   e.tipo === "aprovacao"
                     ? `<button type="button" class="btn btn-pequeno btn-secundario btn-gerenciar-acoes" data-id="${e.id}">⚡ Configurar Ações</button>`
-                    : '<span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">—</span>';
+                    : '<span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">-</span>';
 
                 const botaoCampos = `<button type="button" class="btn btn-pequeno btn-secundario btn-gerenciar-campos" data-id="${e.id}">📋 Campos da Etapa</button>`;
 
@@ -333,7 +333,7 @@ async function iniciar(container, mensagemErro) {
                     <td>${badgeTipo}</td>
                     <td>${badgeInicial}</td>
                     <td>${e.etapa_proxima_id ? escaparHtml(nomeEtapa(e.etapa_proxima_id)) : '<span style="color:var(--cor-texto-secundario);">Nenhuma / Usa ações</span>'}</td>
-                    <td>${e.etapa_proxima_vinculo === "mae" ? "Chamado mãe" : e.etapa_proxima_vinculo === "pai" ? "Chamado pai" : "—"}</td>
+                    <td>${e.etapa_proxima_vinculo === "mae" ? "Chamado mãe" : e.etapa_proxima_vinculo === "pai" ? "Chamado pai" : "-"}</td>
                     <td>${botaoAcoes}</td>
                     <td>${botaoCampos}</td>
                     <td class="td-acoes">
@@ -640,7 +640,7 @@ async function iniciar(container, mensagemErro) {
                           <td style="font-weight: 600;">${escaparHtml(a.rotulo)}</td>
                           <td>${escaparHtml(setores.find((s) => s.id === a.setor_destino_id)?.nome ?? a.setor_destino_id)}</td>
                           <td>${a.vinculo === "mae" ? "Chamado mãe" : "Chamado pai"}</td>
-                          <td>${a.prerequisito_acao_id ? escaparHtml(acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-") : "—"}</td>
+                          <td>${a.prerequisito_acao_id ? escaparHtml(acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-") : "-"}</td>
                           <td class="td-acoes">
                             ${permissaoFluxos.excluir ? botaoIconeExcluir("btn-excluir-acao", a.id) : ""}
                           </td>

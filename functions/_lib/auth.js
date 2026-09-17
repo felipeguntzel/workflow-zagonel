@@ -46,7 +46,7 @@ export async function hashSenha(senha) {
 }
 
 // Aceita também o formato legado (SHA-256 sem salt, usado antes desta migração) só para
-// permitir a troca automática e transparente no login — ver functions/api/login.js.
+// permitir a troca automática e transparente no login (ver functions/api/login.js).
 export async function verificarSenha(senha, hashArmazenado) {
   if (!hashArmazenado) return false;
   if (hashArmazenado.startsWith(`${PREFIXO_PBKDF2}$`)) {
