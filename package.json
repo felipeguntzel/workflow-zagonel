@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "dev": "wrangler pages dev public",
+    "lint": "node --test",
+    "dev": "wrangler pages dev public --ip 0.0.0.0 --port 3000",
+    "build": "mkdir -p dist && cp -r public/* dist/ && wrangler pages functions build functions --outdir dist",
     "deploy": "wrangler pages deploy public"
   },
   "devDependencies": {

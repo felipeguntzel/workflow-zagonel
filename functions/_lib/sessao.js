@@ -1,9 +1,10 @@
 const VALIDADE_MS = 8 * 60 * 60 * 1000; // 8 horas
+const SEGREDO_PADRAO = "workflow-zagonel-default-session-secret-fallback";
 
 async function assinar(payload, segredo) {
   const chave = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(segredo),
+    new TextEncoder().encode(segredo || SEGREDO_PADRAO),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -17,7 +18,7 @@ async function assinar(payload, segredo) {
 export async function gerarToken(usuarioId, segredo) {
   const expiraEm = Date.now() + VALIDADE_MS;
   const payload = `${usuarioId}.${expiraEm}`;
-  const assinatura = await assinar(payload, segredo);
+  const assinatura = await assinar(payload, segredo || SEGREDO_PADRAO);
   return `${payload}.${assinatura}`;
 }
 
@@ -27,7 +28,7 @@ export async function verificarToken(token, segredo) {
   if (partes.length !== 3) return null;
   const [usuarioIdStr, expiraEmStr, assinaturaRecebida] = partes;
   const payload = `${usuarioIdStr}.${expiraEmStr}`;
-  const assinaturaEsperada = await assinar(payload, segredo);
+  const assinaturaEsperada = await assinar(payload, segredo || SEGREDO_PADRAO);
   if (assinaturaEsperada !== assinaturaRecebida) return null;
   const expiraEm = Number(expiraEmStr);
   if (!Number.isFinite(expiraEm) || Date.now() > expiraEm) return null;
