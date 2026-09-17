@@ -18,17 +18,39 @@ const TAMANHOS = [
 ];
 const TEMAS = [
   { valor: "claro", texto: "Claro" },
+  { valor: "escuro", texto: "Escuro" },
   { valor: "alto-contraste", texto: "Alto contraste" },
 ];
 
 export function abrirPainelPreferencias() {
   const usuarioAtual = getUsuarioLogado();
-  let fonteEscolhida = usuarioAtual?.fonte ?? "arial";
-  let tamanhoEscolhido = usuarioAtual?.tamanho_fonte ?? "m";
-  let temaEscolhido = usuarioAtual?.tema ?? "claro";
+  const estadoOriginal = {
+    fonte: usuarioAtual?.fonte ?? "arial",
+    tamanho_fonte: usuarioAtual?.tamanho_fonte ?? "m",
+    tema: usuarioAtual?.tema ?? "claro",
+  };
+
+  let fonteEscolhida = estadoOriginal.fonte;
+  let tamanhoEscolhido = estadoOriginal.tamanho_fonte;
+  let temaEscolhido = estadoOriginal.tema;
+  let salvo = false;
 
   const conteudo = document.createElement("div");
   let fechar;
+
+  function atualizarPrevia() {
+    aplicarPreferenciasVisuais({
+      fonte: fonteEscolhida,
+      tamanho_fonte: tamanhoEscolhido,
+      tema: temaEscolhido,
+    });
+  }
+
+  function reverterParaOriginal() {
+    if (!salvo) {
+      aplicarPreferenciasVisuais(estadoOriginal);
+    }
+  }
 
   function render() {
     conteudo.innerHTML = `
@@ -70,29 +92,37 @@ export function abrirPainelPreferencias() {
     conteudo.querySelectorAll("[data-fonte]").forEach((botao) =>
       botao.addEventListener("click", () => {
         fonteEscolhida = botao.dataset.fonte;
+        atualizarPrevia();
         render();
       })
     );
     conteudo.querySelectorAll("[data-tamanho]").forEach((botao) =>
       botao.addEventListener("click", () => {
         tamanhoEscolhido = botao.dataset.tamanho;
+        atualizarPrevia();
         render();
       })
     );
     conteudo.querySelectorAll("[data-tema-opcao]").forEach((botao) =>
       botao.addEventListener("click", () => {
         temaEscolhido = botao.dataset.temaOpcao;
+        atualizarPrevia();
         render();
       })
     );
 
-    conteudo.querySelector("#preferencias-cancelar").addEventListener("click", () => fechar());
+    conteudo.querySelector("#preferencias-cancelar").addEventListener("click", () => {
+      reverterParaOriginal();
+      fechar();
+    });
+
     conteudo.querySelector("#preferencias-salvar").addEventListener("click", async () => {
       try {
         await api("/preferencias", {
           method: "PUT",
           body: { fonte: fonteEscolhida, tamanho_fonte: tamanhoEscolhido, tema: temaEscolhido },
         });
+        salvo = true;
         const usuarioAtualizado = {
           ...getUsuarioLogado(),
           fonte: fonteEscolhida,
@@ -109,5 +139,7 @@ export function abrirPainelPreferencias() {
   }
 
   render();
-  fechar = abrirModal(conteudo);
+  fechar = abrirModal(conteudo, () => {
+    reverterParaOriginal();
+  });
 }

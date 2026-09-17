@@ -21,20 +21,9 @@
 <body>
 <div id="nav"></div>
 <main>
-  <h1>Abrir novo chamado</h1>
-  <form class="formulario" id="form-novo-chamado">
-    <label>Fluxo
-      <select id="select-fluxo" name="fluxo_template_id" required></select>
-    </label>
-    <label>Etapa inicial
-      <select id="select-etapa-inicial" name="etapa_inicial_id" required></select>
-    </label>
-    <label>Prazo (opcional - se vazio, usa o padrão do setor)
-      <input type="date" name="prazo">
-    </label>
-    <button type="submit" class="btn btn-primario">Abrir chamado</button>
-  </form>
-  <p id="mensagem-erro" class="erro" hidden></p>
+  <div id="conteudo-novo-chamado">
+    <p id="mensagem-erro" class="erro" hidden></p>
+  </div>
 </main>
 <script type="module" src="novo-chamado.js"></script>
 </body>

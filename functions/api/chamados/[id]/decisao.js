@@ -9,6 +9,7 @@ import {
   aplicarCascataAtraso,
   hojeISO,
 } from "../../../_lib/chamados.js";
+import { registrarAuditoria } from "../../../_lib/auditoria.js";
 
 export async function onRequestPost(context) {
   const { usuario, erro } = await exigirPermissao(context, "chamados", "editar");
@@ -24,18 +25,29 @@ export async function onRequestPost(context) {
   }
 
   const hoje = hojeISO();
+  const raizId = chamado.chamado_mae_id || chamado.id;
 
   if (body.decisao === "reprovado") {
     if (!body.justificativa) return error("Justificativa é obrigatória ao reprovar");
     await run(
       context.env.DB,
-      `INSERT INTO comentarios (chamado_id, usuario_id, data, texto, eh_justificativa)
-       VALUES (?, ?, ?, ?, 1)`,
+      `INSERT INTO comentarios (chamado_id, usuario_id, data, texto, eh_justificativa, eh_privado)
+       VALUES (?, ?, ?, ?, 1, 0)`,
       chamado.id,
       usuario.id,
       hoje,
       body.justificativa
     );
+
+    await registrarAuditoria(context.env.DB, {
+      chamado_mae_id: raizId,
+      chamado_id: chamado.id,
+      usuario_id: usuario.id,
+      usuario_nome: usuario.nome,
+      acao: "decisao_reprovada",
+      detalhes: `Etapa #${chamado.id} REPROVADA por ${usuario.nome}. Justificativa: "${body.justificativa}"`
+    });
+
     await finalizarComCascata(context.env.DB, chamado.id, { hoje, resultadoOrigem: "reprovado" });
     const atualizado = await chamadoComDetalhes(context.env.DB, chamado.id);
     await aplicarCascataAtraso(context.env.DB, atualizado, hoje);
@@ -52,9 +64,31 @@ export async function onRequestPost(context) {
     hoje,
     chamado.id
   );
+
+  await registrarAuditoria(context.env.DB, {
+    chamado_mae_id: raizId,
+    chamado_id: chamado.id,
+    usuario_id: usuario.id,
+    usuario_nome: usuario.nome,
+    acao: "decisao_aprovada",
+    detalhes: `Etapa #${chamado.id} APROVADA por ${usuario.nome}.`
+  });
+
   const atualizado = await chamadoComDetalhes(context.env.DB, chamado.id);
   const etapa = await carregarEtapaComAcoes(context.env.DB, chamado.etapa_id);
   const criados = await avancarFluxo(context.env.DB, atualizado, etapa, body.acoes ?? {});
+
+  for (const filho of criados) {
+    await registrarAuditoria(context.env.DB, {
+      chamado_mae_id: raizId,
+      chamado_id: filho.id,
+      usuario_id: usuario.id,
+      usuario_nome: usuario.nome,
+      acao: "criacao_subchamado",
+      detalhes: `Subchamado #${filho.id} gerado pela aprovação da etapa #${chamado.id}.`
+    });
+  }
+
   await aplicarCascataAtraso(context.env.DB, atualizado, hoje);
   return json({ chamado: atualizado, criados });
 }

@@ -7,7 +7,15 @@
 - id, nome, empresa_id (FK), centro_custo, prazo_padrao_dias
 
 ## Usuário
-- id, nome, setor_id (FK) — sem senha; login = selecionar da lista
+- id, nome, login (UNIQUE), senha_hash, email, telefone, setor_id (FK), admin (bool), deve_trocar_senha (bool)
+
+## Grupos e Permissões
+- grupos: id, nome, descricao
+- permissoes: id, grupo_id (FK), tela, visualizar (bool), inserir (bool), editar (bool), excluir (bool)
+- usuarios_grupos: usuario_id (FK), grupo_id (FK)
+
+## Recuperação de Senha
+- recuperacao_senha: id, usuario_id (FK), token (UNIQUE), expira_em, usado (bool), criado_em
 
 ## Status
 - id, nome (previsto, em desenvolvimento, finalizado, suspenso, aguardando

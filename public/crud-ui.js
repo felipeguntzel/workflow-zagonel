@@ -3,58 +3,106 @@ import { info, mostrarErro, escaparAtributo, escaparHtml, botaoIconeEditar, bota
 import { permissaoDaTela } from "./auth.js";
 import { confirmarAcao } from "./modal.js";
 
+export function mostrarAvisoModal(titulo, mensagem, acoes = []) {
+  const modalWrap = document.createElement("div");
+  modalWrap.className = "modal-fundo modal-fundo--aviso";
+  modalWrap.setAttribute("role", "dialog");
+  modalWrap.setAttribute("aria-modal", "true");
+
+  const linhas = String(mensagem)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  let conteudoHtml = "";
+  let emLista = false;
+
+  for (const l of linhas) {
+    if (/^\d+\./.test(l)) {
+      if (!emLista) {
+        conteudoHtml += `<ol style="margin: 0.5rem 0 0.8rem 1.4rem; padding: 0;">`;
+        emLista = true;
+      }
+      conteudoHtml += `<li style="margin-bottom: 0.35rem; line-height: 1.4;">${escaparHtml(l.replace(/^\d+\.\s*/, ""))}</li>`;
+    } else {
+      if (emLista) {
+        conteudoHtml += `</ol>`;
+        emLista = false;
+      }
+      if (l.toLowerCase().startsWith("o que fazer")) {
+        conteudoHtml += `<p style="font-weight: 700; margin-top: 0.8rem; margin-bottom: 0.3rem; color: var(--cor-texto);">${escaparHtml(l)}</p>`;
+      } else {
+        conteudoHtml += `<p style="margin-bottom: 0.5rem; line-height: 1.5; color: var(--cor-texto);">${escaparHtml(l)}</p>`;
+      }
+    }
+  }
+  if (emLista) conteudoHtml += `</ol>`;
+
+  modalWrap.innerHTML = `
+    <div class="modal-cadastro modal-cadastro--simples" style="max-width: 520px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);">
+      <div class="modal-cabecalho" style="background: #fff5f5; border-bottom: 1px solid #fed7d7;">
+        <h3 style="color: #9b2c2c; display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">
+          <span style="font-size: 1.25rem;">⚠️</span> ${escaparHtml(titulo)}
+        </h3>
+        <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
+      </div>
+      <div style="padding: 1.25rem; font-size: 0.92rem; background: var(--cor-superficie);">
+        ${conteudoHtml}
+      </div>
+      <div class="modal-rodape" style="background: var(--cor-fundo);">
+        ${acoes
+          .map(
+            (a, i) => `
+          <button type="button" class="btn ${a.primario ? "btn-primario" : "btn-secundario"} btn-aviso-acao-${i}">
+            ${escaparHtml(a.texto)}
+          </button>
+        `
+          )
+          .join("")}
+        <button type="button" class="btn btn-secundario btn-fechar-aviso">Entendido</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalWrap);
+  const fechar = () => modalWrap.remove();
+  modalWrap.querySelector(".modal-fechar")?.addEventListener("click", fechar);
+  modalWrap.querySelector(".btn-fechar-aviso")?.addEventListener("click", fechar);
+  modalWrap.addEventListener("click", (e) => {
+    if (e.target === modalWrap) fechar();
+  });
+
+  acoes.forEach((a, i) => {
+    const btn = modalWrap.querySelector(`.btn-aviso-acao-${i}`);
+    btn?.addEventListener("click", () => {
+      fechar();
+      a.onClick?.();
+    });
+  });
+}
+
 function valorExibicao(linha, campo, opcoesFK) {
   if (campo.tipo === "checkbox") {
     return linha[campo.nome] ? "Sim" : "Não";
   }
   if (campo.tipo === "multiselect") {
     const opcoes = opcoesFK[campo.nome] ?? [];
-    return (linha[campo.nome] ?? [])
+    const selecionados = Array.isArray(linha[campo.nome])
+      ? linha[campo.nome]
+      : linha[campo.nome] !== undefined && linha[campo.nome] !== null
+      ? [linha[campo.nome]]
+      : [];
+    const nomes = selecionados
       .map((id) => opcoes.find((o) => o.id === id)?.nome)
-      .filter(Boolean)
-      .join(", ");
+      .filter(Boolean);
+    return nomes.length > 0 ? nomes.join(", ") : "";
   }
   if (campo.opcoesEndpoint) {
     const opcoes = opcoesFK[campo.nome] ?? [];
     const alvo = opcoes.find((o) => o.id === linha[campo.nome]);
-    return alvo ? alvo.nome : linha[campo.nome];
+    return alvo ? alvo.nome : linha[campo.nome] ?? "";
   }
   return linha[campo.nome] ?? "";
-}
-
-function campoInputHtml(campo, opcoesFK) {
-  const rotulo = campo.dica ? `${campo.label} ${info(campo.dica)}` : campo.label;
-  if (campo.tipo === "checkbox") {
-    return `
-      <label>
-        <input type="checkbox" name="${campo.nome}">
-        ${rotulo}
-      </label>`;
-  }
-  if (campo.tipo === "multiselect") {
-    const opcoes = opcoesFK[campo.nome] ?? [];
-    return `
-      <label>${rotulo}
-        <select name="${campo.nome}" multiple>
-          ${opcoes.map((o) => `<option value="${o.id}">${escaparHtml(o.nome)}</option>`).join("")}
-        </select>
-      </label>`;
-  }
-  if (campo.opcoesEndpoint) {
-    const opcoes = campo.dependeDe ? [] : opcoesFK[campo.nome] ?? [];
-    return `
-      <label>${rotulo}
-        <select name="${campo.nome}" ${campo.obrigatorio ? "required" : ""}>
-          <option value="">Selecione…</option>
-          ${opcoes.map((o) => `<option value="${o.id}">${escaparHtml(o.nome)}</option>`).join("")}
-        </select>
-      </label>`;
-  }
-  const tipo = campo.tipo ?? "text";
-  return `
-    <label>${rotulo}
-      <input type="${tipo}" name="${campo.nome}" ${campo.obrigatorio ? "required" : ""}>
-    </label>`;
 }
 
 export async function renderCrud(container, config) {
@@ -65,170 +113,632 @@ export async function renderCrud(container, config) {
     return;
   }
 
+  // Buscar opções de FK para campos com select/multiselect
   const opcoesFK = {};
   for (const campo of config.campos) {
-    if (campo.opcoesEndpoint) opcoesFK[campo.nome] = await api(campo.opcoesEndpoint).catch(() => []);
+    if (campo.opcoesEndpoint) {
+      opcoesFK[campo.nome] = await api(campo.opcoesEndpoint).catch(() => []);
+    }
   }
 
-  const camposTabela = config.campos.filter((c) => !c.apenasFiltro);
-  const podeEscrever = permissao.inserir || permissao.editar;
-  let editandoId = null;
+  // Buscar opções de endpoints de pré-requisitos explícitos caso configurado
+  if (Array.isArray(config.preRequisitos)) {
+    for (const req of config.preRequisitos) {
+      if (req.endpoint && !opcoesFK[req.endpoint]) {
+        opcoesFK[req.endpoint] = await api(req.endpoint).catch(() => []);
+      }
+    }
+  }
 
-  const larguraColuna1 = config.larguraColuna1 ?? 12;
+  function verificarPreRequisitos() {
+    const faltantes = [];
+
+    if (Array.isArray(config.preRequisitos)) {
+      for (const req of config.preRequisitos) {
+        const dados = opcoesFK[req.endpoint] || opcoesFK[req.nome] || [];
+        if (dados.length === 0) {
+          faltantes.push({ nome: req.nome, url: req.url });
+        }
+      }
+    }
+
+    for (const campo of config.campos) {
+      if (campo.obrigatorio && campo.opcoesEndpoint) {
+        const opcoes = opcoesFK[campo.nome] ?? [];
+        if (opcoes.length === 0) {
+          const nomeAmigavel = campo.label;
+          if (!faltantes.some((f) => f.nome.toLowerCase() === nomeAmigavel.toLowerCase())) {
+            let url = "";
+            if (campo.opcoesEndpoint.includes("empresas")) url = "empresas.html";
+            else if (campo.opcoesEndpoint.includes("setores")) url = "setores.html";
+            else if (campo.opcoesEndpoint.includes("status")) url = "status.html";
+            else if (campo.opcoesEndpoint.includes("fluxos")) url = "fluxos.html";
+            faltantes.push({ nome: nomeAmigavel, url });
+          }
+        }
+      }
+    }
+
+    return faltantes;
+  }
+
+  const faltantes = verificarPreRequisitos();
+  const bannerPrerequisitoHtml =
+    faltantes.length > 0
+      ? `
+      <div class="aviso-banner-prerequisito">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.25rem;">⚠️</span>
+          <span><strong>Atenção:</strong> Para cadastrar <em>${escaparHtml(config.titulo)}</em>, é necessário primeiro cadastrar: <strong>${escaparHtml(faltantes.map((f) => f.nome).join(", "))}</strong>.</span>
+        </div>
+        ${
+          faltantes[0].url
+            ? `<a href="${escaparAtributo(faltantes[0].url)}" class="btn btn-primario btn-pequeno" style="white-space: nowrap;">Cadastrar ${escaparHtml(faltantes[0].nome)}</a>`
+            : ""
+        }
+      </div>
+    `
+      : "";
+
+  const camposVisiveis = config.campos.filter((c) => !c.apenasFiltro);
+  const camposEditaveis = config.campos.filter((c) => !c.apenasFiltro);
+  const ehSimples = config.estilo ? config.estilo === "simples" : camposEditaveis.length <= 2;
+
+  let listaDados = [];
+  let editandoLinhaId = null;
+  let ordemAtual = { campo: "id", direcao: "asc" };
+
+  // Renderizar a estrutura base da tela: cabeçalho com título + botão "+ Adicionar" e tabela
   container.innerHTML = `
-    <h2>${config.titulo}</h2>
+    <div class="pagina-cabecalho">
+      <div class="pagina-cabecalho__esquerda">
+        <h2>${config.titulo}</h2>
+      </div>
+      <div class="pagina-cabecalho__acoes">
+        ${permissao.inserir ? `<button type="button" class="btn btn-primario btn-adicionar-registro">+ Adicionar</button>` : ""}
+      </div>
+    </div>
+    ${bannerPrerequisitoHtml}
     <div class="tabela-wrap">
       <table>
         <thead>
           <tr>
-            ${camposTabela
-              .map((c, i) => (i === 0 ? `<th style="min-width:${larguraColuna1}ch">${c.label}</th>` : `<th>${c.label}</th>`))
+            <th class="th-ordenavel th-id" data-campo="id">#ID <span class="ordem-indicador" data-indicador="id">▲</span></th>
+            ${camposVisiveis
+              .map((c, i) => `
+                <th class="th-ordenavel" data-campo="${c.nome}" ${i === 0 && config.larguraColuna1 ? `style="min-width:${config.larguraColuna1}ch"` : ""}>
+                  ${c.label} <span class="ordem-indicador" data-indicador="${c.nome}"></span>
+                </th>
+              `)
               .join("")}
-            <th>Ações</th>
+            <th class="td-acoes">Ações</th>
           </tr>
         </thead>
-        <tbody></tbody>
+        <tbody class="tbody-crud"></tbody>
       </table>
     </div>
-    ${
-      podeEscrever
-        ? `<div class="painel">
-             <h3>Novo / Editar</h3>
-             <form class="formulario">
-               ${config.campos.map((c) => campoInputHtml(c, opcoesFK)).join("")}
-               <button type="submit" class="btn btn-primario">Adicionar</button>
-             </form>
-           </div>`
-        : ""
-    }
+    <div class="container-modal-crud"></div>
   `;
 
-  const form = container.querySelector("form");
-  const botaoSalvar = form?.querySelector("button[type=submit]");
+  const tbody = container.querySelector(".tbody-crud");
+  const containerModal = container.querySelector(".container-modal-crud");
+  const btnAdicionar = container.querySelector(".btn-adicionar-registro");
 
-  if (form) {
+  btnAdicionar?.addEventListener("click", () => {
+    const pendencias = verificarPreRequisitos();
+    if (pendencias.length > 0) {
+      const nomes = pendencias.map((f) => `"${f.nome}"`).join(", ");
+      const primeiro = pendencias[0];
+      const acoes = primeiro.url
+        ? [
+            {
+              texto: `Cadastrar ${primeiro.nome} agora`,
+              primario: true,
+              onClick: () => {
+                window.location.href = primeiro.url;
+              },
+            },
+          ]
+        : [];
+
+      mostrarAvisoModal(
+        "Cadastro prévio necessário",
+        `Para cadastrar um novo ${config.tituloSingular || config.titulo}, é obrigatório existir pelo menos um cadastro de ${nomes} no sistema.\n\n` +
+          `Atualmente não há nenhum registro em ${nomes}.\n` +
+          `Por favor, realize primeiro o cadastro de ${nomes} antes de continuar.`,
+        acoes
+      );
+      return;
+    }
+    abrirModalCadastro(null);
+  });
+
+  // Configurar ordenação por clique nos cabeçalhos
+  container.querySelectorAll(".th-ordenavel").forEach((th) => {
+    th.addEventListener("click", () => {
+      const campo = th.dataset.campo;
+      if (!campo) return;
+      if (ordemAtual.campo === campo) {
+        ordemAtual.direcao = ordemAtual.direcao === "asc" ? "desc" : "asc";
+      } else {
+        ordemAtual.campo = campo;
+        ordemAtual.direcao = "asc";
+      }
+      renderizarLinhas();
+    });
+  });
+
+  function renderizarLinhas() {
+    const dados = [...listaDados];
+    dados.sort((a, b) => {
+      let valA = a[ordemAtual.campo];
+      let valB = b[ordemAtual.campo];
+
+      const campoConfig = config.campos.find((c) => c.nome === ordemAtual.campo);
+      if (campoConfig?.opcoesEndpoint || campoConfig?.tipo === "multiselect") {
+        valA = valorExibicao(a, campoConfig, opcoesFK);
+        valB = valorExibicao(b, campoConfig, opcoesFK);
+      }
+
+      if (ordemAtual.campo === "id" || campoConfig?.tipo === "number") {
+        const numA = Number(valA ?? 0);
+        const numB = Number(valB ?? 0);
+        return ordemAtual.direcao === "asc" ? numA - numB : numB - numA;
+      }
+
+      const comp = String(valA ?? "").localeCompare(String(valB ?? ""), "pt-BR", { numeric: true, sensitivity: "base" });
+      return ordemAtual.direcao === "asc" ? comp : -comp;
+    });
+
+    container.querySelectorAll(".ordem-indicador").forEach((indicador) => {
+      const campo = indicador.dataset.indicador;
+      if (campo === ordemAtual.campo) {
+        indicador.textContent = ordemAtual.direcao === "asc" ? "▲" : "▼";
+      } else {
+        indicador.textContent = "";
+      }
+    });
+
+    if (dados.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="${camposVisiveis.length + 2}" style="text-align:center; padding: 2rem 1.5rem; color: var(--cor-texto-secundario);">Nenhum registro encontrado.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = dados
+      .map((linha) => {
+        if (linha.id === editandoLinhaId && ehSimples) {
+          return renderLinhaEdicaoInline(linha);
+        }
+
+        const acoesExtrasHtml = (config.acoesExtras ?? [])
+          .map(
+            (acao) =>
+              `<button type="button" class="btn btn-pequeno btn-secundario btn-acao-extra ${acao.classe ?? ""}" data-id="${linha.id}" title="${escaparAtributo(acao.rotulo)}">${escaparHtml(acao.rotulo)}</button>`
+          )
+          .join("");
+
+        return `
+          <tr data-id="${linha.id}">
+            <td class="td-id">#${linha.id}</td>
+            ${camposVisiveis
+              .map((c) => `<td title="${escaparAtributo(String(valorExibicao(linha, c, opcoesFK)))}">${escaparHtml(valorExibicao(linha, c, opcoesFK))}</td>`)
+              .join("")}
+            <td class="td-acoes">
+              ${acoesExtrasHtml}
+              ${permissao.editar ? botaoIconeEditar("btn-editar", linha.id) : ""}
+              ${permissao.excluir ? botaoIconeExcluir("btn-excluir", linha.id) : ""}
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    vincularEventosLinhas();
+  }
+
+  function renderLinhaEdicaoInline(linha) {
+    const colunasInputs = camposVisiveis
+      .map((c) => {
+        const val = linha[c.nome] ?? "";
+        return `
+          <td>
+            <input type="${c.tipo ?? "text"}" class="campo-inline" data-campo="${c.nome}" value="${escaparAtributo(val)}" ${c.obrigatorio ? "required" : ""} placeholder="${escaparAtributo(c.label)}">
+          </td>
+        `;
+      })
+      .join("");
+
+    return `
+      <tr class="tr-editando-inline" data-id="${linha.id}">
+        <td class="td-id">#${linha.id}</td>
+        ${colunasInputs}
+        <td class="td-acoes">
+          <div class="acoes-inline">
+            <button type="button" class="btn-acao-inline btn-salvar-inline" title="Salvar alteração">✓</button>
+            <button type="button" class="btn-acao-inline btn-cancelar-inline" title="Cancelar">✕</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  function vincularEventosLinhas() {
+    // Ações extras (ex: Permissões)
+    (config.acoesExtras ?? []).forEach((acao) => {
+      tbody.querySelectorAll(`.${acao.classe ?? "btn-acao-extra"}`).forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = Number(btn.dataset.id);
+          const linha = listaDados.find((d) => d.id === id);
+          if (linha) acao.onClick?.(linha, recarregar);
+        });
+      });
+    });
+
+    // Editar
+    tbody.querySelectorAll(".btn-editar").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.id);
+        const linha = listaDados.find((d) => d.id === id);
+        if (!linha) return;
+
+        if (ehSimples) {
+          editandoLinhaId = id;
+          renderizarLinhas();
+          const primeiroInput = tbody.querySelector(".tr-editando-inline .campo-inline");
+          primeiroInput?.focus();
+        } else {
+          abrirModalCadastro(linha);
+        }
+      });
+    });
+
+    // Salvar inline
+    tbody.querySelectorAll(".btn-salvar-inline").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const tr = btn.closest("tr");
+        const id = Number(tr.dataset.id);
+        const inputs = tr.querySelectorAll(".campo-inline");
+        const corpo = {};
+        let valido = true;
+
+        inputs.forEach((inp) => {
+          const nomeCampo = inp.dataset.campo;
+          const valor = inp.value.trim();
+          const campoCfg = config.campos.find((c) => c.nome === nomeCampo);
+          if (campoCfg?.obrigatorio && !valor) {
+            inp.style.borderColor = "var(--cor-vencido)";
+            inp.focus();
+            valido = false;
+            return;
+          }
+          corpo[nomeCampo] = campoCfg?.tipo === "number" ? Number(valor) : valor;
+        });
+
+        if (!valido) return;
+
+        try {
+          await api(`${config.endpoint}/${id}`, { method: "PUT", body: corpo });
+          editandoLinhaId = null;
+          await recarregar();
+          config.aoSalvar?.();
+        } catch (e) {
+          mostrarErro(document.getElementById("mensagem-erro"), e);
+        }
+      });
+    });
+
+    // Tecla Enter e Esc na linha inline
+    tbody.querySelectorAll(".tr-editando-inline .campo-inline").forEach((inp) => {
+      inp.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          inp.closest("tr").querySelector(".btn-salvar-inline")?.click();
+        }
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          editandoLinhaId = null;
+          renderizarLinhas();
+        }
+      });
+    });
+
+    // Cancelar inline
+    tbody.querySelectorAll(".btn-cancelar-inline").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        editandoLinhaId = null;
+        renderizarLinhas();
+      });
+    });
+
+    // Excluir com validação de dependências e instruções passo a passo
+    tbody.querySelectorAll(".btn-excluir").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        const linha = listaDados.find((d) => String(d.id) === String(id));
+        const rotuloItem = linha?.nome ? `"${linha.nome}"` : `#${id}`;
+
+        const confirmado = await confirmarAcao(
+          `Excluir ${config.tituloSingular || "registro"} ${rotuloItem}?`,
+          "Essa ação não poderá ser desfeita."
+        );
+        if (!confirmado) return;
+
+        try {
+          await api(`${config.endpoint}/${id}`, { method: "DELETE" });
+          await recarregar();
+        } catch (e) {
+          mostrarAvisoModal("Exclusão não permitida", e.message);
+        }
+      });
+    });
+  }
+
+  // Gerar campos de formulário para o modal
+  function renderCampoModalHtml(campo, linhaEdicao = null) {
+    const obrigatorioMarca = campo.obrigatorio ? `<span class="campo-obrigatorio" title="Campo obrigatório">*</span>` : "";
+    const dicaHtml = campo.dica ? info(campo.dica) : "";
+    const rotuloHtml = `<span class="campo-rotulo">${escaparHtml(campo.label)} ${obrigatorioMarca} ${dicaHtml}</span>`;
+    const colClasse = campo.tipo === "multiselect" || campo.colFull ? "col-full" : "";
+
+    if (campo.tipo === "checkbox") {
+      const marcado = linhaEdicao ? !!linhaEdicao[campo.nome] : false;
+      return `
+        <div class="campo-wrap ${colClasse}">
+          <label class="campo-checkbox">
+            <input type="checkbox" name="${campo.nome}" ${marcado ? "checked" : ""}>
+            <span>${escaparHtml(campo.label)} ${dicaHtml}</span>
+          </label>
+        </div>
+      `;
+    }
+
+    if (campo.tipo === "multiselect") {
+      const opcoes = opcoesFK[campo.nome] ?? [];
+      const selecionados = linhaEdicao
+        ? Array.isArray(linhaEdicao[campo.nome])
+          ? linhaEdicao[campo.nome]
+          : [linhaEdicao[campo.nome]]
+        : [];
+      return `
+        <div class="campo-wrap ${colClasse}">
+          <label style="margin-bottom: 0.35rem; display: block;">${rotuloHtml}</label>
+          <div class="multiselect-caixa" data-campo="${campo.nome}">
+            ${
+              opcoes.length === 0
+                ? `<span style="font-size:0.85rem; color:var(--cor-texto-secundario); padding:0.4rem;">Nenhuma opção disponível.</span>`
+                : opcoes
+                    .map(
+                      (o) => `
+              <label class="multiselect-item">
+                <input type="checkbox" name="${campo.nome}[]" value="${o.id}" ${selecionados.includes(o.id) ? "checked" : ""}>
+                <span>${escaparHtml(o.nome)}</span>
+              </label>
+            `
+                    )
+                    .join("")
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    if (campo.opcoesEndpoint) {
+      const opcoes = campo.dependeDe ? [] : opcoesFK[campo.nome] ?? [];
+      const valorAtual = linhaEdicao ? linhaEdicao[campo.nome] : "";
+      return `
+        <div class="campo-wrap ${colClasse}">
+          <label>${rotuloHtml}
+            <select name="${campo.nome}" ${campo.obrigatorio ? "required" : ""}>
+              <option value="">Selecione…</option>
+              ${opcoes.map((o) => `<option value="${o.id}" ${valorAtual === o.id ? "selected" : ""}>${escaparHtml(o.nome)}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+      `;
+    }
+
+    const tipo = campo.tipo ?? "text";
+    const valorAtual = linhaEdicao && campo.tipo !== "password" ? linhaEdicao[campo.nome] ?? "" : "";
+    const disabled = linhaEdicao && campo.desabilitadoNaEdicao ? "disabled" : "";
+    const placeholder =
+      linhaEdicao && campo.tipo === "password"
+        ? "(Deixe em branco para manter a atual)"
+        : campo.obrigatorio
+        ? "Preenchimento obrigatório"
+        : "";
+
+    return `
+      <div class="campo-wrap ${colClasse}">
+        <label>${rotuloHtml}
+          <input type="${tipo}" name="${campo.nome}" value="${escaparAtributo(valorAtual)}" ${campo.obrigatorio && !linhaEdicao ? "required" : ""} ${disabled} placeholder="${escaparAtributo(placeholder)}">
+        </label>
+      </div>
+    `;
+  }
+
+  // Abre modal sobreposto para adicionar ou editar
+  function abrirModalCadastro(linhaEdicao = null) {
+    const isEdicao = !!linhaEdicao;
+    const tituloModal = isEdicao
+      ? `Editar: ${linhaEdicao.nome || config.tituloSingular || config.titulo}`
+      : `Novo ${config.tituloSingular || config.titulo}`;
+
+    const modalClasse = ehSimples ? "modal-cadastro--simples" : "modal-cadastro--complexo";
+    const gridClasse = ehSimples ? "" : "formulario-grid";
+
+    containerModal.innerHTML = `
+      <div class="modal-fundo modal-fundo--cadastro" role="dialog" aria-modal="true">
+        <div class="modal-cadastro ${modalClasse}">
+          <div class="modal-cabecalho">
+            <h3>${escaparHtml(tituloModal)}</h3>
+            <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
+          </div>
+          <form class="form-modal-cadastro">
+            <p class="erro-modal erro" hidden></p>
+            <div class="${gridClasse}">
+              ${config.campos.map((c) => renderCampoModalHtml(c, linhaEdicao)).join("")}
+            </div>
+            <div class="modal-rodape">
+              <button type="button" class="btn btn-secundario btn-cancelar-modal">Cancelar</button>
+              <button type="submit" class="btn btn-primario">${isEdicao ? "Salvar alterações" : "Adicionar"}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    const modalFundo = containerModal.querySelector(".modal-fundo--cadastro");
+    const formModal = containerModal.querySelector(".form-modal-cadastro");
+    const erroModal = containerModal.querySelector(".erro-modal");
+
+    function fecharModal() {
+      containerModal.innerHTML = "";
+    }
+
+    modalFundo.querySelector(".modal-fechar").addEventListener("click", fecharModal);
+    modalFundo.querySelector(".btn-cancelar-modal").addEventListener("click", fecharModal);
+    modalFundo.addEventListener("click", (ev) => {
+      if (ev.target === modalFundo) fecharModal();
+    });
+
+    const escHandler = (ev) => {
+      if (ev.key === "Escape") {
+        fecharModal();
+        window.removeEventListener("keydown", escHandler);
+      }
+    };
+    window.addEventListener("keydown", escHandler);
+
+    // Configurar selects dependentes (ex: Empresa -> Setores)
     for (const campo of config.campos) {
       if (!campo.dependeDe) continue;
-      const selectPai = form.elements[campo.dependeDe];
-      const selectFilho = form.elements[campo.nome];
+      const selectPai = formModal.elements[campo.dependeDe];
+      const selectFilho = formModal.elements[campo.nome];
       if (!selectPai || !selectFilho) continue;
-      selectPai.addEventListener("change", () => {
-        const opcoes = (opcoesFK[campo.nome] ?? []).filter(
-          (o) => String(o[campo.filtrarPor]) === selectPai.value
-        );
+
+      const atualizarSelectFilho = () => {
+        const paiVal = Number(selectPai.value);
+        const opcoes = (opcoesFK[campo.nome] ?? []).filter((o) => {
+          if (Array.isArray(o[campo.filtrarPor])) {
+            return o[campo.filtrarPor].includes(paiVal);
+          }
+          if (Array.isArray(o.empresas)) {
+            return o.empresas.includes(paiVal);
+          }
+          return String(o[campo.filtrarPor]) === selectPai.value;
+        });
+
+        const valorAtual = linhaEdicao ? linhaEdicao[campo.nome] : "";
         selectFilho.innerHTML =
           `<option value="">Selecione…</option>` +
-          opcoes.map((o) => `<option value="${o.id}">${escaparHtml(o.nome)}</option>`).join("");
-      });
-    }
-  }
-
-  function preencherFormulario(linha) {
-    if (!form) return;
-    editandoId = linha.id;
-
-    for (const campo of config.campos) {
-      if (!campo.apenasFiltro) continue;
-      const dependente = config.campos.find((c) => c.dependeDe === campo.nome);
-      if (!dependente) continue;
-      const opcoesDependente = opcoesFK[dependente.nome] ?? [];
-      const atual = opcoesDependente.find((o) => o.id === linha[dependente.nome]);
-      form.elements[campo.nome].value = atual ? atual[dependente.filtrarPor] : "";
-      form.elements[campo.nome].dispatchEvent(new Event("change"));
-    }
-
-    for (const campo of config.campos) {
-      if (campo.apenasFiltro) continue;
-      if (campo.tipo === "checkbox") {
-        form.elements[campo.nome].checked = !!linha[campo.nome];
-        continue;
-      }
-      if (campo.tipo === "multiselect") {
-        const selecionados = linha[campo.nome] ?? [];
-        for (const opcao of form.elements[campo.nome].options) {
-          opcao.selected = selecionados.includes(Number(opcao.value));
-        }
-        continue;
-      }
-      form.elements[campo.nome].value = linha[campo.nome] ?? "";
-    }
-
-    botaoSalvar.textContent = "Salvar";
-  }
-
-  async function recarregar() {
-    const dados = await api(config.endpoint);
-    container.querySelector("tbody").innerHTML =
-      dados.length === 0
-        ? `<tr><td colspan="${camposTabela.length + 1}">Nenhum registro encontrado.</td></tr>`
-        : dados
-            .map(
-              (linha) => `
-                <tr data-id="${linha.id}">
-                  ${camposTabela.map((c) => `<td title="${escaparAtributo(String(valorExibicao(linha, c, opcoesFK)))}">${escaparHtml(valorExibicao(linha, c, opcoesFK))}</td>`).join("")}
-                  <td class="td-acoes">
-                    ${permissao.editar ? botaoIconeEditar("btn-editar", linha.id) : ""}
-                    ${permissao.excluir ? botaoIconeExcluir("btn-excluir", linha.id) : ""}
-                  </td>
-                </tr>`
-            )
+          opcoes
+            .map((o) => `<option value="${o.id}" ${valorAtual === o.id ? "selected" : ""}>${escaparHtml(o.nome)}</option>`)
             .join("");
-    if (permissao.editar) {
-      container.querySelectorAll(".btn-editar").forEach((btn) =>
-        btn.addEventListener("click", () => {
-          const linha = dados.find((d) => d.id === Number(btn.dataset.id));
-          preencherFormulario(linha);
-        })
-      );
-    }
-    if (permissao.excluir) {
-      container.querySelectorAll(".btn-excluir").forEach((btn) =>
-        btn.addEventListener("click", async () => {
-          const confirmado = await confirmarAcao("Excluir este item?", "Essa ação não pode ser desfeita.");
-          if (!confirmado) return;
-          try {
-            await api(`${config.endpoint}/${btn.dataset.id}`, { method: "DELETE" });
-            recarregar();
-          } catch (e) {
-            mostrarErro(document.getElementById("mensagem-erro"), e);
-          }
-        })
-      );
-    }
-  }
+      };
 
-  if (form) {
-    form.addEventListener("submit", async (ev) => {
+      selectPai.addEventListener("change", atualizarSelectFilho);
+      if (selectPai.value) atualizarSelectFilho();
+    }
+
+    // Se estiver em edição e houver campos apenasFiltro (como empresa_id em Usuários)
+    if (isEdicao) {
+      for (const campo of config.campos) {
+        if (!campo.apenasFiltro) continue;
+        const dependente = config.campos.find((c) => c.dependeDe === campo.nome);
+        if (!dependente) continue;
+        const opcoesDependente = opcoesFK[dependente.nome] ?? [];
+        const atual = opcoesDependente.find((o) => o.id === linhaEdicao[dependente.nome]);
+        if (atual && formModal.elements[campo.nome]) {
+          const empId =
+            Array.isArray(atual.empresas) && atual.empresas.length > 0
+              ? atual.empresas[0]
+              : atual[dependente.filtrarPor];
+          formModal.elements[campo.nome].value = empId;
+          formModal.elements[campo.nome].dispatchEvent(new Event("change"));
+        }
+      }
+    }
+
+    const primeiroInput = formModal.querySelector("input:not([disabled]), select:not([disabled])");
+    setTimeout(() => primeiroInput?.focus(), 60);
+
+    formModal.addEventListener("submit", async (ev) => {
       ev.preventDefault();
+      erroModal.hidden = true;
+
       const corpo = {};
+      let erroValidacao = null;
+
       for (const campo of config.campos) {
         if (campo.apenasFiltro) continue;
+
         if (campo.tipo === "checkbox") {
-          corpo[campo.nome] = form.elements[campo.nome].checked ? 1 : 0;
+          corpo[campo.nome] = formModal.elements[campo.nome].checked ? 1 : 0;
           continue;
         }
+
         if (campo.tipo === "multiselect") {
-          corpo[campo.nome] = Array.from(form.elements[campo.nome].selectedOptions).map((o) => Number(o.value));
+          const selecionados = Array.from(
+            formModal.querySelectorAll(`input[name="${campo.nome}[]"]:checked`)
+          ).map((el) => Number(el.value));
+
+          if (campo.obrigatorio && selecionados.length === 0) {
+            erroValidacao = `Selecione pelo menos uma opção para o campo "${campo.label}".`;
+            break;
+          }
+          corpo[campo.nome] = selecionados;
           continue;
         }
-        const valor = form.elements[campo.nome].value;
+
+        const inputEl = formModal.elements[campo.nome];
+        const valor = inputEl ? inputEl.value.trim() : "";
+
+        if (campo.obrigatorio && !valor && !(isEdicao && campo.tipo === "password")) {
+          erroValidacao = `O campo "${campo.label}" é obrigatório.`;
+          inputEl?.focus();
+          break;
+        }
+
+        if (campo.nome === "login" && !/^[a-zA-Z0-9_]+$/.test(valor)) {
+          erroValidacao = `O Login deve conter apenas letras e números, sem espaços ou símbolos.`;
+          inputEl?.focus();
+          break;
+        }
+
+        if (isEdicao && campo.tipo === "password" && !valor) {
+          continue;
+        }
+
         corpo[campo.nome] = campo.tipo === "number" || campo.opcoesEndpoint ? Number(valor) : valor;
       }
+
+      if (erroValidacao) {
+        mostrarErro(erroModal, new Error(erroValidacao));
+        return;
+      }
+
       try {
-        if (editandoId) {
-          await api(`${config.endpoint}/${editandoId}`, { method: "PUT", body: corpo });
+        if (isEdicao) {
+          await api(`${config.endpoint}/${linhaEdicao.id}`, { method: "PUT", body: corpo });
         } else {
           await api(config.endpoint, { method: "POST", body: corpo });
         }
-        editandoId = null;
-        form.reset();
-        botaoSalvar.textContent = "Adicionar";
-        recarregar();
+        fecharModal();
+        await recarregar();
         config.aoSalvar?.();
       } catch (e) {
-        mostrarErro(document.getElementById("mensagem-erro"), e);
+        mostrarErro(erroModal, e);
       }
     });
+  }
+
+  async function recarregar() {
+    try {
+      listaDados = await api(config.endpoint);
+      renderizarLinhas();
+    } catch (e) {
+      mostrarErro(document.getElementById("mensagem-erro"), e);
+    }
   }
 
   await recarregar();

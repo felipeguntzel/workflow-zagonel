@@ -3,6 +3,8 @@ import { json, error } from "../../_lib/http.js";
 import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
 import { criarChamado, avancarFluxo, hojeISO } from "../../_lib/chamados.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
+import { salvarValoresCamposChamado } from "../../_lib/campos.js";
+import { registrarAuditoria } from "../../_lib/auditoria.js";
 
 export async function onRequestGet(context) {
   const { usuario, permissoes, erro } = await exigirPermissao(context, "chamados", "visualizar");
@@ -18,11 +20,13 @@ export async function onRequestGet(context) {
        c.*,
        COALESCE(e.setor_id, a.setor_destino_id) AS setor_id,
        COALESCE(e.nome, a.rotulo) AS titulo,
-       st.nome AS status_nome
+       st.nome AS status_nome,
+       resp.nome AS responsavel_nome
      FROM chamados c
      LEFT JOIN etapas e ON e.id = c.etapa_id
      LEFT JOIN acoes a ON a.id = c.acao_origem_id
      LEFT JOIN status st ON st.id = c.status_id
+     LEFT JOIN usuarios resp ON resp.id = c.responsavel_id
      WHERE ${condicaoSetor}
      ORDER BY c.prazo`,
     ...parametros
@@ -58,6 +62,21 @@ export async function onRequestPost(context) {
     prazo: body.prazo ?? null,
   });
 
+  // Salva campos personalizados se enviados
+  if (body.campos && typeof body.campos === "object") {
+    await salvarValoresCamposChamado(context.env.DB, mae.id, body.campos);
+  }
+
+  // Registrar auditoria de criação do chamado mãe
+  await registrarAuditoria(context.env.DB, {
+    chamado_mae_id: mae.id,
+    chamado_id: mae.id,
+    usuario_id: usuario.id,
+    usuario_nome: usuario.nome,
+    acao: "criacao",
+    detalhes: `Chamado mãe criado por ${usuario.nome} com base no fluxo "${etapa.nome}".`
+  });
+
   const hoje = hojeISO();
   await run(
     context.env.DB,
@@ -68,5 +87,18 @@ export async function onRequestPost(context) {
   const maeFinalizada = { ...mae, data_finalizacao: hoje };
 
   const criados = await avancarFluxo(context.env.DB, maeFinalizada, etapa, {});
+
+  // Registrar auditoria para as etapas filhas criadas
+  for (const filho of criados) {
+    await registrarAuditoria(context.env.DB, {
+      chamado_mae_id: mae.id,
+      chamado_id: filho.id,
+      usuario_id: null,
+      usuario_nome: "Sistema",
+      acao: "criacao_subchamado",
+      detalhes: `Subchamado #${filho.id} gerado automaticamente pelo fluxo.`
+    });
+  }
+
   return json({ chamado: maeFinalizada, criados }, 201);
 }

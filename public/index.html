@@ -23,9 +23,31 @@
       <label>Senha
         <input type="password" name="senha" required autocomplete="current-password">
       </label>
+      <div style="display: flex; justify-content: flex-end; margin-top: -0.25rem; margin-bottom: 0.75rem;">
+        <button type="button" id="btn-esqueci-senha" style="background: none; border: none; padding: 0; font-size: 0.85rem; color: var(--cor-primaria); cursor: pointer; text-decoration: underline;">Esqueci minha senha</button>
+      </div>
       <button type="submit">Entrar</button>
       <p id="mensagem-erro" class="erro" hidden></p>
     </form>
+
+    <!-- Painel de recuperação de senha -->
+    <div id="painel-recuperacao" hidden class="formulario" style="margin-top: 1rem; border-top: 1px solid var(--cor-borda); padding-top: 1.25rem;">
+      <h3 style="font-size: 1.15rem; margin: 0 0 0.4rem;">Recuperar Acesso</h3>
+      <p style="color: var(--cor-texto-secundario); font-size: 0.88rem; margin: 0 0 1rem; line-height: 1.5;">
+        Informe seu <strong>usuário</strong> ou <strong>e-mail</strong> cadastrado. Enviaremos as instruções para você redefinir sua senha com segurança.
+      </p>
+      <form id="form-recuperar-senha">
+        <label>Usuário ou E-mail
+          <input type="text" id="recuperar-identificador" required placeholder="Ex: felipe ou nome@zagonel.com.br">
+        </label>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.6rem;">
+          <button type="submit" id="btn-enviar-recuperacao" style="flex: 1;">Enviar link de recuperação</button>
+          <button type="button" id="btn-cancelar-recuperacao" style="background: var(--cor-fundo-elevado); color: var(--cor-texto); border: 1px solid var(--cor-borda);">Cancelar</button>
+        </div>
+        <p id="msg-recuperacao-erro" class="erro" hidden style="margin-top: 0.8rem;"></p>
+        <div id="msg-recuperacao-sucesso" hidden style="margin-top: 0.8rem; background: rgba(34, 197, 94, 0.12); color: #15803d; border: 1px solid rgba(34, 197, 94, 0.3); padding: 0.75rem; border-radius: 6px; font-size: 0.88rem; line-height: 1.5;"></div>
+      </form>
+    </div>
   </div>
 </div>
 <script type="module" src="index.js"></script>

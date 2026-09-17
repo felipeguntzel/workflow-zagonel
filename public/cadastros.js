@@ -10,6 +10,8 @@ if (usuario) {
 
   renderCrud(document.getElementById("secao-empresas"), {
     titulo: "Empresas",
+    tituloSingular: "Empresa",
+    estilo: "simples",
     endpoint: "/empresas",
     tela: "empresas",
     larguraColuna1: 18,
@@ -18,12 +20,21 @@ if (usuario) {
 
   renderCrud(document.getElementById("secao-setores"), {
     titulo: "Setores",
+    tituloSingular: "Setor",
+    estilo: "complexo",
     endpoint: "/setores",
     tela: "setores",
     larguraColuna1: 16,
     campos: [
       { nome: "nome", label: "Nome", obrigatorio: true },
-      { nome: "empresa_id", label: "Empresa", obrigatorio: true, opcoesEndpoint: "/empresas" },
+      {
+        nome: "empresas",
+        label: "Empresas",
+        tipo: "multiselect",
+        obrigatorio: true,
+        opcoesEndpoint: "/empresas",
+        dica: "Selecione uma ou mais empresas às quais este setor pertence.",
+      },
       { nome: "centro_custo", label: "Centro de custo" },
       {
         nome: "prazo_padrao_dias",
@@ -37,6 +48,8 @@ if (usuario) {
 
   renderCrud(document.getElementById("secao-usuarios"), {
     titulo: "Usuários",
+    tituloSingular: "Usuário",
+    estilo: "complexo",
     endpoint: "/usuarios",
     tela: "usuarios",
     larguraColuna1: 14,
@@ -62,6 +75,7 @@ if (usuario) {
         nome: "login",
         label: "Login",
         obrigatorio: true,
+        desabilitadoNaEdicao: true,
         dica: "Usado para entrar no sistema. Só letras e números, sem espaços, pontos ou caracteres especiais.",
       },
       {
@@ -88,6 +102,8 @@ if (usuario) {
 
   renderCrud(document.getElementById("secao-status"), {
     titulo: "Status",
+    tituloSingular: "Status",
+    estilo: "simples",
     endpoint: "/status",
     tela: "status",
     larguraColuna1: 20,

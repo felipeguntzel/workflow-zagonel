@@ -21,12 +21,26 @@
 <body>
 <div id="nav"></div>
 <main>
-  <h1>Meus chamados</h1>
+  <div class="pagina-cabecalho">
+    <div class="pagina-cabecalho__esquerda">
+      <h1>Meus chamados</h1>
+    </div>
+    <div class="pagina-cabecalho__acoes">
+      <a href="novo-chamado.html" class="btn btn-primario" id="link-novo-chamado">+ Abrir novo chamado</a>
+    </div>
+  </div>
   <p id="mensagem-erro" class="erro" hidden></p>
-  <p id="link-novo-chamado"><a href="novo-chamado.html">+ Abrir novo chamado</a></p>
   <div class="tabela-wrap">
     <table>
-      <thead><tr><th style="min-width:22ch">Chamado</th><th>Status</th><th>Prazo</th><th>Situação</th></tr></thead>
+      <thead>
+        <tr>
+          <th class="th-ordenavel th-id" data-col="id">#ID <span class="ordem-indicador" id="ordem-id">▲</span></th>
+          <th class="th-ordenavel" data-col="titulo" style="min-width:22ch">Chamado <span class="ordem-indicador" id="ordem-titulo"></span></th>
+          <th class="th-ordenavel" data-col="status_nome">Status <span class="ordem-indicador" id="ordem-status_nome"></span></th>
+          <th class="th-ordenavel" data-col="prazo">Prazo <span class="ordem-indicador" id="ordem-prazo"></span></th>
+          <th class="th-ordenavel" data-col="situacao">Situação <span class="ordem-indicador" id="ordem-situacao"></span></th>
+        </tr>
+      </thead>
       <tbody id="tabela-chamados"></tbody>
     </table>
   </div>

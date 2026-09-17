@@ -2,6 +2,7 @@ import { run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
 import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
+import { validarDependenciasExclusao, atualizarContadorId } from "../../_lib/dependencias.js";
 
 export async function onRequestGet(context) {
   const { erro } = await exigirPermissao(context, "fluxos", "visualizar");
@@ -29,7 +30,22 @@ export async function onRequestPut(context) {
 export async function onRequestDelete(context) {
   const { erro } = await exigirPermissao(context, "fluxos", "excluir");
   if (erro) return erro;
-  await run(context.env.DB, "DELETE FROM acoes WHERE etapa_id = ?", context.params.id);
-  await run(context.env.DB, "DELETE FROM etapas WHERE id = ?", context.params.id);
-  return json({ ok: true });
+  const erroDependencia = await validarDependenciasExclusao(context.env.DB, "etapas", context.params.id);
+  if (erroDependencia) return error(erroDependencia, 400);
+
+  try {
+    await run(context.env.DB, "DELETE FROM acoes WHERE etapa_id = ?", context.params.id);
+    await run(context.env.DB, "DELETE FROM etapas WHERE id = ?", context.params.id);
+    await atualizarContadorId(context.env.DB, "etapas");
+    await atualizarContadorId(context.env.DB, "acoes");
+    return json({ ok: true });
+  } catch (e) {
+    if (String(e.message).includes("FOREIGN KEY") || String(e.message).includes("CONSTRAINT")) {
+      return error(
+        "Não é possível excluir esta etapa pois existem outros registros vinculados a ela.",
+        400
+      );
+    }
+    throw e;
+  }
 }

@@ -24,16 +24,16 @@ chamados). Ordem não implica prioridade.
 
 Ver `docs/superpowers/specs/2026-09-14-autenticacao-login-senha-design.md`.
 
+- ~~**Recuperação de senha por e-mail**~~: **RESOLVIDO**: tabela `recuperacao_senha`, rota `/api/recuperar-senha`, painel na tela de login e página dedicada `redefinir-senha.html` com tokens de uso único válidos por 30 minutos e suporte ao envio via Resend.
+- ~~**Contato direto via WhatsApp no chamado**~~: **RESOLVIDO**: campo `telefone` cadastrado em usuários e link click-to-chat no detalhe do chamado para contato imediato com o solicitante ou responsável com texto automático.
 - **Política de senha mais forte**: sem regra de complexidade além do
   padrão fixo.
 - **Limite de tentativas de login (rate limiting)**: sem proteção contra
   força bruta no `POST /api/login`.
 - **PWA**: manifest + service worker, instalável, funcionamento offline.
   Pedido pelo usuário junto com a autenticação, tratado como Fase 2 do
-  projeto de layout/design system — a Fase 1 (sidebar/topbar responsivos,
-  temas, tipografia, componentes) já foi implementada, ver
-  `docs/superpowers/specs/2026-09-15-layout-interno-e-temas-design.md` e a
-  seção própria abaixo.
+  projeto de layout/design system (a Fase 1 com sidebar/topbar responsivos,
+  temas, tipografia e componentes já foi implementada).
 
 ## Achados da revisão final de branch (Fase 1) não corrigidos agora
 
@@ -225,21 +225,13 @@ Ver `docs/superpowers/specs/2026-09-14-permissoes-e-administracao-design.md`.
 - **Múltiplos níveis hierárquicos de grupo** (herança entre grupos) — grupos
   são todos do mesmo nível, permissão efetiva é só a soma deles.
 
-## Reorganização de menus (futuro)
+## Reorganização de menus
 
-- **Separar "Cadastros" em subtelas dedicadas**: hoje é uma tela só; dividir
-  em menus próprios para Empresas, Usuários, Setores, Status, Grupos de
-  Permissão e Fluxos.
-- **Novo menu "Dashboards"**: ainda não existe nenhuma tela desse tipo hoje.
-- **Reordenar menus principais em ordem alfabética**: Cadastros, Chamados,
-  Dashboards.
-- **Identificador numérico por tela + atalho de navegação (ex.: F1)**: cada
-  tela ganha um número de identificação; ao pressionar F1 (ou atalho
-  equivalente), abrir um campo para digitar o número ou nome da tela e
-  navegar direto até ela.
-- **Mover o botão com o nome do usuário logado para o rodapé do sidebar**;
-  ao clicar nele, mostrar as opções "Preferências" e "Sair" (em vez de botões
-  fixos separados).
+- ~~**Separar "Cadastros" em subtelas dedicadas**~~: **RESOLVIDO**: páginas HTML e scripts dedicados criados para Empresas (`empresas.html`), Setores (`setores.html`), Usuários (`usuarios.html`) e Status (`status.html`), mantendo também Fluxos (`fluxo.html`) e Grupos de Permissão (`grupos.html`) agrupados sob Cadastros.
+- ~~**Novo menu "Dashboards"**~~: **RESOLVIDO**: criada a tela inicial `dashboards.html` com métricas agregadas de chamados, distribuição por status e espaço para os relatórios planejados.
+- ~~**Reordenar menus principais em ordem alfabética**~~: **RESOLVIDO**: a sidebar agora organiza os grupos em Cadastros, Chamados e Dashboards.
+- ~~**Identificador numérico por tela + atalho de navegação (F1 e Ctrl+F)**~~: **RESOLVIDO**: cada tela possui identificador numérico fixo (01 a 09); atalho F1 ou Ctrl+F abre modal de busca rápida para filtrar por número ou nome e navegar com Enter.
+- ~~**Mover o botão com o nome do usuário logado para o rodapé do sidebar**~~: **RESOLVIDO**: perfil do usuário com avatar e cargo posicionado no rodapé da barra lateral; ao clicar, abre menu suspenso com "Preferências" e "Sair".
 
 ## Cor por status (futuro)
 

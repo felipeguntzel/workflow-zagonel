@@ -7,6 +7,15 @@
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover,
+.btn:focus,
+.btn:active {
+  text-decoration: none;
+}
+a.btn {
+  text-decoration: none;
 }
 .btn-primario {
   background: var(--cor-primaria);
@@ -40,6 +49,10 @@
   align-items: center;
   justify-content: center;
   z-index: 100;
+}
+.modal-fundo[hidden],
+[hidden] {
+  display: none !important;
 }
 .modal {
   background: var(--cor-fundo-elevado);
@@ -76,6 +89,21 @@
 .erro { background: #fdecea; border-left-color: var(--cor-vencido); color: #7d2b1f; }
 .mensagem-aviso { background: #fef6e0; border-left-color: var(--cor-alerta); color: #6b5100; }
 .mensagem-sucesso { background: #eaf3ee; border-left-color: var(--cor-ok); color: #1d4a35; }
+:root[data-tema="escuro"] .erro {
+  background: #3b1818;
+  border-left-color: var(--cor-vencido);
+  color: #fca5a5;
+}
+:root[data-tema="escuro"] .mensagem-aviso {
+  background: #382810;
+  border-left-color: var(--cor-alerta);
+  color: #fde68a;
+}
+:root[data-tema="escuro"] .mensagem-sucesso {
+  background: #0f3020;
+  border-left-color: var(--cor-ok);
+  color: #86efac;
+}
 :root[data-tema="alto-contraste"] .erro,
 :root[data-tema="alto-contraste"] .mensagem-aviso,
 :root[data-tema="alto-contraste"] .mensagem-sucesso {

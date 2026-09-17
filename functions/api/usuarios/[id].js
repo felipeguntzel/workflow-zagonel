@@ -2,6 +2,8 @@ import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
 import { hashSenha, validarFormatoLogin } from "../../_lib/auth.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
+import { validarDependenciasExclusao, atualizarContadorId } from "../../_lib/dependencias.js";
+import { ensureColunasUsuario } from "../../_lib/usuarios.js";
 
 async function carregarGruposDoUsuario(db, usuarioId) {
   const linhas = await all(db, "SELECT grupo_id FROM usuario_grupos WHERE usuario_id = ?", usuarioId);
@@ -18,9 +20,10 @@ async function validarGruposExistem(db, grupos) {
 export async function onRequestGet(context) {
   const { erro } = await exigirPermissao(context, "usuarios", "visualizar");
   if (erro) return erro;
+  await ensureColunasUsuario(context.env.DB);
   const usuario = await first(
     context.env.DB,
-    "SELECT id, nome, setor_id, login, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
+    "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
     context.params.id
   );
   if (!usuario) return error("Não encontrado", 404);
@@ -31,6 +34,7 @@ export async function onRequestGet(context) {
 export async function onRequestPut(context) {
   const { usuario, erro } = await exigirPermissao(context, "usuarios", "editar");
   if (erro) return erro;
+  await ensureColunasUsuario(context.env.DB);
   const body = await context.request.json();
 
   if (body.admin !== undefined) {
@@ -44,6 +48,16 @@ export async function onRequestPut(context) {
 
   const colunas = ["nome", "setor_id"].filter((c) => body[c] !== undefined);
   const valores = colunas.map((c) => body[c]);
+
+  if (body.email !== undefined) {
+    colunas.push("email");
+    valores.push(body.email ? String(body.email).trim().toLowerCase() : null);
+  }
+
+  if (body.telefone !== undefined) {
+    colunas.push("telefone");
+    valores.push(body.telefone ? String(body.telefone).trim() : null);
+  }
 
   let login = null;
   if (body.login !== undefined) {
@@ -122,7 +136,22 @@ export async function onRequestPut(context) {
 export async function onRequestDelete(context) {
   const { erro } = await exigirPermissao(context, "usuarios", "excluir");
   if (erro) return erro;
-  await run(context.env.DB, "DELETE FROM usuario_grupos WHERE usuario_id = ?", context.params.id);
-  await run(context.env.DB, "DELETE FROM usuarios WHERE id = ?", context.params.id);
-  return json({ ok: true });
+  const erroDependencia = await validarDependenciasExclusao(context.env.DB, "usuarios", context.params.id);
+  if (erroDependencia) return error(erroDependencia, 400);
+
+  try {
+    await run(context.env.DB, "DELETE FROM usuario_grupos WHERE usuario_id = ?", context.params.id);
+    const res = await run(context.env.DB, "DELETE FROM usuarios WHERE id = ?", context.params.id);
+    if (res.meta.changes === 0) return error("Não encontrado", 404);
+    await atualizarContadorId(context.env.DB, "usuarios");
+    return json({ ok: true });
+  } catch (e) {
+    if (String(e.message).includes("FOREIGN KEY") || String(e.message).includes("CONSTRAINT")) {
+      return error(
+        "Não é possível excluir este usuário pois existem outros registros vinculados a ele no sistema.",
+        400
+      );
+    }
+    throw e;
+  }
 }

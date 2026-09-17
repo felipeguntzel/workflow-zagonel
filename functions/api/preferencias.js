@@ -4,7 +4,7 @@ import { obterUsuarioDaRequisicao } from "../_lib/permissoes.js";
 
 const FONTES = ["arial", "times", "verdana", "courier"];
 const TAMANHOS = ["p", "m", "g", "gg"];
-const TEMAS = ["claro", "alto-contraste"];
+const TEMAS = ["claro", "escuro", "alto-contraste"];
 
 export async function onRequestPut(context) {
   const usuario = await obterUsuarioDaRequisicao(context.request, context.env);

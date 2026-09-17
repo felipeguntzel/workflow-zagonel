@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkFlow Zagonel - Redefinir Senha</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="componentes.css">
+</head>
+<body>
+<div class="login-split">
+  <div class="login-split__destaque">
+    <img src="favicon.svg" alt="" class="login-split__logo">
+    <h1>WorkFlow Zagonel</h1>
+  </div>
+  <div class="login-split__form">
+    <div id="painel-redefinir">
+      <form class="formulario" id="form-redefinir-senha">
+        <h2>Redefinir Senha</h2>
+        <p id="subtitulo-usuario" style="color: var(--cor-texto-secundario); font-size: 0.95rem; margin-bottom: 1rem;">
+          Digite sua nova senha de acesso.
+        </p>
+
+        <label>Nova senha <span class="info" title="Mínimo de 6 caracteres.">i</span>
+          <input type="password" name="nova_senha" id="nova_senha" required minlength="6" autocomplete="new-password" placeholder="Mínimo 6 caracteres">
+        </label>
+
+        <label>Confirmar nova senha
+          <input type="password" name="confirmar_senha" id="confirmar_senha" required minlength="6" autocomplete="new-password" placeholder="Repita a nova senha">
+        </label>
+
+        <button type="submit" id="btn-salvar" style="width: 100%; margin-top: 0.5rem;">Salvar nova senha</button>
+        <p id="mensagem-erro" class="erro" hidden></p>
+        <p id="mensagem-sucesso" class="mensagem-sucesso" hidden style="background: rgba(34, 197, 94, 0.15); color: #15803d; border: 1px solid rgba(34, 197, 94, 0.3); padding: 0.75rem; border-radius: 6px; font-weight: 500;"></p>
+
+        <div style="text-align: center; margin-top: 1.5rem;">
+          <a href="index.html" style="font-size: 0.9rem; color: var(--cor-primaria); text-decoration: none;">&larr; Voltar para o login</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script type="module" src="redefinir-senha.js"></script>
+</body>
+</html>

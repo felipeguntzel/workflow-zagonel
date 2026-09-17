@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkFlow Zagonel - Dashboards</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="componentes.css">
+<script>
+(function () {
+  try {
+    var u = JSON.parse(localStorage.getItem("workflow_zagonel_usuario"));
+    document.documentElement.setAttribute("data-tema", (u && u.tema) || "claro");
+    document.documentElement.setAttribute("data-fonte", (u && u.fonte) || "arial");
+    document.documentElement.setAttribute("data-tamanho", (u && u.tamanho_fonte) || "m");
+  } catch (e) {}
+})();
+</script>
+</head>
+<body>
+<div id="nav"></div>
+<main>
+  <h1>Dashboards</h1>
+  <p id="mensagem-erro" class="erro" hidden></p>
+  
+  <div class="cards-metricas" id="cards-metricas">
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Total de chamados</span>
+      <strong class="card-metrica__valor" id="metrica-total">0</strong>
+    </div>
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Em andamento</span>
+      <strong class="card-metrica__valor" id="metrica-andamento">0</strong>
+    </div>
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Finalizados</span>
+      <strong class="card-metrica__valor" id="metrica-finalizados">0</strong>
+    </div>
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Com alerta ou atraso</span>
+      <strong class="card-metrica__valor" id="metrica-atencao">0</strong>
+    </div>
+  </div>
+
+  <div class="painel" style="margin-top: 1.5rem;">
+    <h2>Visão geral de distribuição</h2>
+    <p class="texto-secundario" style="margin-bottom: 1rem;">
+      Acompanhe o volume e a evolução dos chamados de produto por status e setor responsável.
+    </p>
+    <div class="tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th style="width: 120px; text-align: right;">Quantidade</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-distribuicao-status">
+          <tr><td colspan="2">Carregando dados...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="painel" style="margin-top: 1.5rem;">
+    <h2>Relatórios planejados para as próximas versões</h2>
+    <ul style="margin: 0.5rem 0 0 1.25rem; line-height: 1.7; color: var(--cor-texto-secundario);">
+      <li>Volume de tarefas mãe existentes e distribuição por setor produtivo</li>
+      <li>Tempo médio de finalização por etapa e setor</li>
+      <li>Identificação visual de gargalos no fluxo de aprovação e desenvolvimento</li>
+    </ul>
+  </div>
+</main>
+<script type="module" src="dashboards.js"></script>
+</body>
+</html>

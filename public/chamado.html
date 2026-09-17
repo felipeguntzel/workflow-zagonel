@@ -21,27 +21,85 @@
 <body>
 <div id="nav"></div>
 <main>
-  <p><a href="chamados.html">← Meus chamados</a> | <a id="link-geral" href="#">Ver chamado geral</a></p>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+    <p style="margin: 0;"><a href="chamados.html">← Meus chamados</a> | <a id="link-geral" href="#">Ver chamado geral</a></p>
+    <button type="button" id="btn-excluir-chamado" class="btn btn-perigo btn-pequeno">Excluir chamado</button>
+  </div>
+  
   <p id="mensagem-erro" class="erro" hidden></p>
-  <div id="detalhe"></div>
-  <div id="acao"></div>
-  <p><button type="button" id="btn-excluir-chamado" class="btn btn-perigo">Excluir chamado</button></p>
-  <section>
-    <h2>Apontamento de horas <span id="total-horas"></span></h2>
-    <ul id="lista-horas"></ul>
-    <form class="formulario" id="form-horas">
-      <label>Data <input type="date" name="data" required></label>
-      <label>Horas <input type="number" step="0.5" min="0.5" name="horas" required></label>
-      <label>Observação <input type="text" name="observacao"></label>
-      <button type="submit" class="btn btn-primario">Lançar horas</button>
+  
+  <div id="detalhe" class="painel" style="margin-bottom: 1.5rem;"></div>
+
+  <!-- Campos Dinâmicos do Chamado -->
+  <section id="secao-campos-dinamicos" class="painel" style="margin-bottom: 1.5rem;" hidden>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.5rem;">
+      <h2 style="font-size: 1.2rem; margin: 0;">📋 Campos da Solicitação / Etapa</h2>
+      <button type="button" id="btn-salvar-campos-dinamicos" class="btn btn-primario btn-pequeno" hidden>Salvar alterações</button>
+    </div>
+    <p id="msg-erro-campos" class="erro" hidden></p>
+    <div id="conteudo-campos-dinamicos"></div>
+  </section>
+
+  <!-- Ação / Aprovação / Status -->
+  <div id="acao" class="painel" style="margin-bottom: 1.5rem;"></div>
+
+  <!-- Anexos de Arquivos (até 2MB por arquivo, até 10MB por chamado mãe) -->
+  <section class="painel" style="margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.5rem;">
+      <h2 style="font-size: 1.2rem; margin: 0;">📎 Anexos <span id="resumo-anexos" style="font-size: 0.9rem; color: var(--cor-texto-secundario); font-weight: normal;"></span></h2>
+    </div>
+    <p id="msg-erro-anexo" class="erro" hidden></p>
+    <ul id="lista-anexos" style="list-style: none; padding: 0; margin-bottom: 1.25rem;"></ul>
+    <form class="formulario" id="form-anexo" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; background: var(--cor-fundo); padding: 1rem; border-radius: 0.35rem; border: 1px dashed var(--cor-borda);">
+      <div style="flex: 1 1 240px;">
+        <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">
+          Selecionar arquivo (PDF, XLSX, DOCX, PNG, JPG - máx 2MB)
+        </label>
+        <input type="file" id="input-arquivo-anexo" required style="width: 100%; font-size: 0.85rem;">
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.4rem; padding-bottom: 0.5rem;">
+        <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; cursor: pointer;">
+          <input type="checkbox" id="check-anexo-privado"> Anexo privado (visível apenas para este setor/etapa)
+        </label>
+      </div>
+      <button type="submit" id="btn-enviar-anexo" class="btn btn-primario btn-pequeno">Enviar anexo</button>
     </form>
   </section>
-  <section>
-    <h2>Comentários</h2>
-    <ul id="lista-comentarios"></ul>
+
+  <!-- Histórico Unificado de Auditoria -->
+  <section class="painel" style="margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.5rem;">
+      <h2 style="font-size: 1.2rem; margin: 0;">📜 Histórico Unificado de Ações</h2>
+    </div>
+    <div id="historico-auditoria-wrap" style="max-height: 280px; overflow-y: auto; padding-right: 0.5rem;">
+      <ul id="lista-historico-auditoria" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem;"></ul>
+    </div>
+  </section>
+
+  <!-- Comentários -->
+  <section class="painel" style="margin-bottom: 1.5rem;">
+    <h2>💬 Comentários</h2>
+    <ul id="lista-comentarios" style="list-style: none; padding: 0; margin-bottom: 1.25rem;"></ul>
     <form class="formulario" id="form-comentario">
-      <label>Novo comentário <textarea name="texto" required></textarea></label>
-      <button type="submit" class="btn btn-primario">Comentar</button>
+      <label>Novo comentário <textarea name="texto" required style="width: 100%; min-height: 70px;"></textarea></label>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+        <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; cursor: pointer;">
+          <input type="checkbox" id="check-comentario-privado"> Comentário privado (visível apenas para o setor desta etapa)
+        </label>
+        <button type="submit" class="btn btn-primario">Comentar</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Apontamento de horas -->
+  <section class="painel">
+    <h2>⏱️ Apontamento de horas <span id="total-horas"></span></h2>
+    <ul id="lista-horas" style="list-style: none; padding: 0; margin-bottom: 1.25rem;"></ul>
+    <form class="formulario" id="form-horas" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end;">
+      <label>Data <input type="date" name="data" required></label>
+      <label>Horas <input type="number" step="0.5" min="0.5" name="horas" required></label>
+      <label style="flex: 1 1 200px;">Observação <input type="text" name="observacao" style="width: 100%;"></label>
+      <button type="submit" class="btn btn-primario">Lançar horas</button>
     </form>
   </section>
 </main>

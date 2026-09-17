@@ -1,6 +1,9 @@
 import { all, first, run } from "./db.js";
 import { json, error } from "./http.js";
 import { exigirPermissao } from "./permissoes.js";
+import { validarDependenciasExclusao, atualizarContadorId } from "./dependencias.js";
+
+export { validarDependenciasExclusao, atualizarContadorId };
 
 export function campoObrigatorioFaltando(body, required, { exigirPresente = false } = {}) {
   for (const campo of required) {
@@ -75,9 +78,22 @@ export function crudItemHandlers(table, { required = [], optional = [], tela } =
   async function onRequestDelete(context) {
     const { erro } = await exigirPermissao(context, tela, "excluir");
     if (erro) return erro;
-    const resultado = await run(context.env.DB, `DELETE FROM ${table} WHERE id = ?`, context.params.id);
-    if (resultado.meta.changes === 0) return error("Não encontrado", 404);
-    return json({ ok: true });
+    const erroDependencia = await validarDependenciasExclusao(context.env.DB, table, context.params.id);
+    if (erroDependencia) return error(erroDependencia, 400);
+    try {
+      const resultado = await run(context.env.DB, `DELETE FROM ${table} WHERE id = ?`, context.params.id);
+      if (resultado.meta.changes === 0) return error("Não encontrado", 404);
+      await atualizarContadorId(context.env.DB, table);
+      return json({ ok: true });
+    } catch (e) {
+      if (String(e.message).includes("FOREIGN KEY") || String(e.message).includes("CONSTRAINT")) {
+        return error(
+          "Não é possível excluir este registro pois existem outros registros vinculados a ele. Por favor, verifique e remova os vínculos primeiro.",
+          400
+        );
+      }
+      throw e;
+    }
   }
 
   return { onRequestGet, onRequestPut, onRequestDelete };

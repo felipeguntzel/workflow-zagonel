@@ -7,7 +7,17 @@ export function abrirModal(conteudoElemento, onOutsideClick) {
   fundo.appendChild(modal);
   document.body.appendChild(fundo);
 
+  function tratarKeyDown(ev) {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      if (onOutsideClick) onOutsideClick();
+      fechar();
+    }
+  }
+  window.addEventListener("keydown", tratarKeyDown);
+
   function fechar() {
+    window.removeEventListener("keydown", tratarKeyDown);
     fundo.remove();
   }
   fundo.addEventListener("click", (ev) => {
