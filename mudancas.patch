@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!-- head? yes please -->
+        <!-- Hello Fran, don't sue pls -->
+        <!-- Love -darren  -->
+        <title>dpaste - RED ALERT</title>
+        <meta charset="utf-8" />
+        <meta name="robots" content="noindex" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+            body {
+                text-align: center;
+                padding: 20px;
+                font: 18px "Avenir Next Cyr", Helvetica, sans-serif;
+                color: #333;
+                background-color: #ffffff
+            }
+            @media (min-width: 768px) {
+                body {
+                    padding-top: 150px;
+                }
+            }
+            h1 {
+                font-size: 50px;
+            }
+            article {
+                display: block;
+                text-align: left;
+                max-width: 650px;
+                margin: 0 auto;
+            }
+            a {
+                color: #3c4772;
+                text-decoration: none;
+            }
+            a:hover {
+                color: #333;
+                text-decoration: none;
+            }
+            #logonav {
+	width: 730px;
+	height: 70px;
+	line-height: 70px;
+}
+
+        </style>
+<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "u8w6xae09j");
+</script>
+  
+    </head>
+    <body>
+        <article>
+            <br>
+    
+            <div id="body" class="content">
+
+				Hello,
+
+				<br /><br />
+				At the moment, <strong>dpaste</strong> has temporarily halted its operation as a public pastebin.
+        This decision follows a recent incident in which malicious actors posted prohibited material (CSAM), and responsible reporting did not contact our abuse mailbox directly rather they went directly to our hosting provider and domain registrar.
+				<br /><br />
+				
+				For technical discussion and progress updates, please see the relevant GitHub thread:
+      <a href="https://github.com/DarrenOfficial/dpaste/issues/274#issuecomment-3553595409" target="_blank" rel="noopener noreferrer">
+        GitHub issue #274 — comment
+      </a>.
+
+      <br /><br />
+      -darren
+
+				
+			</div>
+        </article>
+        <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"1cb88c9e55e34cc19601bbb1caf6033e","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
