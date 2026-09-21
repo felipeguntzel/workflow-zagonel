@@ -138,6 +138,27 @@ export async function navegarPara(url, push = true) {
     // Animação de transição suave
     novoMain.style.animation = "transicaoTela 0.18s ease-out";
 
+    // Sincronizar stylesheets adicionais requeridos pela tela
+    doc.querySelectorAll("link[rel='stylesheet']").forEach((link) => {
+      const href = link.getAttribute("href");
+      if (href && !document.querySelector(`link[rel='stylesheet'][href="${href}"]`)) {
+        const novoLink = document.createElement("link");
+        novoLink.rel = "stylesheet";
+        novoLink.href = href;
+        document.head.appendChild(novoLink);
+      }
+    });
+
+    // Sincronizar scripts externos adicionais
+    doc.querySelectorAll("script:not([type='module'])").forEach((scr) => {
+      const src = scr.getAttribute("src");
+      if (src && !document.querySelector(`script[src="${src}"]`)) {
+        const novoScript = document.createElement("script");
+        novoScript.src = src;
+        document.head.appendChild(novoScript);
+      }
+    });
+
     const mainAtual = document.querySelector("main");
     if (mainAtual) {
       mainAtual.replaceWith(novoMain);

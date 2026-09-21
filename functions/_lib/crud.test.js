@@ -21,3 +21,20 @@ test("campoObrigatorioFaltando ignores an absent field by default (PUT: field ju
 test("campoObrigatorioFaltando with exigirPresente flags an absent field too (POST create)", () => {
   assert.equal(campoObrigatorioFaltando({}, ["nome"], { exigirPresente: true }), "nome");
 });
+
+test("assegurarEsquemaTabela executa ALTER TABLE para fluxo_templates de forma segura", async () => {
+  const { assegurarEsquemaTabela } = await import("./crud.js");
+  let comandoSql = "";
+  const mockDb = {
+    prepare(sql) {
+      comandoSql = sql;
+      return {
+        bind() { return this; },
+        async run() { return { meta: {} }; }
+      };
+    }
+  };
+  await assegurarEsquemaTabela(mockDb, "fluxo_templates");
+  assert.ok(comandoSql.includes("ALTER TABLE fluxo_templates ADD COLUMN descricao TEXT"));
+});
+

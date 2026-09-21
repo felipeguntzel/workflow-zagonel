@@ -268,5 +268,106 @@ a.btn {
   animation: girar 0.6s linear infinite;
 }
 
+/* Estilos Integrados do Editor SQL */
+.sql-console-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
 
+.sql-ferramentas-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-bottom: 0.85rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid var(--cor-borda);
+}
 
+.sql-modelos-grupo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sql-textarea {
+  width: 100%;
+  min-height: 140px;
+  font-family: "Cascadia Code", "Fira Code", Consolas, "Courier New", monospace;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  padding: 0.85rem;
+  border: var(--cor-borda-largura) solid var(--cor-borda);
+  border-radius: 0.4rem;
+  background: var(--cor-fundo-elevado);
+  color: var(--cor-texto);
+  box-sizing: border-box;
+  resize: vertical;
+  tab-size: 2;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sql-textarea:focus {
+  outline: none;
+  border-color: var(--cor-primaria);
+  box-shadow: 0 0 0 3px rgba(47, 111, 79, 0.18);
+}
+
+.sql-acoes-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.sql-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.sql-badge-sucesso {
+  background: rgba(47, 111, 79, 0.12);
+  color: var(--cor-ok);
+  border: 1px solid var(--cor-ok);
+}
+
+.sql-badge-mutacao {
+  background: rgba(184, 134, 11, 0.12);
+  color: var(--cor-alerta);
+  border: 1px solid var(--cor-alerta);
+}
+
+.sql-badge-erro {
+  background: rgba(192, 57, 43, 0.12);
+  color: var(--cor-vencido);
+  border: 1px solid var(--cor-vencido);
+}
+
+.sql-valor-null {
+  font-style: italic;
+  opacity: 0.55;
+  font-family: monospace;
+}
+
+.sql-valor-numero {
+  font-family: monospace;
+  text-align: right;
+}
+
+.sql-tabela-scroll {
+  overflow-x: auto;
+  max-height: 520px;
+  overflow-y: auto;
+  border: var(--cor-borda-largura) solid var(--cor-borda);
+  border-radius: 0.4rem;
+}

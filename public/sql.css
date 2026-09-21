@@ -1,400 +1,91 @@
-/* Estilos do Editor SQL */
-.sql-layout {
-  display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 1.25rem;
-  align-items: start;
-  margin-top: 1rem;
-}
-
-@media (max-width: 980px) {
-  .sql-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Painel Lateral de Tabelas */
-.sql-tabelas-painel {
-  background: var(--cor-fundo-elevado);
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  border-radius: 0.5rem;
-  padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.sql-tabelas-cabecalho {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-}
-
-.sql-tabelas-titulo {
-  font-size: 1rem;
-  font-weight: 700;
-  margin: 0;
-  color: var(--cor-texto);
-}
-
-.sql-tabelas-busca {
-  width: 100%;
-  padding: 0.45rem 0.65rem;
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  border-radius: 0.35rem;
-  font-size: 0.85rem;
-  background: var(--cor-fundo);
-  color: var(--cor-texto);
-  margin-bottom: 0.75rem;
-  box-sizing: border-box;
-}
-
-.sql-tabelas-lista {
-  max-height: 620px;
-  overflow-y: auto;
+/* Estilos do Editor SQL - Workflow Zagonel */
+.sql-console-wrap {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  padding-right: 0.25rem;
+  gap: 1.25rem;
 }
 
-.sql-tabela-card {
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  border-radius: 0.4rem;
-  background: var(--cor-fundo);
-  padding: 0.6rem 0.75rem;
-  transition: border-color 0.15s ease;
-}
-
-.sql-tabela-card:hover {
-  border-color: var(--cor-primaria);
-}
-
-.sql-tabela-topo {
+.sql-ferramentas-topo {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.4rem;
-}
-
-.sql-tabela-nome {
-  font-family: monospace;
-  font-weight: 700;
-  font-size: 0.88rem;
-  color: var(--cor-primaria);
-  cursor: pointer;
-  word-break: break-all;
-}
-
-.sql-tabela-nome:hover {
-  text-decoration: underline;
-}
-
-.sql-tabela-qtd {
-  font-size: 0.75rem;
-  color: var(--cor-texto-secundario);
-  background: var(--cor-fundo-elevado);
-  padding: 0.15rem 0.4rem;
-  border-radius: 0.25rem;
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  white-space: nowrap;
-}
-
-.sql-acoes-rapidas {
-  display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
-  margin-top: 0.4rem;
+  gap: 0.75rem;
+  padding-bottom: 0.85rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid var(--cor-borda);
 }
 
-.btn-sql-pre {
-  font-size: 0.7rem;
-  padding: 0.2rem 0.45rem;
-  border-radius: 0.25rem;
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  background: var(--cor-fundo-elevado);
-  color: var(--cor-texto);
-  cursor: pointer;
-  font-weight: 600;
-  font-family: inherit;
-  transition: all 0.15s ease;
-}
-
-.btn-sql-pre:hover {
-  background: var(--cor-primaria);
-  color: var(--cor-primaria-texto);
-  border-color: var(--cor-primaria);
-}
-
-.sql-colunas-detalhe {
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px dashed var(--cor-borda);
-  font-size: 0.75rem;
-  color: var(--cor-texto-secundario);
-}
-
-.sql-colunas-lista {
-  list-style: none;
-  padding: 0;
-  margin: 0.25rem 0 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.sql-coluna-item {
-  display: flex;
-  justify-content: space-between;
-  font-family: monospace;
-  font-size: 0.72rem;
-}
-
-.sql-coluna-pk {
-  color: var(--cor-alerta);
-  font-weight: bold;
-}
-
-/* Painel Principal do Editor */
-.sql-editor-painel {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.sql-caixa-editor {
-  background: var(--cor-fundo-elevado);
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  border-radius: 0.5rem;
-  padding: 1.25rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.sql-editor-barra-topo {
+.sql-modelos-grupo {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.sql-editor-rotulo {
-  font-weight: 700;
-  font-size: 0.95rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.sql-editor-atalhos {
-  font-size: 0.8rem;
-  color: var(--cor-texto-secundario);
-}
-
-.sql-editor-atalhos kbd {
-  background: var(--cor-fundo);
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  border-radius: 0.25rem;
-  padding: 0.1rem 0.35rem;
-  font-size: 0.75rem;
-  font-family: monospace;
 }
 
 .sql-textarea {
   width: 100%;
-  min-height: 180px;
+  min-height: 140px;
   font-family: "Cascadia Code", "Fira Code", Consolas, "Courier New", monospace;
   font-size: 0.92rem;
   line-height: 1.5;
-  padding: 0.75rem;
+  padding: 0.85rem;
   border: var(--cor-borda-largura) solid var(--cor-borda);
   border-radius: 0.4rem;
-  background: var(--cor-fundo);
+  background: var(--cor-fundo-elevado);
   color: var(--cor-texto);
   box-sizing: border-box;
   resize: vertical;
   tab-size: 2;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .sql-textarea:focus {
   outline: none;
   border-color: var(--cor-primaria);
-  box-shadow: 0 0 0 2px rgba(47, 111, 79, 0.2);
+  box-shadow: 0 0 0 3px rgba(47, 111, 79, 0.18);
 }
 
-.sql-editor-acoes {
+.sql-acoes-rodape {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: 0.75rem;
+  margin-top: 0.85rem;
 }
 
-.sql-editor-botoes {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.sql-historico-wrap {
-  display: flex;
+.sql-badge-tag {
+  display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-}
-
-.sql-select-historico {
-  max-width: 260px;
-  padding: 0.4rem 0.5rem;
-  border-radius: 0.35rem;
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  background: var(--cor-fundo);
-  color: var(--cor-texto);
-  font-size: 0.82rem;
-}
-
-/* Painel de Resultados */
-.sql-resultado-painel {
-  background: var(--cor-fundo-elevado);
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  border-radius: 0.5rem;
-  padding: 1.25rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.sql-resultado-cabecalho {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--cor-borda);
-}
-
-.sql-status-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.88rem;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
 .sql-badge-sucesso {
   background: rgba(47, 111, 79, 0.12);
   color: var(--cor-ok);
-  padding: 0.25rem 0.6rem;
-  border-radius: 0.25rem;
   border: 1px solid var(--cor-ok);
 }
 
 .sql-badge-mutacao {
   background: rgba(184, 134, 11, 0.12);
   color: var(--cor-alerta);
-  padding: 0.25rem 0.6rem;
-  border-radius: 0.25rem;
   border: 1px solid var(--cor-alerta);
 }
 
-.sql-exportar-grupo {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.btn-exportar {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  border-radius: 0.35rem;
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  background: var(--cor-fundo);
-  color: var(--cor-texto);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-exportar:hover:not(:disabled) {
-  background: var(--cor-primaria);
-  color: var(--cor-primaria-texto);
-  border-color: var(--cor-primaria);
-}
-
-.btn-exportar:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-exportar-xlsx {
-  border-color: #2e7d32;
-  color: #2e7d32;
-}
-
-:root[data-tema="escuro"] .btn-exportar-xlsx {
-  color: #4ade80;
-  border-color: #15803d;
-}
-
-:root[data-tema="alto-contraste"] .btn-exportar-xlsx {
-  color: #ffff00;
-  border-color: #ffffff;
-}
-
-.sql-tabela-scroll {
-  overflow-x: auto;
-  max-height: 520px;
-  overflow-y: auto;
-  border: var(--cor-borda-largura) solid var(--cor-borda);
-  border-radius: 0.35rem;
-}
-
-.sql-tabela-dados {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.84rem;
-  font-family: inherit;
-}
-
-.sql-tabela-dados th {
-  position: sticky;
-  top: 0;
-  background: var(--cor-fundo);
-  color: var(--cor-texto);
-  font-weight: 700;
-  font-family: monospace;
-  text-align: left;
-  padding: 0.55rem 0.75rem;
-  border-bottom: 2px solid var(--cor-borda);
-  border-right: 1px solid var(--cor-borda);
-  white-space: nowrap;
-  z-index: 2;
-}
-
-.sql-tabela-dados td {
-  padding: 0.45rem 0.75rem;
-  border-bottom: 1px solid var(--cor-borda);
-  border-right: 1px solid var(--cor-borda);
-  color: var(--cor-texto);
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-width: 320px;
-}
-
-.sql-tabela-dados tr:hover td {
-  background: rgba(0, 0, 0, 0.03);
-}
-
-:root[data-tema="escuro"] .sql-tabela-dados tr:hover td {
-  background: rgba(255, 255, 255, 0.04);
+.sql-badge-erro {
+  background: rgba(192, 57, 43, 0.12);
+  color: var(--cor-vencido);
+  border: 1px solid var(--cor-vencido);
 }
 
 .sql-valor-null {
   font-style: italic;
-  color: var(--cor-texto-secundario);
-  opacity: 0.65;
+  opacity: 0.55;
   font-family: monospace;
 }
 
@@ -403,21 +94,10 @@
   text-align: right;
 }
 
-.sql-erro-card {
-  padding: 0.85rem 1rem;
+.sql-tabela-scroll {
+  overflow-x: auto;
+  max-height: 520px;
+  overflow-y: auto;
+  border: var(--cor-borda-largura) solid var(--cor-borda);
   border-radius: 0.4rem;
-  background: rgba(192, 57, 43, 0.1);
-  border: 1px solid var(--cor-vencido);
-  color: var(--cor-vencido);
-  font-family: monospace;
-  font-size: 0.85rem;
-  white-space: pre-wrap;
-  margin-top: 0.5rem;
-}
-
-.sql-vazio-msg {
-  padding: 2rem;
-  text-align: center;
-  color: var(--cor-texto-secundario);
-  font-size: 0.9rem;
 }

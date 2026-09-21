@@ -1,6 +1,6 @@
 import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { info, escaparHtml, mostrarErro } from "./ui.js";
+import { info, escaparHtml } from "./ui.js";
 import { api } from "./api.js";
 
 const CHAVE_HISTORICO = "workflow_zagonel_sql_historico";
@@ -18,9 +18,9 @@ export function inicializar() {
 
   if (!usuario.admin) {
     container.innerHTML = `
-      <div class="card" style="margin-top: 2rem; text-align: center; padding: 2rem;">
-        <h2>Acesso Restrito</h2>
-        <p style="color: var(--cor-texto-secundario); margin: 1rem 0;">
+      <div class="painel" style="margin-top: 2rem; text-align: center; padding: 2.5rem; max-width: 600px; margin-left: auto; margin-right: auto;">
+        <h3 style="color: var(--cor-primaria); margin-top: 0;">Acesso Restrito</h3>
+        <p style="color: var(--cor-texto-secundario); margin: 1rem 0 1.5rem; line-height: 1.5;">
           O Editor SQL é uma ferramenta avançada e de segurança crítica, disponível exclusivamente para administradores do sistema.
         </p>
         <a href="/chamados" class="btn btn-primario">Voltar para Meus Chamados</a>
@@ -41,105 +41,96 @@ async function iniciarEditor(container) {
           Editor SQL
           ${info("Console de administração do banco de dados SQLite (D1). Permite executar consultas SELECT e comandos de mutação (INSERT, UPDATE, DELETE). Use com cautela.")}
         </h2>
-        <span class="badge" style="background: var(--cor-primaria); color: var(--cor-primaria-texto); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 0.25rem;">
+        <p style="color: var(--cor-texto-secundario); margin: 0.35rem 0 0; font-size: 0.88rem;">
+          Execute consultas e comandos diretamente no banco de dados SQLite (Cloudflare D1).
+        </p>
+      </div>
+      <div>
+        <span class="badge" style="background: var(--cor-primaria); color: var(--cor-primaria-texto); font-size: 0.82rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 0.35rem;">
           Administrador
         </span>
       </div>
     </div>
 
-    <div class="sql-layout">
-      <!-- Painel Lateral: Tabelas e Pré-comandos -->
-      <aside class="sql-tabelas-painel">
-        <div class="sql-tabelas-cabecalho">
-          <h3 class="sql-tabelas-titulo">
-            Tabelas
-            ${info("Lista de tabelas do sistema. Clique no nome para ver as colunas ou use os botões rápidos para carregar pré-comandos prontos (SELECT, INSERT, UPDATE, DELETE).")}
-          </h3>
-          <span id="contador-tabelas" class="sql-tabela-qtd">0 tabelas</span>
-        </div>
-
-        <input
-          type="search"
-          id="busca-tabela"
-          class="sql-tabelas-busca"
-          placeholder="Filtrar tabelas..."
-          autocomplete="off"
-        >
-
-        <div id="lista-tabelas" class="sql-tabelas-lista">
-          <p class="sql-vazio-msg">Carregando tabelas do banco...</p>
-        </div>
-      </aside>
-
-      <!-- Painel Principal: Editor e Resultados -->
-      <section class="sql-editor-painel">
-        <!-- Caixa do Editor -->
-        <div class="sql-caixa-editor">
-          <div class="sql-editor-barra-topo">
-            <div class="sql-editor-rotulo">
-              <span>Instrução SQL</span>
-              <span class="sql-editor-atalhos">Atalho: <kbd>Ctrl + Enter</kbd> para executar</span>
-            </div>
-
-            <div class="sql-historico-wrap">
-              <select id="select-historico" class="sql-select-historico" title="Comandos executados recentemente">
-                <option value="">Histórico recente...</option>
-              </select>
-            </div>
+    <div class="sql-console-wrap">
+      <!-- Painel Principal do Console -->
+      <div class="painel">
+        <div class="sql-ferramentas-topo">
+          <div class="sql-modelos-grupo">
+            <label for="select-tabela-modelo" style="font-weight: 700; font-size: 0.85rem; color: var(--cor-texto-secundario); white-space: nowrap;">
+              Tabela:
+            </label>
+            <select id="select-tabela-modelo" class="select-padrao" style="width: auto; min-width: 210px; font-weight: 600; padding: 0.45rem 0.75rem; font-size: 0.85rem;">
+              <option value="">Carregando tabelas...</option>
+            </select>
+            <button type="button" class="btn btn-secundario btn-modelo-sql" data-acao="select" title="Inserir comando SELECT com limite" style="font-size: 0.82rem; padding: 0.45rem 0.7rem;">+ SELECT</button>
+            <button type="button" class="btn btn-secundario btn-modelo-sql" data-acao="insert" title="Inserir modelo de INSERT" style="font-size: 0.82rem; padding: 0.45rem 0.7rem;">+ INSERT</button>
+            <button type="button" class="btn btn-secundario btn-modelo-sql" data-acao="update" title="Inserir modelo de UPDATE com WHERE" style="font-size: 0.82rem; padding: 0.45rem 0.7rem;">+ UPDATE</button>
+            <button type="button" class="btn btn-secundario btn-modelo-sql" data-acao="delete" title="Inserir modelo de DELETE com WHERE" style="font-size: 0.82rem; padding: 0.45rem 0.7rem;">+ DELETE</button>
           </div>
 
-          <textarea
-            id="editor-sql-texto"
-            class="sql-textarea"
-            placeholder="Digite aqui o comando SQL... Exemplo: SELECT * FROM usuarios LIMIT 50;"
-            spellcheck="false"
-          >SELECT * FROM usuarios LIMIT 50;</textarea>
-
-          <div class="sql-editor-acoes">
-            <div class="sql-editor-botoes">
-              <button type="button" id="btn-executar-sql" class="btn btn-primario" style="display: inline-flex; align-items: center; gap: 0.4rem;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                <span>Executar (Ctrl+Enter)</span>
-              </button>
-              <button type="button" id="btn-limpar-sql" class="btn btn-secundario">
-                Limpar
-              </button>
-            </div>
-
-            <div style="font-size: 0.8rem; color: var(--cor-texto-secundario);">
-              Suporta SELECT, INSERT, UPDATE com WHERE e DELETE com WHERE
-            </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <button type="button" id="btn-abrir-esquema" class="btn btn-secundario" title="Ver estrutura de tabelas e colunas" style="font-size: 0.82rem; padding: 0.45rem 0.75rem;">
+              Ver Estrutura das Tabelas
+            </button>
+            <select id="select-historico" class="select-padrao" title="Histórico de comandos executados nesta sessão" style="width: auto; min-width: 170px; font-size: 0.85rem; padding: 0.45rem 0.75rem;">
+              <option value="">Histórico recente...</option>
+            </select>
           </div>
         </div>
 
-        <!-- Caixa de Resultados -->
-        <div class="sql-resultado-painel">
-          <div class="sql-resultado-cabecalho">
-            <div id="sql-status-execucao" class="sql-status-info">
-              <span>Aguardando execução...</span>
-            </div>
+        <textarea
+          id="editor-sql-texto"
+          class="textarea-padrao sql-textarea"
+          placeholder="Digite a instrução SQL aqui... Exemplo: SELECT * FROM usuarios LIMIT 50;"
+          spellcheck="false"
+        >SELECT * FROM usuarios LIMIT 50;</textarea>
 
-            <div class="sql-exportar-grupo">
-              <span style="font-size: 0.8rem; color: var(--cor-texto-secundario); font-weight: 600;">Exportar:</span>
-              <button type="button" id="btn-exportar-xlsx" class="btn-exportar btn-exportar-xlsx" disabled title="Exportar resultado para planilha Excel (.xlsx)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                <span>XLSX</span>
-              </button>
-              <button type="button" id="btn-exportar-txt" class="btn-exportar" disabled title="Exportar resultado para arquivo de texto formatado (.txt)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
-                <span>TXT</span>
-              </button>
-            </div>
+        <div class="sql-acoes-rodape">
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button type="button" id="btn-executar-sql" class="btn btn-primario" style="display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 700; padding: 0.55rem 1.25rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>Executar (Ctrl+Enter)</span>
+            </button>
+            <button type="button" id="btn-limpar-sql" class="btn btn-secundario">
+              Limpar
+            </button>
           </div>
 
-          <div id="sql-area-resultado">
-            <p class="sql-vazio-msg">
-              Execute uma instrução SQL para visualizar os resultados ou o status de alteração aqui.
-            </p>
+          <div style="font-size: 0.82rem; color: var(--cor-texto-secundario);">
+            Atalho: <kbd style="background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-family: monospace;">Ctrl + Enter</kbd> &bull; Suporta SELECT, INSERT, UPDATE e DELETE com WHERE
           </div>
         </div>
-      </section>
+      </div>
+
+      <!-- Painel de Resultados -->
+      <div class="painel">
+        <div class="sql-ferramentas-topo" style="margin-bottom: 0.85rem;">
+          <div id="sql-status-execucao" class="sql-status-info">
+            <span style="color: var(--cor-texto-secundario);">Aguardando execução de comando...</span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span style="font-size: 0.82rem; color: var(--cor-texto-secundario); font-weight: 600;">Exportar:</span>
+            <button type="button" id="btn-exportar-xlsx" class="btn btn-secundario" disabled title="Exportar resultado para planilha Excel (.xlsx)" style="font-size: 0.82rem; padding: 0.35rem 0.65rem;">
+              Excel (.xlsx)
+            </button>
+            <button type="button" id="btn-exportar-txt" class="btn btn-secundario" disabled title="Exportar resultado para arquivo de texto formatado (.txt)" style="font-size: 0.82rem; padding: 0.35rem 0.65rem;">
+              Texto (.txt)
+            </button>
+          </div>
+        </div>
+
+        <div id="sql-area-resultado">
+          <p style="padding: 2.5rem 1rem; text-align: center; color: var(--cor-texto-secundario); font-size: 0.9rem;">
+            Execute uma instrução SQL acima para visualizar os dados ou status de alteração aqui.
+          </p>
+        </div>
+      </div>
     </div>
+
+    <!-- Modal de Esquema do Banco -->
+    <div id="modal-esquema-wrap"></div>
   `;
 
   // Elementos do DOM
@@ -147,7 +138,8 @@ async function iniciarEditor(container) {
   const btnExecutar = document.getElementById("btn-executar-sql");
   const btnLimpar = document.getElementById("btn-limpar-sql");
   const selectHistorico = document.getElementById("select-historico");
-  const buscaTabela = document.getElementById("busca-tabela");
+  const selectTabelaModelo = document.getElementById("select-tabela-modelo");
+  const btnAbrirEsquema = document.getElementById("btn-abrir-esquema");
   const btnExportarXlsx = document.getElementById("btn-exportar-xlsx");
   const btnExportarTxt = document.getElementById("btn-exportar-txt");
 
@@ -181,10 +173,27 @@ async function iniciarEditor(container) {
     }
   });
 
-  // Busca em tabelas
-  buscaTabela.addEventListener("input", () => {
-    renderizarListaTabelas(buscaTabela.value.trim().toLowerCase());
+  // Botões de modelos rápidos por tabela
+  container.querySelectorAll(".btn-modelo-sql").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const acao = btn.getAttribute("data-acao");
+      const nomeTab = selectTabelaModelo.value;
+      if (!nomeTab) {
+        alert("Por favor, selecione uma tabela de referência primeiro.");
+        selectTabelaModelo.focus();
+        return;
+      }
+      const tab = estadoTabelas.find((t) => t.nome === nomeTab);
+      if (!tab || !tab.comandos) return;
+
+      editor.value = tab.comandos[acao] || "";
+      editor.focus();
+      editor.setSelectionRange(editor.value.length, editor.value.length);
+    });
   });
+
+  // Modal de Esquema do Banco
+  btnAbrirEsquema.addEventListener("click", abrirModalEsquema);
 
   // Exportação
   btnExportarXlsx.addEventListener("click", () => {
@@ -220,7 +229,7 @@ async function iniciarEditor(container) {
 
     const statusEl = document.getElementById("sql-status-execucao");
     const areaEl = document.getElementById("sql-area-resultado");
-    statusEl.innerHTML = `<span style="color: var(--cor-texto-secundario);">Executando consulta no banco D1...</span>`;
+    statusEl.innerHTML = `<span style="color: var(--cor-texto-secundario);">Executando instrução no banco D1...</span>`;
 
     try {
       const resp = await api("/sql", {
@@ -237,8 +246,8 @@ async function iniciarEditor(container) {
         btnExportarTxt.disabled = resp.linhas.length === 0;
 
         statusEl.innerHTML = `
-          <span class="sql-badge-sucesso">SELECT realizado</span>
-          <span>${resp.totalLinhas} registro(s) retornado(s) em ${resp.tempoMs} ms</span>
+          <span class="sql-badge-tag sql-badge-sucesso">SELECT</span>
+          <span style="font-weight: 600;">${resp.totalLinhas} registro(s) retornado(s) em ${resp.tempoMs} ms</span>
         `;
         renderizarTabelaDados(areaEl, resp.colunas, resp.linhas);
       } else {
@@ -247,14 +256,14 @@ async function iniciarEditor(container) {
         btnExportarTxt.disabled = true;
 
         statusEl.innerHTML = `
-          <span class="sql-badge-mutacao">Comando executado</span>
-          <span>${resp.linhasAfetadas ?? 0} linha(s) afetada(s) em ${resp.tempoMs} ms</span>
+          <span class="sql-badge-tag sql-badge-mutacao">${resp.tipo ? resp.tipo.toUpperCase() : "EXECUÇÃO"}</span>
+          <span style="font-weight: 600;">${resp.linhasAfetadas ?? 0} linha(s) afetada(s) em ${resp.tempoMs} ms</span>
         `;
 
         areaEl.innerHTML = `
-          <div class="card" style="padding: 1.5rem; border-left: 4px solid var(--cor-ok); background: var(--cor-fundo);">
-            <h4 style="margin: 0 0 0.5rem 0; color: var(--cor-ok);">Comando concluído com sucesso</h4>
-            <p style="margin: 0; font-family: monospace; font-size: 0.9rem;">
+          <div style="padding: 1.5rem; border-left: 4px solid var(--cor-ok); background: var(--cor-fundo-elevado); border-radius: 0.4rem; border: 1px solid var(--cor-borda);">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--cor-ok);">Comando executado com sucesso</h4>
+            <p style="margin: 0; font-size: 0.9rem;">
               Linhas afetadas: <strong>${resp.linhasAfetadas ?? 0}</strong>
               ${resp.lastRowId ? `<br>Último ID gerado: <strong>${resp.lastRowId}</strong>` : ""}
             </p>
@@ -270,11 +279,12 @@ async function iniciarEditor(container) {
       btnExportarTxt.disabled = true;
 
       statusEl.innerHTML = `
-        <span style="color: var(--cor-vencido); font-weight: bold;">Erro na execução</span>
+        <span class="sql-badge-tag sql-badge-erro">FALHA</span>
+        <span style="color: var(--cor-vencido); font-weight: 600;">Erro na execução</span>
       `;
       areaEl.innerHTML = `
-        <div class="sql-erro-card">
-<strong>Falha ao executar instrução SQL:</strong>
+        <div style="padding: 1rem; border-radius: 0.4rem; background: rgba(192, 57, 43, 0.08); border: 1px solid var(--cor-vencido); color: var(--cor-vencido); font-family: monospace; font-size: 0.88rem; white-space: pre-wrap;">
+<strong>Erro retornado pelo banco:</strong>
 ${escaparHtml(err.message || String(err))}
         </div>
       `;
@@ -288,121 +298,46 @@ ${escaparHtml(err.message || String(err))}
   }
 }
 
-async function carregarTabelas(mostrarCarregando = true) {
-  const listaEl = document.getElementById("lista-tabelas");
-  const contadorEl = document.getElementById("contador-tabelas");
-  if (mostrarCarregando && listaEl) {
-    listaEl.innerHTML = `<p class="sql-vazio-msg">Atualizando tabelas...</p>`;
-  }
+async function carregarTabelas(atualizarSelect = true) {
+  const selectEl = document.getElementById("select-tabela-modelo");
 
   try {
     const dados = await api("/sql");
     estadoTabelas = (dados && Array.isArray(dados.tabelas)) ? dados.tabelas : [];
-    if (contadorEl) {
-      contadorEl.textContent = `${estadoTabelas.length} tabelas`;
+    
+    if (atualizarSelect && selectEl) {
+      if (estadoTabelas.length === 0) {
+        selectEl.innerHTML = `<option value="">Nenhuma tabela encontrada</option>`;
+      } else {
+        const valorAnterior = selectEl.value;
+        selectEl.innerHTML = `
+          <option value="">Selecione uma tabela (${estadoTabelas.length})...</option>
+          ${estadoTabelas.map((t) => `<option value="${escaparHtml(t.nome)}" ${t.nome === valorAnterior ? "selected" : ""}>${escaparHtml(t.nome)} (${t.totalRegistros} reg)</option>`).join("")}
+        `;
+        if (!valorAnterior && estadoTabelas.some((t) => t.nome === "usuarios")) {
+          selectEl.value = "usuarios";
+        }
+      }
     }
-    renderizarListaTabelas("");
   } catch (err) {
-    if (listaEl) {
-      listaEl.innerHTML = `
-        <div class="sql-erro-card">
-Erro ao listar tabelas: ${escaparHtml(err.message)}
-        </div>
-      `;
+    if (selectEl) {
+      selectEl.innerHTML = `<option value="">Erro ao listar tabelas</option>`;
     }
   }
-}
-
-function renderizarListaTabelas(filtro) {
-  const listaEl = document.getElementById("lista-tabelas");
-  if (!listaEl) return;
-
-  const filtradas = estadoTabelas.filter((t) => t.nome.toLowerCase().includes(filtro));
-  if (filtradas.length === 0) {
-    listaEl.innerHTML = `<p class="sql-vazio-msg">Nenhuma tabela encontrada.</p>`;
-    return;
-  }
-
-  listaEl.innerHTML = filtradas
-    .map((tab) => {
-      const nome = escaparHtml(tab.nome);
-      return `
-        <div class="sql-tabela-card" data-tabela="${nome}">
-          <div class="sql-tabela-topo">
-            <span class="sql-tabela-nome" title="Clique para expandir as colunas da tabela ${nome}">
-              ${nome}
-            </span>
-            <span class="sql-tabela-qtd">${tab.totalRegistros} reg</span>
-          </div>
-
-          <div class="sql-acoes-rapidas">
-            <button type="button" class="btn-sql-pre" data-acao="select" data-tabela="${nome}" title="Carregar consulta SELECT">SELECT</button>
-            <button type="button" class="btn-sql-pre" data-acao="insert" data-tabela="${nome}" title="Carregar modelo de INSERT">INSERT</button>
-            <button type="button" class="btn-sql-pre" data-acao="update" data-tabela="${nome}" title="Carregar modelo de UPDATE com WHERE">UPDATE</button>
-            <button type="button" class="btn-sql-pre" data-acao="delete" data-tabela="${nome}" title="Carregar modelo de DELETE com WHERE">DELETE</button>
-          </div>
-
-          <div class="sql-colunas-detalhe" style="display: none;">
-            <div style="font-weight: 600; margin-bottom: 0.2rem;">Colunas (${tab.colunas.length}):</div>
-            <ul class="sql-colunas-lista">
-              ${tab.colunas
-                .map(
-                  (c) => `
-                <li class="sql-coluna-item">
-                  <span class="${c.pk ? "sql-coluna-pk" : ""}">${escaparHtml(c.nome)}${c.pk ? " (PK)" : ""}</span>
-                  <span style="opacity: 0.7;">${escaparHtml(c.tipo)}</span>
-                </li>
-              `
-                )
-                .join("")}
-            </ul>
-          </div>
-        </div>
-      `;
-    })
-    .join("");
-
-  // Eventos de clique nos botões de pré-comandos
-  listaEl.querySelectorAll(".btn-sql-pre").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const acao = btn.getAttribute("data-acao");
-      const nomeTab = btn.getAttribute("data-tabela");
-      const tab = estadoTabelas.find((t) => t.nome === nomeTab);
-      if (!tab || !tab.comandos) return;
-
-      const editor = document.getElementById("editor-sql-texto");
-      if (!editor) return;
-
-      editor.value = tab.comandos[acao] || "";
-      editor.focus();
-      editor.setSelectionRange(editor.value.length, editor.value.length);
-    });
-  });
-
-  // Evento de clique para expandir/recolher colunas
-  listaEl.querySelectorAll(".sql-tabela-card").forEach((card) => {
-    const topo = card.querySelector(".sql-tabela-topo");
-    const detalhe = card.querySelector(".sql-colunas-detalhe");
-    topo.addEventListener("click", () => {
-      const visivel = detalhe.style.display !== "none";
-      detalhe.style.display = visivel ? "none" : "block";
-    });
-  });
 }
 
 function renderizarTabelaDados(container, colunas, linhas) {
   if (linhas.length === 0) {
     container.innerHTML = `
-      <div class="sql-vazio-msg">
-        A consulta não retornou nenhum registro.
-      </div>
+      <p style="padding: 2rem; text-align: center; color: var(--cor-texto-secundario);">
+        A consulta foi executada com sucesso, mas não retornou nenhum registro.
+      </p>
     `;
     return;
   }
 
   const cabecalhosHtml = colunas
-    .map((col) => `<th>${escaparHtml(col)}</th>`)
+    .map((col) => `<th style="white-space: nowrap;">${escaparHtml(col)}</th>`)
     .join("");
 
   const linhasHtml = linhas
@@ -424,8 +359,8 @@ function renderizarTabelaDados(container, colunas, linhas) {
     .join("");
 
   container.innerHTML = `
-    <div class="sql-tabela-scroll">
-      <table class="sql-tabela-dados">
+    <div class="tabela-wrap sql-tabela-scroll">
+      <table class="tabela">
         <thead>
           <tr>${cabecalhosHtml}</tr>
         </thead>
@@ -435,6 +370,124 @@ function renderizarTabelaDados(container, colunas, linhas) {
       </table>
     </div>
   `;
+}
+
+// Modal com Esquema do Banco de Dados
+function abrirModalEsquema() {
+  const modalWrap = document.getElementById("modal-esquema-wrap");
+  if (!modalWrap) return;
+
+  modalWrap.innerHTML = `
+    <div class="modal-fundo modal-fundo--cadastro" role="dialog" aria-modal="true">
+      <div class="modal-cadastro" style="max-width: 720px;">
+        <div class="modal-cabecalho">
+          <h3>Estrutura das Tabelas (Esquema do Banco)</h3>
+          <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
+        </div>
+        <div style="padding: 1.25rem;">
+          <input
+            type="search"
+            id="busca-modal-esquema"
+            class="input-padrao"
+            placeholder="Filtrar por nome de tabela ou coluna..."
+            style="margin-bottom: 1rem;"
+            autocomplete="off"
+          >
+          <div id="lista-modal-esquema" style="max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.85rem; padding-right: 0.35rem;">
+            ${renderizarItensEsquema("")}
+          </div>
+        </div>
+        <div class="modal-rodape">
+          <button type="button" class="btn btn-secundario btn-fechar-esquema">Fechar</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const fundo = modalWrap.querySelector(".modal-fundo");
+  const btnFechar = modalWrap.querySelector(".modal-fechar");
+  const btnFecharRodape = modalWrap.querySelector(".btn-fechar-esquema");
+  const buscaInp = modalWrap.querySelector("#busca-modal-esquema");
+  const listaEl = modalWrap.querySelector("#lista-modal-esquema");
+
+  function fechar() {
+    modalWrap.innerHTML = "";
+  }
+
+  btnFechar?.addEventListener("click", fechar);
+  btnFecharRodape?.addEventListener("click", fechar);
+  fundo?.addEventListener("click", (e) => {
+    if (e.target === fundo) fechar();
+  });
+
+  buscaInp?.addEventListener("input", () => {
+    const filtro = buscaInp.value.trim().toLowerCase();
+    listaEl.innerHTML = renderizarItensEsquema(filtro);
+    vincularSelecaoTabela();
+  });
+
+  function vincularSelecaoTabela() {
+    listaEl.querySelectorAll(".btn-usar-tabela-esquema").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const nomeTab = btn.getAttribute("data-tabela");
+        const select = document.getElementById("select-tabela-modelo");
+        if (select) {
+          select.value = nomeTab;
+        }
+        fechar();
+      });
+    });
+  }
+
+  vincularSelecaoTabela();
+  setTimeout(() => buscaInp?.focus(), 60);
+}
+
+function renderizarItensEsquema(filtro) {
+  if (estadoTabelas.length === 0) {
+    return `<p style="text-align: center; color: var(--cor-texto-secundario); padding: 1.5rem;">Nenhuma tabela encontrada no banco.</p>`;
+  }
+
+  const filtradas = estadoTabelas.filter((t) => {
+    if (!filtro) return true;
+    if (t.nome.toLowerCase().includes(filtro)) return true;
+    return t.colunas.some((c) => c.nome.toLowerCase().includes(filtro));
+  });
+
+  if (filtradas.length === 0) {
+    return `<p style="text-align: center; color: var(--cor-texto-secundario); padding: 1.5rem;">Nenhuma tabela corresponde ao filtro digitado.</p>`;
+  }
+
+  return filtradas
+    .map((tab) => {
+      const nome = escaparHtml(tab.nome);
+      return `
+        <div style="border: var(--cor-borda-largura) solid var(--cor-borda); border-radius: 0.45rem; padding: 0.75rem 1rem; background: var(--cor-fundo-elevado);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <strong style="font-family: monospace; font-size: 0.95rem; color: var(--cor-primaria);">${nome}</strong>
+              <span class="badge" style="font-size: 0.75rem;">${tab.totalRegistros} registros</span>
+            </div>
+            <button type="button" class="btn btn-secundario btn-usar-tabela-esquema" data-tabela="${nome}" style="font-size: 0.78rem; padding: 0.25rem 0.6rem;">
+              Selecionar no Console
+            </button>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
+            ${tab.colunas
+              .map(
+                (c) => `
+              <span style="font-size: 0.78rem; font-family: monospace; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.15rem 0.45rem; border-radius: 0.25rem; display: inline-flex; align-items: center; gap: 0.3rem;">
+                <span style="${c.pk ? "color: var(--cor-alerta); font-weight: 700;" : ""}">${escaparHtml(c.nome)}</span>
+                <span style="opacity: 0.6; font-size: 0.72rem;">${escaparHtml(c.tipo || "TEXT")}${c.pk ? " PK" : ""}</span>
+              </span>
+            `
+              )
+              .join("")}
+          </div>
+        </div>
+      `;
+    })
+    .join("");
 }
 
 // Histórico de comandos
@@ -447,7 +500,7 @@ function carregarHistoricoNoSelect(select) {
       const option = document.createElement("option");
       option.value = cmd;
       const resumo = cmd.replace(/\s+/g, " ").trim();
-      option.textContent = `${idx + 1}. ${resumo.length > 45 ? resumo.substring(0, 42) + "..." : resumo}`;
+      option.textContent = `${idx + 1}. ${resumo.length > 35 ? resumo.substring(0, 32) + "..." : resumo}`;
       select.appendChild(option);
     });
   } catch (_) {}
@@ -481,7 +534,6 @@ function exportarConsultaXlsx(colunas, linhas) {
     }
   }
 
-  // Fallback garantido: XML Spreadsheet 2003 reconhecido nativamente pelo Microsoft Excel
   exportarComoXmlSpreadsheet(colunas, linhas, nomeArquivo);
 }
 
@@ -527,7 +579,6 @@ function exportarConsultaTxt(colunas, linhas) {
   const dataHora = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const nomeArquivo = `consulta_sql_${dataHora}`;
 
-  // Calcula largura máxima de cada coluna para formatação limpa e legível
   const larguras = {};
   for (const col of colunas) {
     larguras[col] = col.length;
@@ -543,7 +594,6 @@ function exportarConsultaTxt(colunas, linhas) {
     }
   }
 
-  // Monta cabeçalho
   const linhaCabecalho = colunas.map((col) => col.padEnd(larguras[col])).join(" | ");
   const linhaDivisoria = colunas.map((col) => "-".repeat(larguras[col])).join("-+-");
 
