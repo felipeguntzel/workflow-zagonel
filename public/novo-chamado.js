@@ -3,21 +3,31 @@ import { aplicarLayout } from "./layout.js";
 import { escaparHtml, mostrarErro, info } from "./ui.js";
 import { api } from "./api.js";
 
-const usuario = exigirLogin();
-if (usuario) {
-  aplicarLayout(usuario);
-  iniciar().catch((e) => mostrarErro(document.getElementById("mensagem-erro"), e));
+export function inicializar() {
+  const usuario = exigirLogin();
+  if (usuario) {
+    aplicarLayout(usuario);
+    iniciar().catch((e) => mostrarErro(document.getElementById("mensagem-erro"), e));
+  }
 }
+
+export const inicializarNovoChamado = iniciar;
 
 async function iniciar() {
   const container = document.getElementById("conteudo-novo-chamado");
+  if (!container) return;
+
   const perm = permissaoDaTela("chamados");
   if (!perm.inserir) {
     container.innerHTML = `
       <div class="pagina-cabecalho">
-        <h2>Abrir novo chamado</h2>
+        <div class="pagina-cabecalho__esquerda">
+          <h2>Abrir Novo Chamado</h2>
+        </div>
       </div>
-      <p style="color: var(--cor-texto-secundario); padding: 1rem 0;">Você não possui permissão para abrir novos chamados.</p>
+      <div class="painel-formulario" style="max-width: 780px;">
+        <p style="color: var(--cor-texto-secundario); margin: 0;">Você não possui permissão para abrir novos chamados.</p>
+      </div>
     `;
     return;
   }
@@ -33,19 +43,24 @@ async function iniciar() {
     container.innerHTML = `
       <div class="pagina-cabecalho">
         <div class="pagina-cabecalho__esquerda">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+            <a href="/chamados" style="font-size: 0.85rem; color: var(--cor-primaria); text-decoration: none; font-weight: 600;">← Meus chamados</a>
+            <span style="color: var(--cor-texto-secundario);">/</span>
+            <span style="font-size: 0.85rem; color: var(--cor-texto-secundario);">Novo</span>
+          </div>
           <h2>Abrir Novo Chamado</h2>
         </div>
       </div>
-      <div class="painel" style="max-width: 680px; margin-top: 1rem; border-left: 4px solid var(--cor-alerta); box-shadow: 0 4px 14px rgba(0,0,0,0.06);">
-        <h3 style="display: flex; align-items: center; gap: 0.5rem; color: #92400e; margin-bottom: 0.5rem;">
+      <div class="painel-formulario" style="max-width: 780px; border-left: 4px solid var(--cor-alerta);">
+        <h3 style="display: flex; align-items: center; gap: 0.5rem; color: var(--cor-alerta); margin-top: 0; margin-bottom: 0.5rem;">
           <span style="font-size: 1.3rem;">⚠️</span> Nenhum fluxo cadastrado
         </h3>
         <p style="margin: 0.5rem 0 1.25rem; font-size: 0.95rem; line-height: 1.5; color: var(--cor-texto);">
           Para abrir um chamado, é necessário cadastrar primeiro pelo menos um <strong>Fluxo de Processo</strong> com suas respectivas etapas.
         </p>
         <div style="display: flex; gap: 0.75rem;">
-          <a href="fluxo.html" class="btn btn-primario">Cadastrar Fluxos</a>
-          <a href="chamados.html" class="btn btn-secundario">Voltar para Chamados</a>
+          <a href="/fluxo" class="btn btn-primario">Cadastrar Fluxos</a>
+          <a href="/chamados" class="btn btn-secundario">Voltar para Chamados</a>
         </div>
       </div>
     `;
@@ -55,6 +70,11 @@ async function iniciar() {
   container.innerHTML = `
     <div class="pagina-cabecalho">
       <div class="pagina-cabecalho__esquerda">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+          <a href="/chamados" style="font-size: 0.85rem; color: var(--cor-primaria); text-decoration: none; font-weight: 600;">← Meus chamados</a>
+          <span style="color: var(--cor-texto-secundario);">/</span>
+          <span style="font-size: 0.85rem; color: var(--cor-texto-secundario);">Novo chamado</span>
+        </div>
         <h2>Abrir Novo Chamado</h2>
         <p style="font-size: 0.9rem; color: var(--cor-texto-secundario); margin: 0.2rem 0 0;">
           Preencha os dados abaixo para iniciar um novo processo no fluxo de trabalho.
@@ -64,46 +84,48 @@ async function iniciar() {
     
     <p id="mensagem-erro" class="erro" hidden></p>
 
-    <div class="painel" style="max-width: 720px; margin-top: 1rem; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
-      <form class="formulario" id="form-novo-chamado" style="display: flex; flex-direction: column; gap: 1.2rem;">
-        <div>
-          <label style="font-weight: 600; display: block; margin-bottom: 0.4rem;">
+    <div class="painel-formulario" style="max-width: 780px;">
+      <form class="formulario" id="form-novo-chamado">
+        <div class="campo-grupo">
+          <label class="campo-rotulo" for="select-fluxo">
             Fluxo de processo <span class="campo-obrigatorio">*</span>
           </label>
-          <select id="select-fluxo" name="fluxo_template_id" required style="width: 100%; padding: 0.6rem 0.75rem;">
-            <option value="">Selecione um fluxo…</option>
+          <select id="select-fluxo" name="fluxo_template_id" required class="select-padrao">
+            <option value="">Selecione um fluxo...</option>
             ${fluxos.map((f) => `<option value="${f.id}">${escaparHtml(f.nome)}</option>`).join("")}
           </select>
+          <p class="campo-ajuda">Selecione o modelo de fluxo de trabalho aplicável a este processo.</p>
         </div>
 
-        <div id="wrap-etapa-inicial">
-          <label style="font-weight: 600; display: block; margin-bottom: 0.4rem;">
+        <div class="campo-grupo" id="wrap-etapa-inicial">
+          <label class="campo-rotulo" for="select-etapa-inicial">
             Etapa inicial <span class="campo-obrigatorio">*</span>
             ${info("Etapa onde o chamado mãe se inicia. Geralmente é a etapa de solicitação ou triagem.")}
           </label>
-          <select id="select-etapa-inicial" name="etapa_inicial_id" required style="width: 100%; padding: 0.6rem 0.75rem;">
-            <option value="">Selecione primeiro o fluxo acima…</option>
+          <select id="select-etapa-inicial" name="etapa_inicial_id" required class="select-padrao">
+            <option value="">Selecione primeiro o fluxo acima...</option>
           </select>
-          <p id="aviso-etapas-vazias" style="font-size: 0.85rem; color: var(--cor-alerta); margin-top: 0.35rem;" hidden></p>
+          <p id="aviso-etapas-vazias" class="campo-ajuda" style="color: var(--cor-alerta);" hidden></p>
         </div>
 
         <!-- Renderização de campos personalizados dinâmicos -->
-        <div id="wrap-campos-dinamicos" style="display: none; border-top: 1px solid var(--cor-borda); padding-top: 1.25rem;">
-          <h4 style="margin: 0 0 1rem; font-size: 1.05rem; color: var(--cor-primaria);">Campos da Solicitação</h4>
+        <div id="wrap-campos-dinamicos" style="display: none; border-top: 1px solid var(--cor-borda); padding-top: 1.25rem; margin-top: 1.25rem;">
+          <h4 style="margin: 0 0 1rem; font-size: 1rem; color: var(--cor-primaria); font-weight: 700;">Campos da Solicitação</h4>
           <div id="container-campos-render" style="display: flex; flex-direction: column; gap: 1rem;"></div>
         </div>
 
-        <div>
-          <label style="font-weight: 600; display: block; margin-bottom: 0.4rem;">
+        <div class="campo-grupo" style="margin-top: 1.25rem; border-top: 1px solid var(--cor-borda); padding-top: 1.25rem;">
+          <label class="campo-rotulo" for="campo-prazo">
             Prazo limite (opcional)
             ${info("Se deixado em branco, o sistema calcula o prazo automaticamente com base no prazo padrão em dias do setor da etapa.")}
           </label>
-          <input type="date" name="prazo" style="width: 100%; max-width: 240px; padding: 0.55rem 0.75rem;">
+          <input type="date" id="campo-prazo" name="prazo" class="input-padrao" style="max-width: 240px;">
+          <p class="campo-ajuda">Deixe em branco para que o prazo seja calculado com base no prazo padrão do setor responsável.</p>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; border-top: 1px solid var(--cor-borda); padding-top: 1.25rem;">
-          <a href="chamados.html" class="btn btn-secundario">Cancelar</a>
-          <button type="submit" class="btn btn-primario btn-abrir-chamado" id="btn-submit-chamado" style="min-width: 140px;">
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; margin-top: 1.5rem; border-top: 1px solid var(--cor-borda); padding-top: 1.25rem;">
+          <a href="/chamados" class="btn btn-secundario">Cancelar</a>
+          <button type="submit" class="btn btn-primario btn-abrir-chamado" id="btn-submit-chamado" style="min-width: 150px;">
             Abrir chamado
           </button>
         </div>
@@ -146,11 +168,11 @@ async function iniciar() {
           const obrigatorioMark = c.obrigatorio ? ' <span class="campo-obrigatorio">*</span>' : "";
 
           if (c.tipo === "texto_longo") {
-            inputHtml = `<textarea name="campo_${c.nome}" ${reqAttr} rows="3" style="width: 100%; padding: 0.5rem; font-family: inherit; font-size: 0.9rem;"></textarea>`;
+            inputHtml = `<textarea name="campo_${c.nome}" ${reqAttr} rows="3" class="textarea-padrao"></textarea>`;
           } else if (c.tipo === "numero") {
-            inputHtml = `<input type="number" step="any" name="campo_${c.nome}" ${reqAttr} style="width: 100%; max-width: 240px; padding: 0.55rem 0.75rem;">`;
+            inputHtml = `<input type="number" step="any" name="campo_${c.nome}" ${reqAttr} class="input-padrao" style="max-width: 240px;">`;
           } else if (c.tipo === "data") {
-            inputHtml = `<input type="date" name="campo_${c.nome}" ${reqAttr} style="width: 100%; max-width: 240px; padding: 0.55rem 0.75rem;">`;
+            inputHtml = `<input type="date" name="campo_${c.nome}" ${reqAttr} class="input-padrao" style="max-width: 240px;">`;
           } else if (c.tipo === "selecao") {
             let opcoes = [];
             try {
@@ -159,19 +181,18 @@ async function iniciar() {
               opcoes = [];
             }
             inputHtml = `
-              <select name="campo_${c.nome}" ${reqAttr} style="width: 100%; max-width: 320px; padding: 0.55rem 0.75rem;">
-                <option value="">Selecione…</option>
+              <select name="campo_${c.nome}" ${reqAttr} class="select-padrao" style="max-width: 340px;">
+                <option value="">Selecione...</option>
                 ${opcoes.map((op) => `<option value="${escaparHtml(op)}">${escaparHtml(op)}</option>`).join("")}
               </select>
             `;
           } else {
-            // texto curto
-            inputHtml = `<input type="text" name="campo_${c.nome}" ${reqAttr} style="width: 100%; padding: 0.55rem 0.75rem;">`;
+            inputHtml = `<input type="text" name="campo_${c.nome}" ${reqAttr} class="input-padrao">`;
           }
 
           return `
-            <div>
-              <label style="font-weight: 600; display: block; margin-bottom: 0.35rem; font-size: 0.92rem;">
+            <div class="campo-grupo">
+              <label class="campo-rotulo">
                 ${escaparHtml(c.rotulo)}${obrigatorioMark}
               </label>
               ${inputHtml}
@@ -193,14 +214,14 @@ async function iniciar() {
 
     const fluxoId = selectFluxo.value;
     if (!fluxoId) {
-      selectEtapa.innerHTML = `<option value="">Selecione primeiro o fluxo acima…</option>`;
+      selectEtapa.innerHTML = `<option value="">Selecione primeiro o fluxo acima...</option>`;
       selectEtapa.disabled = true;
       btnSubmit.disabled = true;
       return;
     }
 
     selectEtapa.disabled = false;
-    selectEtapa.innerHTML = `<option value="">Carregando etapas…</option>`;
+    selectEtapa.innerHTML = `<option value="">Carregando etapas...</option>`;
 
     try {
       const etapas = await api(`/fluxos/${fluxoId}/etapas`);
@@ -215,14 +236,14 @@ async function iniciar() {
       const iniciais = etapas.filter((e) => e.eh_inicial);
       if (iniciais.length === 0) {
         selectEtapa.innerHTML =
-          `<option value="">Selecione a etapa…</option>` +
+          `<option value="">Selecione a etapa...</option>` +
           etapas.map((e) => `<option value="${e.id}">${escaparHtml(e.nome)} (${e.tipo === "aprovacao" ? "Aprovação" : "Tarefa"})</option>`).join("");
         avisoEtapasVazias.textContent = "Dica: Nenhuma etapa está marcada com 'É a etapa inicial?'. Exibindo todas as etapas disponíveis.";
         avisoEtapasVazias.hidden = false;
         btnSubmit.disabled = false;
       } else {
         selectEtapa.innerHTML =
-          `<option value="">Selecione a etapa inicial…</option>` +
+          `<option value="">Selecione a etapa inicial...</option>` +
           iniciais.map((e) => `<option value="${e.id}">${escaparHtml(e.nome)}</option>`).join("");
         if (iniciais.length === 1) {
           selectEtapa.value = String(iniciais[0].id);
@@ -270,7 +291,7 @@ async function iniciar() {
     }
 
     btnSubmit.disabled = true;
-    btnSubmit.textContent = "Abrindo chamado…";
+    btnSubmit.textContent = "Abrindo chamado...";
 
     try {
       const resultado = await api("/chamados", {
@@ -282,7 +303,7 @@ async function iniciar() {
           campos: valoresCampos,
         },
       });
-      window.location.href = `chamado.html?id=${resultado.chamado.id}`;
+      window.location.href = `/chamado?id=${resultado.chamado.id}`;
     } catch (e) {
       mostrarErro(msgErro, e);
       btnSubmit.disabled = false;
@@ -290,3 +311,6 @@ async function iniciar() {
     }
   });
 }
+
+// Inicialização imediata quando executado diretamente
+inicializar();

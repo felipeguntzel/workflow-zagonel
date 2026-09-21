@@ -8,10 +8,13 @@ const CHAVE_HISTORICO = "workflow_zagonel_sql_historico";
 let estadoTabelas = [];
 let resultadoAtual = null;
 
-const usuario = exigirLogin();
-if (usuario) {
+export function inicializar() {
+  const usuario = exigirLogin();
+  if (!usuario) return;
+
   aplicarLayout(usuario);
   const container = document.getElementById("sql-container");
+  if (!container) return;
 
   if (!usuario.admin) {
     container.innerHTML = `
@@ -20,13 +23,15 @@ if (usuario) {
         <p style="color: var(--cor-texto-secundario); margin: 1rem 0;">
           O Editor SQL é uma ferramenta avançada e de segurança crítica, disponível exclusivamente para administradores do sistema.
         </p>
-        <a href="chamados.html" class="btn btn-primario">Voltar para Meus Chamados</a>
+        <a href="/chamados" class="btn btn-primario">Voltar para Meus Chamados</a>
       </div>
     `;
   } else {
     iniciarEditor(container);
   }
 }
+
+inicializar();
 
 async function iniciarEditor(container) {
   container.innerHTML = `

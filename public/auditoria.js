@@ -1,36 +1,39 @@
 import { api } from "./api.js";
-import { exigirUsuarioLogado } from "./auth.js";
+import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
 import { escaparHtml, mostrarErro } from "./ui.js";
 
-const usuario = exigirUsuarioLogado();
-if (usuario) {
+export function inicializar() {
+  const usuario = exigirLogin();
+  if (!usuario) return;
+
   aplicarLayout(usuario);
   if (!usuario.admin) {
-    mostrarErro("Acesso restrito a administradores.");
-  } else {
-    inicializarAuditoria();
+    mostrarErro(document.getElementById("mensagem-erro"), "Acesso restrito a administradores.");
+    return;
   }
+  inicializarAuditoria();
 }
 
-async function inicializarAuditoria() {
+export const inicializarAuditoria = async function () {
   const container = document.getElementById("secao-auditoria");
   if (!container) return;
 
   container.innerHTML = `
-    <div class="cabecalho-secao">
-      <div class="cabecalho-secao__titulos">
-        <span class="cabecalho-secao__badge">Tela 11</span>
-        <h1 class="cabecalho-secao__titulo">Auditoria do Sistema</h1>
-        <p class="cabecalho-secao__subtitulo">Histórico e rastreabilidade de todas as alterações cadastrais e administrativas</p>
+    <div class="pagina-cabecalho">
+      <div class="pagina-cabecalho__esquerda">
+        <h2>Auditoria do Sistema</h2>
+        <p style="font-size: 0.9rem; color: var(--cor-texto-secundario); margin: 0.2rem 0 0;">
+          Histórico e rastreabilidade de todas as alterações cadastrais e administrativas
+        </p>
       </div>
     </div>
 
-    <div class="card" style="margin-bottom: 1.5rem;">
+    <div class="painel" style="margin-bottom: 1.5rem;">
       <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
         <div style="flex: 1; min-width: 180px;">
-          <label for="filtro-entidade" style="display: block; font-weight: 500; font-size: 0.85rem; margin-bottom: 0.35rem;">Entidade / Tabela</label>
-          <select id="filtro-entidade" class="input-padrao" style="width: 100%;">
+          <label for="filtro-entidade" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Entidade / Tabela</label>
+          <select id="filtro-entidade" class="select-padrao" style="width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda); background: var(--cor-fundo-elevado); color: var(--cor-texto);">
             <option value="">Todas as entidades</option>
             <option value="usuarios">Usuários</option>
             <option value="grupos_permissao">Grupos de Permissão</option>
@@ -44,8 +47,8 @@ async function inicializarAuditoria() {
         </div>
 
         <div style="flex: 1; min-width: 160px;">
-          <label for="filtro-acao" style="display: block; font-weight: 500; font-size: 0.85rem; margin-bottom: 0.35rem;">Tipo de Ação</label>
-          <select id="filtro-acao" class="input-padrao" style="width: 100%;">
+          <label for="filtro-acao" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Tipo de Ação</label>
+          <select id="filtro-acao" class="select-padrao" style="width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda); background: var(--cor-fundo-elevado); color: var(--cor-texto);">
             <option value="">Todas as ações</option>
             <option value="insercao">Inserção / Criação</option>
             <option value="edicao">Edição / Atualização</option>
@@ -54,25 +57,25 @@ async function inicializarAuditoria() {
         </div>
 
         <div>
-          <button type="button" id="btn-filtrar-auditoria" class="botao botao--primario">Filtrar</button>
-          <button type="button" id="btn-limpar-filtros" class="botao botao--secundario" style="margin-left: 0.5rem;">Limpar</button>
+          <button type="button" id="btn-filtrar-auditoria" class="btn btn-primario">Filtrar</button>
+          <button type="button" id="btn-limpar-filtros" class="btn btn-secundario" style="margin-left: 0.5rem;">Limpar</button>
         </div>
       </div>
     </div>
 
-    <div id="tabela-auditoria-wrap" class="card">
+    <div id="tabela-auditoria-wrap" class="tabela-wrap">
       <div style="text-align: center; padding: 2rem; color: var(--cor-texto-secundario);">Carregando histórico de auditoria...</div>
     </div>
 
     <div id="modal-auditoria-detalhes" class="modal-fundo" hidden style="display: none;">
-      <div class="modal" role="dialog" style="max-width: 650px; max-height: 85vh; display: flex; flex-direction: column;">
-        <div class="modal__cabecalho">
-          <h3 id="modal-auditoria-titulo" style="margin: 0;">Detalhes do Evento</h3>
-          <button type="button" id="btn-fechar-modal-detalhes" class="botao-fechar" aria-label="Fechar">✕</button>
+      <div class="modal-cadastro" role="dialog" style="max-width: 650px; max-height: 85vh; display: flex; flex-direction: column;">
+        <div class="modal-cabecalho">
+          <h3 id="modal-auditoria-titulo" style="margin: 0; font-size: 1.1rem;">Detalhes do Evento</h3>
+          <button type="button" id="btn-fechar-modal-detalhes" class="modal-fechar" aria-label="Fechar">✕</button>
         </div>
-        <div id="modal-auditoria-conteudo" style="overflow-y: auto; padding: 1rem 0; flex: 1; font-size: 0.88rem;"></div>
-        <div class="modal__acoes" style="justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--cor-borda);">
-          <button type="button" id="btn-fechar-modal-rodape" class="botao botao--secundario">Fechar</button>
+        <div id="modal-auditoria-conteudo" style="overflow-y: auto; padding: 1.25rem; flex: 1; font-size: 0.9rem; background: var(--cor-fundo-elevado);"></div>
+        <div class="modal-rodape" style="background: var(--cor-fundo);">
+          <button type="button" id="btn-fechar-modal-rodape" class="btn btn-secundario">Fechar</button>
         </div>
       </div>
     </div>
@@ -97,7 +100,7 @@ async function inicializarAuditoria() {
   });
 
   await carregarLogs();
-}
+};
 
 let logsCarregados = [];
 
@@ -116,8 +119,8 @@ async function carregarLogs() {
     logsCarregados = await api.get(`/auditoria?${params.toString()}`);
     renderizarTabela(logsCarregados);
   } catch (e) {
-    mostrarErro("Erro ao carregar auditoria: " + (e.message || e));
-    wrap.innerHTML = '<div style="padding: 2rem; color: var(--cor-perigo); text-align: center;">Não foi possível carregar os registros de auditoria.</div>';
+    mostrarErro(document.getElementById("mensagem-erro"), "Erro ao carregar auditoria: " + (e.message || e));
+    wrap.innerHTML = '<div style="padding: 2rem; color: var(--cor-vencido); text-align: center;">Não foi possível carregar os registros de auditoria.</div>';
   }
 }
 
@@ -140,7 +143,7 @@ function renderizarTabela(logs) {
     if (acao === "exclusao") {
       return '<span style="background: rgba(211, 47, 47, 0.15); color: #d32f2f; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.78rem;">Exclusão</span>';
     }
-    return `<span style="background: var(--cor-superficie-2); padding: 2px 8px; border-radius: 12px; font-size: 0.78rem;">${escaparHtml(acao)}</span>`;
+    return `<span style="background: var(--cor-fundo); padding: 2px 8px; border-radius: 12px; font-size: 0.78rem;">${escaparHtml(acao)}</span>`;
   };
 
   const formatarData = (str) => {
@@ -153,12 +156,12 @@ function renderizarTabela(logs) {
       (log, idx) => `
       <tr>
         <td style="white-space: nowrap; font-size: 0.85rem;">${escaparHtml(formatarData(log.criado_em))}</td>
-        <td style="font-weight: 500;">${escaparHtml(log.usuario_nome || "Sistema")}</td>
+        <td style="font-weight: 600;">${escaparHtml(log.usuario_nome || "Sistema")}</td>
         <td>${badgeAcao(log.acao)}</td>
         <td style="font-family: monospace; font-size: 0.85rem;">${escaparHtml(log.entidade)}${log.entidade_id ? ` #${log.entidade_id}` : ""}</td>
         <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escaparHtml(log.detalhes || "")}">${escaparHtml(log.detalhes || "-")}</td>
         <td style="text-align: right;">
-          <button type="button" class="botao botao--secundario btn-ver-detalhes" data-idx="${idx}" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">
+          <button type="button" class="btn btn-secundario btn-pequeno btn-ver-detalhes" data-idx="${idx}">
             Ver dados
           </button>
         </td>
@@ -168,23 +171,21 @@ function renderizarTabela(logs) {
     .join("");
 
   wrap.innerHTML = `
-    <div style="overflow-x: auto;">
-      <table class="tabela">
-        <thead>
-          <tr>
-            <th>Data/Hora</th>
-            <th>Usuário</th>
-            <th>Ação</th>
-            <th>Entidade</th>
-            <th>Descrição</th>
-            <th style="text-align: right;">Dados</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${linhasHtml}
-        </tbody>
-      </table>
-    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Data/Hora</th>
+          <th>Usuário</th>
+          <th>Ação</th>
+          <th>Entidade</th>
+          <th>Descrição</th>
+          <th style="text-align: right;">Dados</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${linhasHtml}
+      </tbody>
+    </table>
   `;
 
   wrap.querySelectorAll(".btn-ver-detalhes").forEach((btn) => {
@@ -208,15 +209,15 @@ function abrirModalDetalhes(log) {
     if (!valor) return '<span style="color: var(--cor-texto-secundario); font-style: italic;">Nenhum dado</span>';
     try {
       const parsed = typeof valor === "string" ? JSON.parse(valor) : valor;
-      delete parsed.senha_hash; // Nunca exibir hashes mesmo em auditoria
-      return `<pre style="background: var(--cor-superficie-2); padding: 0.75rem; border-radius: 4px; overflow-x: auto; font-size: 0.82rem; margin: 0.4rem 0;">${escaparHtml(JSON.stringify(parsed, null, 2))}</pre>`;
+      delete parsed.senha_hash;
+      return `<pre style="background: var(--cor-fundo); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--cor-borda); overflow-x: auto; font-size: 0.82rem; margin: 0.4rem 0;">${escaparHtml(JSON.stringify(parsed, null, 2))}</pre>`;
     } catch (_) {
-      return `<pre style="background: var(--cor-superficie-2); padding: 0.75rem; border-radius: 4px; overflow-x: auto; font-size: 0.82rem; margin: 0.4rem 0;">${escaparHtml(String(valor))}</pre>`;
+      return `<pre style="background: var(--cor-fundo); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--cor-borda); overflow-x: auto; font-size: 0.82rem; margin: 0.4rem 0;">${escaparHtml(String(valor))}</pre>`;
     }
   };
 
   modalConteudo.innerHTML = `
-    <div style="margin-bottom: 0.75rem;">
+    <div style="margin-bottom: 0.75rem; line-height: 1.6;">
       <strong>Data/Hora:</strong> ${escaparHtml(log.criado_em)}<br>
       <strong>Usuário Responsável:</strong> ${escaparHtml(log.usuario_nome)} (ID ${log.usuario_id ?? "Sistema"})<br>
       <strong>Ação:</strong> ${escaparHtml(log.acao)}<br>
@@ -227,7 +228,7 @@ function abrirModalDetalhes(log) {
       log.dados_antigos
         ? `
       <div style="margin-top: 1rem;">
-        <strong style="color: var(--cor-perigo, #d32f2f);">Dados Anteriores:</strong>
+        <strong style="color: var(--cor-vencido);">Dados Anteriores:</strong>
         ${formatarJson(log.dados_antigos)}
       </div>
     `
@@ -238,7 +239,7 @@ function abrirModalDetalhes(log) {
       log.dados_novos
         ? `
       <div style="margin-top: 1rem;">
-        <strong style="color: var(--cor-sucesso, #2e7d32);">Dados Novos:</strong>
+        <strong style="color: var(--cor-primaria);">Dados Novos:</strong>
         ${formatarJson(log.dados_novos)}
       </div>
     `
@@ -249,3 +250,6 @@ function abrirModalDetalhes(log) {
   modalFundo.hidden = false;
   modalFundo.style.display = "flex";
 }
+
+// Inicialização imediata quando carregado diretamente
+inicializar();

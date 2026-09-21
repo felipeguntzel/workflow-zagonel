@@ -38,3 +38,15 @@ test("botaoIconeExcluir produces a button with the given class, id and Excluir l
   assert.match(html, /aria-label="Excluir"/);
   assert.match(html, /title="Excluir"/);
 });
+
+test("normalizarRota converte URLs com e sem .html para rotas limpas padronizadas", async () => {
+  const { normalizarRota } = await import("./layout.js");
+  assert.equal(normalizarRota("/empresas"), "empresas");
+  assert.equal(normalizarRota("setores.html"), "setores");
+  assert.equal(normalizarRota("/chamados.html?id=5"), "chamados");
+  assert.equal(normalizarRota("/fluxos"), "fluxo");
+  assert.equal(normalizarRota("fluxo.html"), "fluxo");
+  assert.equal(normalizarRota(""), "login");
+  assert.equal(normalizarRota("/index.html"), "login");
+});
+

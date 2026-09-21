@@ -149,10 +149,10 @@ export async function renderCrud(container, config) {
           const nomeAmigavel = campo.label;
           if (!faltantes.some((f) => f.nome.toLowerCase() === nomeAmigavel.toLowerCase())) {
             let url = "";
-            if (campo.opcoesEndpoint.includes("empresas")) url = "empresas.html";
-            else if (campo.opcoesEndpoint.includes("setores")) url = "setores.html";
-            else if (campo.opcoesEndpoint.includes("status")) url = "status.html";
-            else if (campo.opcoesEndpoint.includes("fluxos")) url = "fluxos.html";
+            if (campo.opcoesEndpoint.includes("empresas")) url = "/empresas";
+            else if (campo.opcoesEndpoint.includes("setores")) url = "/setores";
+            else if (campo.opcoesEndpoint.includes("status")) url = "/status";
+            else if (campo.opcoesEndpoint.includes("fluxos")) url = "/fluxo";
             faltantes.push({ nome: nomeAmigavel, url });
           }
         }

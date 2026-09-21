@@ -3,12 +3,16 @@ import { aplicarLayout } from "./layout.js";
 import { mostrarErro } from "./ui.js";
 import { renderCrud } from "./crud-ui.js";
 
-const usuario = exigirLogin();
-if (usuario) {
+export function inicializar() {
+  const usuario = exigirLogin();
+  if (!usuario) return;
+
   aplicarLayout(usuario);
   const mensagemErro = document.getElementById("mensagem-erro");
+  const container = document.getElementById("secao-status");
+  if (!container) return;
 
-  renderCrud(document.getElementById("secao-status"), {
+  renderCrud(container, {
     titulo: "Status",
     tituloSingular: "Status",
     estilo: "simples",
@@ -18,3 +22,5 @@ if (usuario) {
     campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
   }).catch((e) => mostrarErro(mensagemErro, e));
 }
+
+inicializar();

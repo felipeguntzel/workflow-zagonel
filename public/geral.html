@@ -21,8 +21,16 @@
 <body>
 <div id="nav"></div>
 <main>
-  <p><a href="chamados.html">← Meus chamados</a></p>
-  <h1>Chamado geral</h1>
+  <div class="pagina-cabecalho">
+    <div class="pagina-cabecalho__esquerda">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+        <a href="/chamados" style="font-size: 0.85rem; color: var(--cor-primaria); text-decoration: none; font-weight: 600;">← Meus chamados</a>
+        <span style="color: var(--cor-texto-secundario);">/</span>
+        <span style="font-size: 0.85rem; color: var(--cor-texto-secundario);">Visão geral</span>
+      </div>
+      <h2>Chamado Geral</h2>
+    </div>
+  </div>
   <div id="arvore" class="arvore"></div>
 </main>
 <script type="module" src="geral.js"></script>
