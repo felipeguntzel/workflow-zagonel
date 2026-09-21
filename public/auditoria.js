@@ -64,7 +64,34 @@ export const inicializarAuditoria = async function () {
     </div>
 
     <div id="tabela-auditoria-wrap" class="tabela-wrap">
-      <div style="text-align: center; padding: 2rem; color: var(--cor-texto-secundario);">Carregando histórico de auditoria...</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="min-width: 15ch;">Data / Hora</th>
+            <th style="min-width: 16ch;">Usuário</th>
+            <th>Ação</th>
+            <th>Entidade</th>
+            <th>Registro</th>
+            <th class="td-acoes">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${[1, 2, 3, 4, 5]
+            .map(
+              () => `
+            <tr class="linha-esqueleto">
+              <td><div class="esqueleto-bloco" style="width: 110px;"></div></td>
+              <td><div class="esqueleto-bloco" style="width: 90px;"></div></td>
+              <td><div class="esqueleto-bloco" style="width: 60px;"></div></td>
+              <td><div class="esqueleto-bloco" style="width: 80px;"></div></td>
+              <td><div class="esqueleto-bloco" style="width: 50px;"></div></td>
+              <td class="td-acoes"><div class="esqueleto-bloco" style="width: 44px; margin-left: auto;"></div></td>
+            </tr>
+          `
+            )
+            .join("")}
+        </tbody>
+      </table>
     </div>
 
     <div id="modal-auditoria-detalhes" class="modal-fundo" hidden style="display: none;">
@@ -116,7 +143,8 @@ async function carregarLogs() {
   if (acao) params.set("acao", acao);
 
   try {
-    logsCarregados = await api.get(`/auditoria?${params.toString()}`);
+    const res = await api(`/auditoria?${params.toString()}`);
+    logsCarregados = Array.isArray(res) ? res : [];
     renderizarTabela(logsCarregados);
   } catch (e) {
     mostrarErro(document.getElementById("mensagem-erro"), "Erro ao carregar auditoria: " + (e.message || e));

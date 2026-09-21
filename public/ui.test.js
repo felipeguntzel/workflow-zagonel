@@ -50,3 +50,13 @@ test("normalizarRota converte URLs com e sem .html para rotas limpas padronizada
   assert.equal(normalizarRota("/index.html"), "login");
 });
 
+test("api expõe métodos auxiliares get, post, put e delete", async () => {
+  const { api } = await import("./api.js");
+  assert.equal(typeof api, "function");
+  assert.equal(typeof api.get, "function");
+  assert.equal(typeof api.post, "function");
+  assert.equal(typeof api.put, "function");
+  assert.equal(typeof api.delete, "function");
+});
+
+

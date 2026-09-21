@@ -39,13 +39,35 @@ export async function preCarregarRota(url) {
   const rota = normalizarRota(url);
   if (rota === "login" || rota === "trocar-senha" || cachePaginas.has(rota)) return;
   try {
-    let resp = await fetch(`/${rota}`);
-    if (!resp.ok) resp = await fetch(`/${rota}.html`);
+    const arquivo = rota === "" ? "index.html" : `${rota}.html`;
+    let resp = await fetch(`/${arquivo}`);
+    if (!resp.ok) resp = await fetch(`/${rota}`);
     if (resp.ok) {
       const html = await resp.text();
       cachePaginas.set(rota, html);
     }
   } catch (_) {}
+}
+
+export function preCarregarTodasTelas() {
+  const rotas = [
+    "chamados",
+    "novo-chamado",
+    "empresas",
+    "setores",
+    "status",
+    "usuarios",
+    "grupos",
+    "fluxos",
+    "fluxo",
+    "dashboards",
+    "auditoria",
+    "sql",
+    "geral",
+  ];
+  rotas.forEach((r) => {
+    preCarregarRota(r);
+  });
 }
 
 export function podeAcessarTela(tela, usuario) {
@@ -90,8 +112,9 @@ export async function navegarPara(url, push = true) {
   try {
     let html = cachePaginas.get(rota);
     if (!html) {
-      let resp = await fetch(`/${rota}`);
-      if (!resp.ok) resp = await fetch(`/${rota}.html`);
+      const arquivo = rota === "" ? "index.html" : `${rota}.html`;
+      let resp = await fetch(`/${arquivo}`);
+      if (!resp.ok) resp = await fetch(`/${rota}`);
       if (!resp.ok) {
         const dest = url.startsWith("/") ? url : `/${url}`;
         window.location.href = dest;
@@ -571,5 +594,13 @@ export function aplicarLayout(usuario) {
       const rota = window.location.pathname + window.location.search;
       navegarPara(rota, false);
     });
+  }
+
+  if (typeof window !== "undefined") {
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(() => preCarregarTodasTelas());
+    } else {
+      setTimeout(preCarregarTodasTelas, 300);
+    }
   }
 }
