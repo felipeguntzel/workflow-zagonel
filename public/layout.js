@@ -18,6 +18,7 @@ export const TELAS_SISTEMA = [
   { numero: "09", codigo: "9", id: "dashboards", titulo: "Dashboards", grupo: "Dashboards", href: "dashboards.html" },
   // Administração (apenas admin)
   { numero: "10", codigo: "10", id: "sql", titulo: "Editor SQL", grupo: "Administração", href: "sql.html", adminApenas: true },
+  { numero: "11", codigo: "11", id: "auditoria", titulo: "Auditoria do Sistema", grupo: "Administração", href: "auditoria.html", adminApenas: true },
 ];
 
 export function podeAcessarTela(tela, usuario) {
@@ -196,6 +197,7 @@ function construirSidebar(usuario, modalBusca) {
       </button>
       <div class="sidebar__usuario-menu" id="sidebar-usuario-menu" hidden>
         <a href="#" id="link-preferencias">Preferências</a>
+        <a href="#" id="link-logout-todos" style="font-size: 0.8rem; color: var(--cor-perigo, #e53935);">Sair de todos os dispositivos</a>
         <a href="#" id="link-sair">Sair</a>
       </div>
     </div>
@@ -235,6 +237,23 @@ function construirSidebar(usuario, modalBusca) {
     ev.preventDefault();
     logout();
     window.location.href = "index.html";
+  });
+
+  sidebar.querySelector("#link-logout-todos")?.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    menuUsuario.hidden = true;
+    btnUsuario.setAttribute("aria-expanded", "false");
+    if (!confirm("Deseja encerrar a sessão em todos os outros navegadores e dispositivos?")) {
+      return;
+    }
+    try {
+      const { api } = await import("./api.js");
+      await api.post("/logout-todos");
+      alert("Todas as outras sessões foram encerradas com sucesso.");
+    } catch (e) {
+      alert("Erro ao encerrar sessões: " + (e.message || e));
+    }
   });
 
   sidebar.querySelector("#link-preferencias").addEventListener("click", async (ev) => {

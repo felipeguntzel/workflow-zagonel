@@ -1,9 +1,10 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { hashSenha, validarFormatoLogin } from "../../_lib/auth.js";
+import { hashSenha, validarFormatoLogin, validarComplexidadeSenha } from "../../_lib/auth.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
 import { validarDependenciasExclusao, atualizarContadorId } from "../../_lib/dependencias.js";
 import { ensureColunasUsuario } from "../../_lib/usuarios.js";
+import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 
 async function carregarGruposDoUsuario(db, usuarioId) {
   const linhas = await all(db, "SELECT grupo_id FROM usuario_grupos WHERE usuario_id = ?", usuarioId);
@@ -79,9 +80,13 @@ export async function onRequestPut(context) {
   }
 
   if (body.senha !== undefined && body.senha !== "") {
+    const checagemSenha = validarComplexidadeSenha(body.senha);
+    if (!checagemSenha.valido) {
+      return error(checagemSenha.mensagem);
+    }
     const senhaHash = await hashSenha(body.senha);
-    colunas.push("senha_hash", "deve_trocar_senha");
-    valores.push(senhaHash, 1);
+    colunas.push("senha_hash", "deve_trocar_senha", "token_valido_apos");
+    valores.push(senhaHash, 1, Date.now());
   }
 
   if (body.admin !== undefined) {
@@ -102,7 +107,14 @@ export async function onRequestPut(context) {
     }
   }
 
-  if (colunas.length === 0 && body.grupos === undefined) {
+  const antes = await first(
+    context.env.DB,
+    "SELECT id, nome, setor_id, login, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
+    context.params.id
+  );
+  if (!antes) return error("Não encontrado", 404);
+
+  if (colunas.length === 0 && !Array.isArray(body.grupos)) {
     return error("Nenhum campo para atualizar");
   }
 
@@ -130,20 +142,49 @@ export async function onRequestPut(context) {
   );
   if (!atualizado) return error("Não encontrado", 404);
   atualizado.grupos = await carregarGruposDoUsuario(context.env.DB, context.params.id);
+
+  await registrarAuditoriaSistema(context.env.DB, {
+    usuario_id: usuario?.id,
+    usuario_nome: usuario?.nome || "Sistema",
+    entidade: "usuarios",
+    entidade_id: Number(context.params.id),
+    acao: "edicao",
+    detalhes: `Usuário atualizado: ${atualizado.nome} (${atualizado.login})`,
+    dados_antigos: antes,
+    dados_novos: atualizado,
+  });
+
   return json(atualizado);
 }
 
 export async function onRequestDelete(context) {
-  const { erro } = await exigirPermissao(context, "usuarios", "excluir");
+  const { usuario, erro } = await exigirPermissao(context, "usuarios", "excluir");
   if (erro) return erro;
   const erroDependencia = await validarDependenciasExclusao(context.env.DB, "usuarios", context.params.id);
   if (erroDependencia) return error(erroDependencia, 400);
+
+  const antes = await first(
+    context.env.DB,
+    "SELECT id, nome, login FROM usuarios WHERE id = ?",
+    context.params.id
+  );
 
   try {
     await run(context.env.DB, "DELETE FROM usuario_grupos WHERE usuario_id = ?", context.params.id);
     const res = await run(context.env.DB, "DELETE FROM usuarios WHERE id = ?", context.params.id);
     if (res.meta.changes === 0) return error("Não encontrado", 404);
     await atualizarContadorId(context.env.DB, "usuarios");
+
+    await registrarAuditoriaSistema(context.env.DB, {
+      usuario_id: usuario?.id,
+      usuario_nome: usuario?.nome || "Sistema",
+      entidade: "usuarios",
+      entidade_id: Number(context.params.id),
+      acao: "exclusao",
+      detalhes: `Usuário excluído: ${antes?.nome || context.params.id} (${antes?.login || ""})`,
+      dados_antigos: antes,
+    });
+
     return json({ ok: true });
   } catch (e) {
     if (String(e.message).includes("FOREIGN KEY") || String(e.message).includes("CONSTRAINT")) {

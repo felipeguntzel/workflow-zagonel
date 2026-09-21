@@ -1,5 +1,5 @@
 import { all, first, run } from "./db.js";
-import { hashSenha } from "./auth.js";
+import { hashSenha, validarComplexidadeSenha } from "./auth.js";
 
 let tabelaGarantida = false;
 
@@ -155,17 +155,20 @@ export async function redefinirSenhaComToken(db, token, novaSenha) {
     throw new Error("Link de recuperação inválido ou expirado. Solicite uma nova redefinição.");
   }
 
-  if (!novaSenha || String(novaSenha).length < 4) {
-    throw new Error("A nova senha deve ter no mínimo 4 caracteres.");
+  const checagem = validarComplexidadeSenha(novaSenha);
+  if (!checagem.valido) {
+    throw new Error(checagem.mensagem);
   }
 
   const senhaHash = await hashSenha(novaSenha);
+  const agora = Date.now();
 
-  // Atualiza senha e desmarca flag de troca obrigatória
+  // Atualiza senha, desmarca flag de troca obrigatoria e invalida sessoes antigas
   await run(
     db,
-    "UPDATE usuarios SET senha_hash = ?, deve_trocar_senha = 0 WHERE id = ?",
+    "UPDATE usuarios SET senha_hash = ?, deve_trocar_senha = 0, token_valido_apos = ? WHERE id = ?",
     senhaHash,
+    agora,
     registro.usuario_id
   );
 

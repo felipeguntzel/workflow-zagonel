@@ -57,8 +57,24 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  if (novaSenha.length < 4) {
-    mostrarErro(msgErro, new Error("A senha deve ter pelo menos 4 caracteres."));
+  if (novaSenha.length < 8) {
+    mostrarErro(msgErro, new Error("A senha deve ter pelo menos 8 caracteres."));
+    return;
+  }
+  if (!/[A-Z]/.test(novaSenha)) {
+    mostrarErro(msgErro, new Error("A senha deve conter pelo menos uma letra maiúscula."));
+    return;
+  }
+  if (!/[a-z]/.test(novaSenha)) {
+    mostrarErro(msgErro, new Error("A senha deve conter pelo menos uma letra minúscula."));
+    return;
+  }
+  if (!/[0-9]/.test(novaSenha)) {
+    mostrarErro(msgErro, new Error("A senha deve conter pelo menos um número."));
+    return;
+  }
+  if (!/[^A-Za-z0-9]/.test(novaSenha)) {
+    mostrarErro(msgErro, new Error("A senha deve conter pelo menos um caractere especial ou símbolo (@, #, $, etc.)."));
     return;
   }
 

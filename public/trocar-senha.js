@@ -16,6 +16,26 @@ if (usuario) {
       mensagemErro.hidden = false;
       return;
     }
+    if (!/[A-Z]/.test(novaSenha)) {
+      mensagemErro.textContent = "A senha deve conter pelo menos uma letra maiúscula.";
+      mensagemErro.hidden = false;
+      return;
+    }
+    if (!/[a-z]/.test(novaSenha)) {
+      mensagemErro.textContent = "A senha deve conter pelo menos uma letra minúscula.";
+      mensagemErro.hidden = false;
+      return;
+    }
+    if (!/[0-9]/.test(novaSenha)) {
+      mensagemErro.textContent = "A senha deve conter pelo menos um número.";
+      mensagemErro.hidden = false;
+      return;
+    }
+    if (!/[^A-Za-z0-9]/.test(novaSenha)) {
+      mensagemErro.textContent = "A senha deve conter pelo menos um caractere especial ou símbolo (@, #, $, etc.).";
+      mensagemErro.hidden = false;
+      return;
+    }
     if (novaSenha !== confirmarSenha) {
       mensagemErro.textContent = "As senhas digitadas não coincidem.";
       mensagemErro.hidden = false;

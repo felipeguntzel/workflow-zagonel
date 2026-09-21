@@ -62,7 +62,7 @@ if (usuario) {
         nome: "senha",
         label: "Senha",
         tipo: "password",
-        dica: "Obrigatória na criação: o usuário poderá redefini-la no primeiro login.\nAo editar, deixe em branco para manter a senha existente.",
+        dica: "Requisitos da política de senha forte:\n- Mínimo de 8 caracteres\n- Pelo menos uma letra maiúscula e uma minúscula\n- Pelo menos um número\n- Pelo menos um caractere especial ou símbolo (@, #, $, etc.)\nObrigatória na criação. Ao editar, deixe em branco para manter a senha existente.",
       },
       {
         nome: "admin",

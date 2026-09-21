@@ -1,20 +1,37 @@
-import { first, all } from "./db.js";
+import { first, all, run } from "./db.js";
 import { verificarToken } from "./sessao.js";
 import { error } from "./http.js";
+import { ensureColunasUsuario } from "./usuarios.js";
 
 const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados"];
+
+let colunaGrupoPaiGarantida = false;
+export async function ensureColunaGrupoPai(db) {
+  if (colunaGrupoPaiGarantida) return;
+  try {
+    await run(db, "ALTER TABLE grupos_permissao ADD COLUMN grupo_pai_id INTEGER REFERENCES grupos_permissao(id)");
+  } catch (_) {}
+  colunaGrupoPaiGarantida = true;
+}
 
 export async function obterUsuarioDaRequisicao(request, env) {
   const cabecalho = request.headers.get("Authorization") ?? "";
   const token = cabecalho.startsWith("Bearer ") ? cabecalho.slice(7) : null;
   const verificado = await verificarToken(token, env.SESSAO_SEGREDO);
   if (!verificado) return null;
+  await ensureColunasUsuario(env.DB);
   const usuario = await first(
     env.DB,
-    "SELECT id, nome, setor_id, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
+    "SELECT id, nome, setor_id, admin, deve_trocar_senha, token_valido_apos FROM usuarios WHERE id = ?",
     verificado.usuarioId
   );
-  return usuario ?? null;
+  if (!usuario) return null;
+  if (usuario.token_valido_apos && usuario.token_valido_apos > 0) {
+    if (!verificado.emitidoEm || verificado.emitidoEm < usuario.token_valido_apos) {
+      return null;
+    }
+  }
+  return usuario;
 }
 
 export async function obterPermissoesDoUsuario(db, usuarioId) {
@@ -33,14 +50,39 @@ export async function obterPermissoesDoUsuario(db, usuarioId) {
     return resultado;
   }
 
+  await ensureColunaGrupoPai(db);
+
+  const gruposIniciais = await all(db, "SELECT grupo_id FROM usuario_grupos WHERE usuario_id = ?", usuarioId);
+  const gruposIds = new Set(gruposIniciais.map((g) => g.grupo_id));
+  const fila = [...gruposIds];
+  const visitados = new Set();
+
+  while (fila.length > 0) {
+    const atualId = fila.shift();
+    if (visitados.has(atualId)) continue;
+    visitados.add(atualId);
+    try {
+      const grupo = await first(db, "SELECT grupo_pai_id FROM grupos_permissao WHERE id = ?", atualId);
+      if (grupo && grupo.grupo_pai_id && !gruposIds.has(grupo.grupo_pai_id)) {
+        gruposIds.add(grupo.grupo_pai_id);
+        fila.push(grupo.grupo_pai_id);
+      }
+    } catch (_) {}
+  }
+
+  if (gruposIds.size === 0) {
+    return resultado;
+  }
+
+  const placeholders = Array.from(gruposIds).map(() => "?").join(", ");
   const linhas = await all(
     db,
     `SELECT p.tela, p.visualizar, p.inserir, p.editar, p.excluir, p.ver_todos_setores
      FROM permissoes p
-     JOIN usuario_grupos ug ON ug.grupo_id = p.grupo_id
-     WHERE ug.usuario_id = ?`,
-    usuarioId
+     WHERE p.grupo_id IN (${placeholders})`,
+    ...Array.from(gruposIds)
   );
+
   for (const linha of linhas) {
     const alvo = resultado[linha.tela];
     if (!alvo) continue;
