@@ -64,7 +64,7 @@ export async function gerarSolicitacaoRecuperacao(db, identificador, baseUrl, en
     expiraEm
   );
 
-  const linkRedefinicao = `${baseUrl}/redefinir-senha.html?token=${token}`;
+  const linkRedefinicao = `${baseUrl}/redefinir-senha?token=${token}`;
 
   let emailEnviado = false;
   let erroEnvio = null;

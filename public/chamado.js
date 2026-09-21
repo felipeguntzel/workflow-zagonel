@@ -4,22 +4,29 @@ import { info, mostrarErro, escaparHtml, linkWhatsApp } from "./ui.js";
 import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
 
-const usuario = exigirLogin();
-const id = new URLSearchParams(window.location.search).get("id");
-const permissaoChamados = usuario
-  ? permissaoDaTela("chamados")
-  : { visualizar: false, inserir: false, editar: false, excluir: false };
+let id = new URLSearchParams(window.location.search).get("id");
+let permissaoChamados = { visualizar: false, inserir: false, editar: false, excluir: false };
 
-if (usuario && id) {
-  aplicarLayout(usuario);
-  iniciar();
-} else if (usuario) {
-  aplicarLayout(usuario);
-  mostrarErro(document.getElementById("mensagem-erro"), new Error("Chamado não informado."));
-  document.querySelector("main").querySelectorAll(":scope > :not(#mensagem-erro)").forEach((el) => {
-    el.hidden = true;
-  });
+export function inicializar() {
+  const usuario = exigirLogin();
+  id = new URLSearchParams(window.location.search).get("id");
+  permissaoChamados = usuario
+    ? permissaoDaTela("chamados")
+    : { visualizar: false, inserir: false, editar: false, excluir: false };
+
+  if (usuario && id) {
+    aplicarLayout(usuario);
+    iniciar();
+  } else if (usuario) {
+    aplicarLayout(usuario);
+    mostrarErro(document.getElementById("mensagem-erro"), new Error("Chamado não informado."));
+    document.querySelector("main").querySelectorAll(":scope > :not(#mensagem-erro)").forEach((el) => {
+      el.hidden = true;
+    });
+  }
 }
+
+inicializar();
 
 function formatarTamanho(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -32,7 +39,7 @@ function iniciar() {
     ev.preventDefault();
     try {
       const chamado = await api(`/chamados/${id}`);
-      window.location.href = `geral.html?id=${chamado.chamado_mae_id ?? chamado.id}`;
+      window.location.href = `/geral?id=${chamado.chamado_mae_id ?? chamado.id}`;
     } catch (e) {
       mostrarErro(document.getElementById("mensagem-erro"), e);
     }
@@ -48,7 +55,7 @@ function iniciar() {
       if (!confirmado) return;
       try {
         await api(`/chamados/${id}`, { method: "DELETE" });
-        window.location.href = "chamados.html";
+        window.location.href = "/chamados";
       } catch (e) {
         mostrarErro(document.getElementById("mensagem-erro"), e);
       }
@@ -201,11 +208,11 @@ async function carregarDetalhe() {
       <div>
         <h1 style="margin: 0 0 0.5rem; font-size: 1.5rem;">#${chamado.id} - ${escaparHtml(chamado.titulo)}</h1>
         <p style="margin: 0 0 0.4rem; color: var(--cor-texto-secundario); font-size: 0.95rem;">
-          Fluxo: <strong>${escaparHtml(chamado.fluxo_nome || "—")}</strong> |
-          Setor: <strong>${escaparHtml(chamado.setor_nome || "—")}</strong> ${info("Setor responsável por esta etapa/tarefa.")}
+          Fluxo: <strong>${escaparHtml(chamado.fluxo_nome || "-")}</strong> |
+          Setor: <strong>${escaparHtml(chamado.setor_nome || "-")}</strong> ${info("Setor responsável por esta etapa/tarefa.")}
         </p>
         <p style="margin: 0 0 0.4rem; font-size: 0.95rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem;">
-          <span>Solicitante: <strong>${escaparHtml(chamado.solicitante_nome || "—")}</strong></span>
+          <span>Solicitante: <strong>${escaparHtml(chamado.solicitante_nome || "-")}</strong></span>
           ${linkWhatsApp(chamado.solicitante_telefone, chamado.id, chamado.titulo)}
           <span>| Abertura: <strong>${chamado.data_abertura}</strong> | Prazo: <strong>${chamado.prazo}</strong> (${chamado.situacao_prazo})</span>
         </p>
@@ -488,7 +495,7 @@ async function carregarAuditoria() {
 
     listaEl.innerHTML = historico
       .map((item) => {
-        const dataFormatada = item.criado_em ? item.criado_em.slice(0, 19).replace("T", " ") : "—";
+        const dataFormatada = item.criado_em ? item.criado_em.slice(0, 19).replace("T", " ") : "-";
         return `
           <li style="font-size: 0.88rem; border-left: 3px solid var(--cor-primaria); padding: 0.35rem 0.6rem; background: var(--cor-fundo);">
             <div style="display: flex; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.2rem;">

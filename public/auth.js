@@ -16,11 +16,13 @@ export function logout() {
 export function exigirLogin() {
   const usuario = getUsuarioLogado();
   if (!usuario) {
-    window.location.href = "index.html";
+    window.location.href = "/";
     return null;
   }
   return usuario;
 }
+
+export const exigirUsuarioLogado = exigirLogin;
 
 export function permissaoDaTela(tela) {
   const usuario = getUsuarioLogado();

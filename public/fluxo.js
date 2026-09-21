@@ -5,13 +5,16 @@ import { confirmarAcao } from "./modal.js";
 import { mostrarAvisoModal } from "./crud-ui.js";
 import { api } from "./api.js";
 
-const usuario = exigirLogin();
 let permissaoFluxos = { visualizar: false, inserir: false, editar: false, excluir: false };
 
-if (usuario) {
+export function inicializar() {
+  const usuario = exigirLogin();
+  if (!usuario) return;
+
   aplicarLayout(usuario);
   const container = document.getElementById("secao-fluxos-app");
   const mensagemErro = document.getElementById("mensagem-erro");
+  if (!container) return;
   permissaoFluxos = permissaoDaTela("fluxos");
 
   if (!permissaoFluxos.visualizar) {
@@ -20,6 +23,8 @@ if (usuario) {
     iniciar(container, mensagemErro).catch((e) => mostrarErro(mensagemErro, e));
   }
 }
+
+inicializar();
 
 async function iniciar(container, mensagemErro) {
   let fluxos = [];
@@ -805,7 +810,7 @@ async function iniciar(container, mensagemErro) {
                           <td style="font-weight: 600;">${escaparHtml(c.rotulo)}</td>
                           <td><span class="badge-status" style="background: var(--cor-fundo-elevado); border: 1px solid var(--cor-borda);">${escaparHtml(c.tipo)}</span></td>
                           <td>${c.obrigatorio ? '<strong style="color: var(--cor-alerta);">Sim</strong>' : "Não"}</td>
-                          <td style="font-size: 0.85rem; color: var(--cor-texto-secundario);">${c.opcoes_json ? escaparHtml(c.opcoes_json) : "—"}</td>
+                          <td style="font-size: 0.85rem; color: var(--cor-texto-secundario);">${c.opcoes_json ? escaparHtml(c.opcoes_json) : "-"}</td>
                           <td class="td-acoes">
                             ${permissaoFluxos.excluir ? botaoIconeExcluir("btn-excluir-campo", c.id) : ""}
                           </td>

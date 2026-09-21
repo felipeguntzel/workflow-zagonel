@@ -44,7 +44,7 @@ if (usuario) {
     try {
       await api("/trocar-senha", { method: "POST", body: { nova_senha: novaSenha } });
       setUsuarioLogado({ ...getUsuarioLogado(), deve_trocar_senha: false });
-      window.location.href = "chamados.html";
+      window.location.href = "/chamados";
     } catch (e) {
       mostrarErro(mensagemErro, e);
     }

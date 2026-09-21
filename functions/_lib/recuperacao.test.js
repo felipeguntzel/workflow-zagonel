@@ -79,7 +79,7 @@ test("gerarSolicitacaoRecuperacao gera token e mascara e-mail quando usuário po
   const res = await gerarSolicitacaoRecuperacao(dbMock, "felipe", "https://app.zagonel.com.br");
   assert.equal(res.sucesso, true);
   assert.match(res.email_mascarado, /f\*\*\*e@zagonel\.com\.br/);
-  assert.match(res.link_recuperacao, /https:\/\/app\.zagonel\.com\.br\/redefinir-senha\.html\?token=[0-9a-f]{48}/);
+  assert.match(res.link_recuperacao, /https:\/\/app\.zagonel\.com\.br\/redefinir-senha\?token=[0-9a-f]{48}/);
 });
 
 test("redefinirSenhaComToken rejeita senha que nao cumpre politica de complexidade", async () => {

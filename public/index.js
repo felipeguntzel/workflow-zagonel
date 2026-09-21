@@ -25,7 +25,7 @@ formLogin.addEventListener("submit", async (ev) => {
       },
     });
     setUsuarioLogado(usuario);
-    window.location.href = usuario.deve_trocar_senha ? "trocar-senha.html" : "chamados.html";
+    window.location.href = usuario.deve_trocar_senha ? "/trocar-senha" : "/chamados";
   } catch (e) {
     mostrarErro(mensagemErro, e);
   }

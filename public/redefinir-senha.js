@@ -37,7 +37,7 @@ function exibirTokenInvalido(mensagem) {
       <p style="color: var(--cor-texto-secundario); font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;">
         ${mensagem}
       </p>
-      <a href="index.html" class="btn btn-primario" style="text-decoration: none; display: inline-block; padding: 0.6rem 1.25rem;">
+      <a href="/" class="btn btn-primario" style="text-decoration: none; display: inline-block; padding: 0.6rem 1.25rem;">
         Ir para tela de login
       </a>
     </div>
@@ -98,7 +98,7 @@ form.addEventListener("submit", async (e) => {
         <p style="color: var(--cor-texto-secundario); font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;">
           Sua senha foi atualizada com sucesso. Você já pode acessar o sistema com suas novas credenciais.
         </p>
-        <a href="index.html" class="btn btn-primario" style="text-decoration: none; display: inline-block; padding: 0.6rem 1.5rem;">
+        <a href="/" class="btn btn-primario" style="text-decoration: none; display: inline-block; padding: 0.6rem 1.5rem;">
           Fazer login agora
         </a>
       </div>

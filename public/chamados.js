@@ -3,11 +3,13 @@ import { aplicarLayout } from "./layout.js";
 import { mostrarErro, escaparAtributo, escaparHtml } from "./ui.js";
 import { api } from "./api.js";
 
-const usuario = exigirLogin();
-if (usuario) {
+export function inicializar() {
+  const usuario = exigirLogin();
+  if (!usuario) return;
   aplicarLayout(usuario);
-  if (!permissaoDaTela("chamados").inserir) {
-    document.getElementById("link-novo-chamado").hidden = true;
+  const linkNovo = document.getElementById("link-novo-chamado");
+  if (linkNovo && !permissaoDaTela("chamados").inserir) {
+    linkNovo.hidden = true;
   }
   carregarChamados().catch((e) => mostrarErro(document.getElementById("mensagem-erro"), e));
 }
@@ -60,6 +62,7 @@ function renderizarTabela() {
   }
 
   const tbody = document.getElementById("tabela-chamados");
+  if (!tbody) return;
   tbody.innerHTML =
     dados.length === 0
       ? `<tr><td colspan="5" style="text-align:center; padding: 1.5rem; color: var(--cor-texto-secundario);">Nenhum chamado encontrado.</td></tr>`
@@ -68,7 +71,7 @@ function renderizarTabela() {
             (c) => `
               <tr>
                 <td class="td-id">#${c.id}</td>
-                <td title="${escaparAtributo(c.titulo)}"><a href="chamado.html?id=${c.id}">${escaparHtml(c.titulo)}</a></td>
+                <td title="${escaparAtributo(c.titulo)}"><a href="/chamado?id=${c.id}">${escaparHtml(c.titulo)}</a></td>
                 <td>${escaparHtml(c.status_nome)}</td>
                 <td>${c.prazo}</td>
                 <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
@@ -98,3 +101,5 @@ async function carregarChamados() {
   configurarOrdenacao();
   renderizarTabela();
 }
+
+inicializar();

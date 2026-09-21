@@ -5,21 +5,48 @@ const CHAVE_COLAPSADA = "workflow_zagonel_sidebar_colapsada";
 
 export const TELAS_SISTEMA = [
   // Cadastros (em ordem alfabética)
-  { numero: "01", codigo: "1", id: "empresas", titulo: "Empresas", grupo: "Cadastros", href: "empresas.html", telaPerm: "empresas" },
-  { numero: "02", codigo: "2", id: "fluxos", titulo: "Fluxos", grupo: "Cadastros", href: "fluxo.html", telaPerm: "fluxos" },
-  { numero: "03", codigo: "3", id: "grupos", titulo: "Grupos de Permissão", grupo: "Cadastros", href: "grupos.html", adminApenas: true },
-  { numero: "04", codigo: "4", id: "setores", titulo: "Setores", grupo: "Cadastros", href: "setores.html", telaPerm: "setores" },
-  { numero: "05", codigo: "5", id: "status", titulo: "Status", grupo: "Cadastros", href: "status.html", telaPerm: "status" },
-  { numero: "06", codigo: "6", id: "usuarios", titulo: "Usuários", grupo: "Cadastros", href: "usuarios.html", telaPerm: "usuarios" },
+  { numero: "01", codigo: "1", id: "empresas", titulo: "Empresas", grupo: "Cadastros", href: "/empresas", telaPerm: "empresas" },
+  { numero: "02", codigo: "2", id: "fluxos", titulo: "Fluxos", grupo: "Cadastros", href: "/fluxo", telaPerm: "fluxos" },
+  { numero: "03", codigo: "3", id: "grupos", titulo: "Grupos de Permissão", grupo: "Cadastros", href: "/grupos", adminApenas: true },
+  { numero: "04", codigo: "4", id: "setores", titulo: "Setores", grupo: "Cadastros", href: "/setores", telaPerm: "setores" },
+  { numero: "05", codigo: "5", id: "status", titulo: "Status", grupo: "Cadastros", href: "/status", telaPerm: "status" },
+  { numero: "06", codigo: "6", id: "usuarios", titulo: "Usuários", grupo: "Cadastros", href: "/usuarios", telaPerm: "usuarios" },
   // Chamados (em ordem alfabética)
-  { numero: "07", codigo: "7", id: "chamados", titulo: "Meus chamados", grupo: "Chamados", href: "chamados.html", telaPerm: "chamados" },
-  { numero: "08", codigo: "8", id: "novo-chamado", titulo: "Abrir novo chamado", grupo: "Chamados", href: "novo-chamado.html", telaPerm: "chamados", acaoPerm: "inserir" },
+  { numero: "07", codigo: "7", id: "chamados", titulo: "Meus chamados", grupo: "Chamados", href: "/chamados", telaPerm: "chamados" },
+  { numero: "08", codigo: "8", id: "novo-chamado", titulo: "Abrir novo chamado", grupo: "Chamados", href: "/novo-chamado", telaPerm: "chamados", acaoPerm: "inserir" },
   // Dashboards
-  { numero: "09", codigo: "9", id: "dashboards", titulo: "Dashboards", grupo: "Dashboards", href: "dashboards.html" },
+  { numero: "09", codigo: "9", id: "dashboards", titulo: "Dashboards", grupo: "Dashboards", href: "/dashboards" },
   // Administração (apenas admin)
-  { numero: "10", codigo: "10", id: "sql", titulo: "Editor SQL", grupo: "Administração", href: "sql.html", adminApenas: true },
-  { numero: "11", codigo: "11", id: "auditoria", titulo: "Auditoria do Sistema", grupo: "Administração", href: "auditoria.html", adminApenas: true },
+  { numero: "10", codigo: "10", id: "sql", titulo: "Editor SQL", grupo: "Administração", href: "/sql", adminApenas: true },
+  { numero: "11", codigo: "11", id: "auditoria", titulo: "Auditoria do Sistema", grupo: "Administração", href: "/auditoria", adminApenas: true },
 ];
+
+export function normalizarRota(url) {
+  if (url === undefined || url === null) return "empresas";
+  let u = String(url).trim().split("?")[0].split("#")[0];
+  if (u.startsWith("/")) u = u.slice(1);
+  if (u.endsWith(".html")) u = u.slice(0, -5);
+  if (u === "" || u === "index" || u === "login") return "login";
+  if (u === "fluxos") return "fluxo";
+  return u;
+}
+
+const cachePaginas = new Map();
+const cacheModulos = new Map();
+
+export async function preCarregarRota(url) {
+  if (!url) return;
+  const rota = normalizarRota(url);
+  if (rota === "login" || rota === "trocar-senha" || cachePaginas.has(rota)) return;
+  try {
+    let resp = await fetch(`/${rota}`);
+    if (!resp.ok) resp = await fetch(`/${rota}.html`);
+    if (resp.ok) {
+      const html = await resp.text();
+      cachePaginas.set(rota, html);
+    }
+  } catch (_) {}
+}
 
 export function podeAcessarTela(tela, usuario) {
   if (!usuario) return false;
@@ -40,9 +67,13 @@ export function aplicarPreferenciasVisuais(usuario) {
 }
 
 export async function navegarPara(url, push = true) {
-  const destinoLimpo = url.split("?")[0].split("#")[0];
-  if (destinoLimpo === "index.html" || destinoLimpo === "trocar-senha.html") {
-    window.location.href = url;
+  const rota = normalizarRota(url);
+  if (rota === "login") {
+    window.location.href = "/";
+    return;
+  }
+  if (rota === "trocar-senha") {
+    window.location.href = "/trocar-senha";
     return;
   }
 
@@ -54,24 +85,35 @@ export async function navegarPara(url, push = true) {
     document.body.appendChild(barra);
   }
   barra.style.display = "block";
-  barra.style.width = "40%";
+  barra.style.width = "45%";
 
   try {
-    const resp = await fetch(url);
-    if (!resp.ok) {
-      window.location.href = url;
-      return;
+    let html = cachePaginas.get(rota);
+    if (!html) {
+      let resp = await fetch(`/${rota}`);
+      if (!resp.ok) resp = await fetch(`/${rota}.html`);
+      if (!resp.ok) {
+        const dest = url.startsWith("/") ? url : `/${url}`;
+        window.location.href = dest;
+        return;
+      }
+      html = await resp.text();
+      cachePaginas.set(rota, html);
     }
-    barra.style.width = "75%";
-    const html = await resp.text();
+
+    barra.style.width = "80%";
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
     const novoMain = doc.querySelector("main");
     if (!novoMain) {
-      window.location.href = url;
+      const dest = url.startsWith("/") ? url : `/${url}`;
+      window.location.href = dest;
       return;
     }
+
+    // Animação de transição suave
+    novoMain.style.animation = "transicaoTela 0.18s ease-out";
 
     const mainAtual = document.querySelector("main");
     if (mainAtual) {
@@ -85,10 +127,11 @@ export async function navegarPara(url, push = true) {
       document.title = doc.title;
     }
 
-    const nomePagina = destinoLimpo.split("/").pop();
+    // Atualizar classe ativa dos links da sidebar
     document.querySelectorAll(".sidebar__link").forEach((link) => {
-      const href = link.getAttribute("href")?.split("?")[0];
-      const ativo = href === nomePagina || (href === "fluxo.html" && nomePagina === "fluxos.html");
+      const href = link.getAttribute("href");
+      const rotaLink = normalizarRota(href);
+      const ativo = rotaLink === rota;
       link.classList.toggle("sidebar__link--ativo", ativo);
     });
 
@@ -97,27 +140,48 @@ export async function navegarPara(url, push = true) {
       sidebar.classList.remove("aberta");
     }
 
+    // Montar URL limpa para histórico
+    const params = url.includes("?") ? `?${url.split("?")[1]}` : "";
+    const hash = url.includes("#") ? `#${url.split("#")[1]}` : "";
+    const urlLimpa = `/${rota}${params}${hash}`;
+
     if (push) {
-      window.history.pushState({}, "", url);
+      window.history.pushState({}, "", urlLimpa);
     }
 
     window.scrollTo({ top: 0, behavior: "instant" });
 
+    // Ciclo de vida rápido de módulos JS
     const scriptTag = doc.querySelector("script[type='module']");
     if (scriptTag && scriptTag.src) {
       const scriptUrl = scriptTag.getAttribute("src");
-      await import(`./${scriptUrl.replace(/^\.?\//, "")}?t=${Date.now()}`);
+      const scriptSrc = scriptUrl.replace(/^\.?\//, "");
+      
+      let modulo = cacheModulos.get(scriptSrc);
+      if (!modulo) {
+        modulo = await import(`./${scriptSrc}`);
+        cacheModulos.set(scriptSrc, modulo);
+      }
+
+      if (typeof modulo.inicializar === "function") {
+        modulo.inicializar();
+      } else if (typeof modulo.default === "function") {
+        modulo.default();
+      } else {
+        // Fallback dinâmico se módulo não expuser inicializar
+        await import(`./${scriptSrc}?t=${Date.now()}`);
+      }
     }
   } catch (err) {
     console.error("Erro na transição rápida de tela, redirecionando:", err);
-    window.location.href = url;
+    window.location.href = url.startsWith("/") ? url : `/${url}`;
   } finally {
     if (barra) {
       barra.style.width = "100%";
       setTimeout(() => {
         barra.style.display = "none";
         barra.style.width = "0%";
-      }, 150);
+      }, 120);
     }
   }
 }
@@ -129,7 +193,7 @@ function construirSidebar(usuario, modalBusca) {
     sidebar.classList.add("recolhida");
   }
 
-  const paginaAtual = window.location.pathname.split("/").pop() || "empresas.html";
+  const rotaAtual = normalizarRota(window.location.pathname);
   const telasPermitidas = TELAS_SISTEMA.filter((t) => podeAcessarTela(t, usuario));
 
   const grupos = ["Cadastros", "Chamados", "Dashboards", "Administração"];
@@ -140,9 +204,7 @@ function construirSidebar(usuario, modalBusca) {
       if (telasDoGrupo.length === 0) return "";
       const linksHtml = telasDoGrupo
         .map((t) => {
-          const ativo = (t.href === paginaAtual || (t.href === "fluxo.html" && paginaAtual === "fluxos.html"))
-            ? " sidebar__link--ativo"
-            : "";
+          const ativo = normalizarRota(t.href) === rotaAtual ? " sidebar__link--ativo" : "";
           return `
             <div class="sidebar__link-wrap">
               <a href="${t.href}" class="sidebar__link${ativo}" title="[${t.numero}] ${t.titulo}">
@@ -236,7 +298,7 @@ function construirSidebar(usuario, modalBusca) {
   sidebar.querySelector("#link-sair").addEventListener("click", (ev) => {
     ev.preventDefault();
     logout();
-    window.location.href = "index.html";
+    window.location.href = "/";
   });
 
   sidebar.querySelector("#link-logout-todos")?.addEventListener("click", async (ev) => {
@@ -430,10 +492,10 @@ export function aplicarLayout(usuario) {
 
   const shellExistente = document.querySelector(".app-shell");
   if (shellExistente) {
-    const paginaAtual = window.location.pathname.split("/").pop() || "empresas.html";
+    const rotaAtual = normalizarRota(window.location.pathname);
     shellExistente.querySelectorAll(".sidebar__link").forEach((link) => {
-      const href = link.getAttribute("href")?.split("?")[0];
-      const ativo = href === paginaAtual || (href === "fluxo.html" && paginaAtual === "fluxos.html");
+      const href = link.getAttribute("href");
+      const ativo = normalizarRota(href) === rotaAtual;
       link.classList.toggle("sidebar__link--ativo", ativo);
     });
     return;
@@ -474,21 +536,40 @@ export function aplicarLayout(usuario) {
         href.startsWith("javascript:") ||
         href.startsWith("http://") ||
         href.startsWith("https://") ||
-        href.startsWith("mailto:")
+        href.startsWith("mailto:") ||
+        link.target === "_blank" ||
+        link.classList.contains("sidebar__link-externo")
       ) {
         return;
       }
 
-      const ehHtml = href.endsWith(".html") || href.includes(".html?");
-      if (ehHtml) {
-        e.preventDefault();
-        navegarPara(href);
-      }
+      e.preventDefault();
+      navegarPara(href);
     });
 
+    document.addEventListener(
+      "mouseover",
+      (e) => {
+        const link = e.target.closest("a");
+        if (!link) return;
+        const href = link.getAttribute("href");
+        if (
+          href &&
+          !href.startsWith("#") &&
+          !href.startsWith("javascript:") &&
+          !href.startsWith("http://") &&
+          !href.startsWith("https://") &&
+          link.target !== "_blank"
+        ) {
+          preCarregarRota(href);
+        }
+      },
+      { passive: true }
+    );
+
     window.addEventListener("popstate", () => {
-      const pag = window.location.pathname.split("/").pop() || "empresas.html";
-      navegarPara(pag + window.location.search, false);
+      const rota = window.location.pathname + window.location.search;
+      navegarPara(rota, false);
     });
   }
 }

@@ -3,19 +3,23 @@ import { aplicarLayout } from "./layout.js";
 import { mostrarErro } from "./ui.js";
 import { renderCrud } from "./crud-ui.js";
 
-const usuario = exigirLogin();
-if (usuario) {
+export function inicializar() {
+  const usuario = exigirLogin();
+  if (!usuario) return;
+
   aplicarLayout(usuario);
   const mensagemErro = document.getElementById("mensagem-erro");
+  const container = document.getElementById("secao-setores");
+  if (!container) return;
 
-  renderCrud(document.getElementById("secao-setores"), {
+  renderCrud(container, {
     titulo: "Setores",
     tituloSingular: "Setor",
     estilo: "complexo",
     endpoint: "/setores",
     tela: "setores",
     larguraColuna1: 16,
-    preRequisitos: [{ nome: "Empresas", endpoint: "/empresas", url: "empresas.html" }],
+    preRequisitos: [{ nome: "Empresas", endpoint: "/empresas", url: "/empresas" }],
     campos: [
       { nome: "nome", label: "Nome", obrigatorio: true },
       {
@@ -37,3 +41,5 @@ if (usuario) {
     ],
   }).catch((e) => mostrarErro(mensagemErro, e));
 }
+
+inicializar();

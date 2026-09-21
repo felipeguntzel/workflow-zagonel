@@ -21,11 +21,14 @@ const ACOES = [
   { chave: "excluir", label: "Excluir" },
 ];
 
-const usuario = exigirLogin();
-if (usuario) {
+export function inicializar() {
+  const usuario = exigirLogin();
+  if (!usuario) return;
+
   aplicarLayout(usuario);
   const container = document.getElementById("secao-grupos");
   const mensagemErro = document.getElementById("mensagem-erro");
+  if (!container) return;
 
   if (!usuario.admin) {
     container.innerHTML = "<p>Você não tem permissão para acessar esta tela.</p>";
@@ -33,6 +36,8 @@ if (usuario) {
     iniciar(container, mensagemErro).catch((e) => mostrarErro(mensagemErro, e));
   }
 }
+
+inicializar();
 
 async function iniciar(container, mensagemErro) {
   let grupos = [];

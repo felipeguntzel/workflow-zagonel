@@ -3,12 +3,13 @@ import { aplicarLayout } from "./layout.js";
 import { escaparHtml } from "./ui.js";
 import { api } from "./api.js";
 
-const usuario = exigirLogin();
-const id = new URLSearchParams(window.location.search).get("id");
-
-if (usuario && id) {
-  aplicarLayout(usuario);
-  carregarArvore();
+export function inicializar() {
+  const usuario = exigirLogin();
+  const id = new URLSearchParams(window.location.search).get("id");
+  if (usuario && id) {
+    aplicarLayout(usuario);
+    carregarArvore(id);
+  }
 }
 
 function construirArvore(nos) {
@@ -40,10 +41,12 @@ function nodeHtml(no) {
   `;
 }
 
-async function carregarArvore() {
-  const nos = await api(`/chamados/${id}/arvore`);
-  const raizes = construirArvore(nos);
+async function carregarArvore(chamadoId) {
   const container = document.getElementById("arvore");
+  if (!container) return;
+
+  const nos = await api(`/chamados/${chamadoId}/arvore`);
+  const raizes = construirArvore(nos);
   container.innerHTML = `<ul>${raizes.map(nodeHtml).join("")}</ul>`;
 
   container.querySelectorAll("details").forEach((detalhe) => {
@@ -67,3 +70,5 @@ async function carregarArvore() {
     );
   });
 }
+
+inicializar();
