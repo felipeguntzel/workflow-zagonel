@@ -105,6 +105,24 @@ function valorExibicao(linha, campo, opcoesFK) {
   return linha[campo.nome] ?? "";
 }
 
+const cacheFK = new Map();
+
+export function limparCacheFK() {
+  cacheFK.clear();
+}
+
+async function obterOpcoesFK(endpoint) {
+  const agora = Date.now();
+  const emCache = cacheFK.get(endpoint);
+  if (emCache && agora - emCache.tempo < 60000) {
+    return emCache.dados;
+  }
+  const dados = await api(endpoint).catch(() => []);
+  const lista = Array.isArray(dados) ? dados : [];
+  cacheFK.set(endpoint, { dados: lista, tempo: agora });
+  return lista;
+}
+
 export async function renderCrud(container, config) {
   if (!config.tela) throw new Error("renderCrud: config.tela é obrigatório");
   const permissao = permissaoDaTela(config.tela);
@@ -113,22 +131,60 @@ export async function renderCrud(container, config) {
     return;
   }
 
-  // Buscar opções de FK para campos com select/multiselect
-  const opcoesFK = {};
-  for (const campo of config.campos) {
-    if (campo.opcoesEndpoint) {
-      opcoesFK[campo.nome] = await api(campo.opcoesEndpoint).catch(() => []);
-    }
-  }
+  const camposVisiveis = config.campos.filter((c) => !c.apenasFiltro);
+  const camposEditaveis = config.campos.filter((c) => !c.apenasFiltro);
+  const ehSimples = config.estilo ? config.estilo === "simples" : camposEditaveis.length <= 2;
 
-  // Buscar opções de endpoints de pré-requisitos explícitos caso configurado
-  if (Array.isArray(config.preRequisitos)) {
-    for (const req of config.preRequisitos) {
-      if (req.endpoint && !opcoesFK[req.endpoint]) {
-        opcoesFK[req.endpoint] = await api(req.endpoint).catch(() => []);
-      }
-    }
-  }
+  let listaDados = [];
+  let editandoLinhaId = null;
+  let ordemAtual = { campo: "id", direcao: "asc" };
+  const opcoesFK = {};
+
+  // Renderiza imediatamente a estrutura da tela com esqueleto de carregamento
+  container.innerHTML = `
+    <div class="pagina-cabecalho">
+      <div class="pagina-cabecalho__esquerda">
+        <h2>${config.titulo}</h2>
+      </div>
+      <div class="pagina-cabecalho__acoes">
+        ${permissao.inserir ? `<button type="button" class="btn btn-primario btn-adicionar-registro">+ Adicionar</button>` : ""}
+      </div>
+    </div>
+    <div class="container-banner-prerequisito"></div>
+    <div class="tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="th-ordenavel th-id" data-campo="id">#ID <span class="ordem-indicador" data-indicador="id">▲</span></th>
+            ${camposVisiveis
+              .map(
+                (c, i) => `
+                <th class="th-ordenavel" data-campo="${c.nome}" ${i === 0 && config.larguraColuna1 ? `style="min-width:${config.larguraColuna1}ch"` : ""}>
+                  ${c.label} <span class="ordem-indicador" data-indicador="${c.nome}"></span>
+                </th>
+              `
+              )
+              .join("")}
+            <th class="td-acoes">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="tbody-crud">
+          ${[1, 2, 3, 4, 5]
+            .map(
+              () => `
+            <tr class="linha-esqueleto">
+              <td class="td-id"><div class="esqueleto-bloco" style="width: 28px;"></div></td>
+              ${camposVisiveis.map(() => `<td><div class="esqueleto-bloco" style="width: 65%;"></div></td>`).join("")}
+              <td class="td-acoes"><div class="esqueleto-bloco" style="width: 44px; margin-left: auto;"></div></td>
+            </tr>
+          `
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="container-modal-crud"></div>
+  `;
 
   function verificarPreRequisitos() {
     const faltantes = [];
@@ -161,64 +217,6 @@ export async function renderCrud(container, config) {
 
     return faltantes;
   }
-
-  const faltantes = verificarPreRequisitos();
-  const bannerPrerequisitoHtml =
-    faltantes.length > 0
-      ? `
-      <div class="aviso-banner-prerequisito">
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <span style="font-size: 1.25rem;">⚠️</span>
-          <span><strong>Atenção:</strong> Para cadastrar <em>${escaparHtml(config.titulo)}</em>, é necessário primeiro cadastrar: <strong>${escaparHtml(faltantes.map((f) => f.nome).join(", "))}</strong>.</span>
-        </div>
-        ${
-          faltantes[0].url
-            ? `<a href="${escaparAtributo(faltantes[0].url)}" class="btn btn-primario btn-pequeno" style="white-space: nowrap;">Cadastrar ${escaparHtml(faltantes[0].nome)}</a>`
-            : ""
-        }
-      </div>
-    `
-      : "";
-
-  const camposVisiveis = config.campos.filter((c) => !c.apenasFiltro);
-  const camposEditaveis = config.campos.filter((c) => !c.apenasFiltro);
-  const ehSimples = config.estilo ? config.estilo === "simples" : camposEditaveis.length <= 2;
-
-  let listaDados = [];
-  let editandoLinhaId = null;
-  let ordemAtual = { campo: "id", direcao: "asc" };
-
-  // Renderizar a estrutura base da tela: cabeçalho com título + botão "+ Adicionar" e tabela
-  container.innerHTML = `
-    <div class="pagina-cabecalho">
-      <div class="pagina-cabecalho__esquerda">
-        <h2>${config.titulo}</h2>
-      </div>
-      <div class="pagina-cabecalho__acoes">
-        ${permissao.inserir ? `<button type="button" class="btn btn-primario btn-adicionar-registro">+ Adicionar</button>` : ""}
-      </div>
-    </div>
-    ${bannerPrerequisitoHtml}
-    <div class="tabela-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th class="th-ordenavel th-id" data-campo="id">#ID <span class="ordem-indicador" data-indicador="id">▲</span></th>
-            ${camposVisiveis
-              .map((c, i) => `
-                <th class="th-ordenavel" data-campo="${c.nome}" ${i === 0 && config.larguraColuna1 ? `style="min-width:${config.larguraColuna1}ch"` : ""}>
-                  ${c.label} <span class="ordem-indicador" data-indicador="${c.nome}"></span>
-                </th>
-              `)
-              .join("")}
-            <th class="td-acoes">Ações</th>
-          </tr>
-        </thead>
-        <tbody class="tbody-crud"></tbody>
-      </table>
-    </div>
-    <div class="container-modal-crud"></div>
-  `;
 
   const tbody = container.querySelector(".tbody-crud");
   const containerModal = container.querySelector(".container-modal-crud");
@@ -723,6 +721,7 @@ export async function renderCrud(container, config) {
         } else {
           await api(config.endpoint, { method: "POST", body: corpo });
         }
+        limparCacheFK();
         fecharModal();
         await recarregar();
         config.aoSalvar?.();
@@ -732,14 +731,61 @@ export async function renderCrud(container, config) {
     });
   }
 
+  function atualizarBannerPrerequisitos() {
+    const faltantes = verificarPreRequisitos();
+    const bannerContainer = container.querySelector(".container-banner-prerequisito");
+    if (!bannerContainer) return;
+    if (faltantes.length > 0) {
+      bannerContainer.innerHTML = `
+        <div class="aviso-banner-prerequisito">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.25rem;">⚠️</span>
+            <span><strong>Atenção:</strong> Para cadastrar <em>${escaparHtml(config.titulo)}</em>, é necessário primeiro cadastrar: <strong>${escaparHtml(faltantes.map((f) => f.nome).join(", "))}</strong>.</span>
+          </div>
+          ${
+            faltantes[0].url
+              ? `<a href="${escaparAtributo(faltantes[0].url)}" class="btn btn-primario btn-pequeno" style="white-space: nowrap;">Cadastrar ${escaparHtml(faltantes[0].nome)}</a>`
+              : ""
+          }
+        </div>
+      `;
+    } else {
+      bannerContainer.innerHTML = "";
+    }
+  }
+
   async function recarregar() {
     try {
-      listaDados = await api(config.endpoint);
+      const dados = await api(config.endpoint);
+      listaDados = Array.isArray(dados) ? dados : [];
+      atualizarBannerPrerequisitos();
       renderizarLinhas();
     } catch (e) {
       mostrarErro(document.getElementById("mensagem-erro"), e);
     }
   }
 
-  await recarregar();
+  // Carrega FKs e dados da tabela em paralelo de alta velocidade
+  const promessasFK = [
+    ...config.campos.filter((c) => c.opcoesEndpoint).map(async (c) => {
+      opcoesFK[c.nome] = await obterOpcoesFK(c.opcoesEndpoint);
+    }),
+    ...(Array.isArray(config.preRequisitos)
+      ? config.preRequisitos.filter((r) => r.endpoint).map(async (r) => {
+          if (!opcoesFK[r.endpoint]) opcoesFK[r.endpoint] = await obterOpcoesFK(r.endpoint);
+        })
+      : []),
+  ];
+
+  const [_, dadosIniciais] = await Promise.all([
+    Promise.all(promessasFK),
+    api(config.endpoint).catch((e) => {
+      mostrarErro(document.getElementById("mensagem-erro"), e);
+      return [];
+    }),
+  ]);
+
+  listaDados = Array.isArray(dadosIniciais) ? dadosIniciais : [];
+  atualizarBannerPrerequisitos();
+  renderizarLinhas();
 }

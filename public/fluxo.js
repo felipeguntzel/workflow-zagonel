@@ -39,8 +39,10 @@ async function iniciar(container, mensagemErro) {
     return;
   }
 
-  if (fluxos.length > 0 && !fluxoAtivoId) {
-    fluxoAtivoId = fluxos[0].id;
+  const urlParamId = new URLSearchParams(window.location.search).get("id");
+  if (urlParamId) {
+    const achado = fluxos.find((f) => f.id === Number(urlParamId));
+    if (achado) fluxoAtivoId = achado.id;
   }
 
   container.innerHTML = `
@@ -62,7 +64,7 @@ async function iniciar(container, mensagemErro) {
         <thead>
           <tr>
             <th class="th-ordenavel th-id" data-campo="id">#ID <span class="ordem-indicador" data-indicador="id">▲</span></th>
-            <th class="th-ordenavel" data-campo="nome" style="min-width: 20ch;">Nome do Fluxo <span class="ordem-indicador" data-indicador="nome"></span></th>
+            <th class="th-ordenavel" data-campo="nome" style="min-width: 25ch;">Nome do Fluxo / Descrição <span class="ordem-indicador" data-indicador="nome"></span></th>
             <th>Gerenciar Processo</th>
             <th class="td-acoes">Ações</th>
           </tr>
@@ -139,13 +141,16 @@ async function iniciar(container, mensagemErro) {
         return `
           <tr data-id="${f.id}" class="${isAtivo ? "linha-fluxo-selecionada" : ""}" style="${isAtivo ? "background: rgba(47, 111, 79, 0.05); font-weight: 500;" : ""}">
             <td class="td-id">#${f.id}</td>
-            <td style="font-weight: 600;">
-              ${escaparHtml(f.nome)}
-              ${isAtivo ? `<span class="badge-status" style="margin-left: 0.5rem; background: var(--cor-primaria); color: #ffffff; font-size: 0.72rem; padding: 0.2rem 0.45rem;">Fluxo selecionado</span>` : ""}
+            <td>
+              <div style="font-weight: 600; font-size: 0.95rem;">
+                ${escaparHtml(f.nome)}
+                ${isAtivo ? `<span class="badge-status" style="margin-left: 0.5rem; background: var(--cor-primaria); color: #ffffff; font-size: 0.72rem; padding: 0.2rem 0.45rem;">Configurando</span>` : ""}
+              </div>
+              ${f.descricao ? `<div style="font-size: 0.83rem; color: var(--cor-texto-secundario); font-weight: normal; margin-top: 0.2rem; line-height: 1.35;">${escaparHtml(f.descricao)}</div>` : ""}
             </td>
             <td>
-              <button type="button" class="btn btn-pequeno ${isAtivo ? "btn-primario" : "btn-secundario"} btn-selecionar-fluxo" data-id="${f.id}">
-                ${isAtivo ? "✓ Configurando etapas" : "Configurar etapas"}
+              <button type="button" class="btn btn-pequeno ${isAtivo ? "btn-primario" : "btn-secundario"} btn-selecionar-fluxo" data-id="${f.id}" title="${isAtivo ? "Clique para recolher o painel de etapas" : "Clique para expandir e configurar as etapas"}">
+                ${isAtivo ? "▲ Recolher etapas" : "Configurar etapas"}
               </button>
             </td>
             <td class="td-acoes">
@@ -160,10 +165,17 @@ async function iniciar(container, mensagemErro) {
     // Eventos na tabela de fluxos
     tbodyFluxos.querySelectorAll(".btn-selecionar-fluxo").forEach((btn) => {
       btn.addEventListener("click", () => {
-        fluxoAtivoId = Number(btn.dataset.id);
+        const id = Number(btn.dataset.id);
+        if (fluxoAtivoId === id) {
+          fluxoAtivoId = null;
+        } else {
+          fluxoAtivoId = id;
+        }
         renderizarTabelaFluxos();
         renderizarPainelEtapas();
-        secaoEtapas.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (fluxoAtivoId) {
+          secaoEtapas.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       });
     });
 
@@ -204,16 +216,23 @@ async function iniciar(container, mensagemErro) {
 
   // Painel de etapas do fluxo ativo
   async function renderizarPainelEtapas() {
-    if (!fluxoAtivoId || fluxos.length === 0) {
+    if (fluxos.length === 0) {
       secaoEtapas.innerHTML = `
         <div class="painel" style="border: 1px dashed var(--cor-borda); background: var(--cor-fundo-elevado); text-align: center; padding: 2.5rem 1.5rem; border-radius: 8px;">
           <h3 style="color: var(--cor-texto); font-size: 1.05rem; margin-bottom: 0.6rem; font-weight: 600;">Etapas do Fluxo de Trabalho</h3>
           <p style="font-size: 0.92rem; color: var(--cor-texto-secundario); max-width: 600px; margin: 0 auto; line-height: 1.6;">
-            Um fluxo define o encadeamento de etapas necessárias para a conclusão de um chamado.<br>
-            <span style="font-size: 0.88rem; opacity: 0.9;">(ex: Solicitação inicial &rarr; Aprovação da Engenharia &rarr; Execução &rarr; Validação da Qualidade)</span>
-          </p>
-          <p style="font-size: 0.88rem; color: var(--cor-texto-secundario); margin: 0.85rem auto 0; max-width: 500px;">
             Cadastre um fluxo no botão <strong>+ Novo Fluxo</strong> acima para começar a configurar suas etapas.
+          </p>
+        </div>
+      `;
+      return;
+    }
+
+    if (!fluxoAtivoId) {
+      secaoEtapas.innerHTML = `
+        <div class="painel" style="border: 1px dashed var(--cor-borda); background: var(--cor-fundo-elevado); text-align: center; padding: 2rem 1.5rem; border-radius: 8px;">
+          <p style="margin: 0; color: var(--cor-texto-secundario); font-size: 0.92rem;">
+            Nenhum fluxo expandido no momento. Clique em <strong>Configurar etapas</strong> em um fluxo na tabela acima para visualizá-lo e gerenciá-lo.
           </p>
         </div>
       `;
@@ -225,30 +244,46 @@ async function iniciar(container, mensagemErro) {
 
     secaoEtapas.innerHTML = `
       <div class="painel" style="box-shadow: 0 4px 16px rgba(0,0,0,0.06); padding: 1.5rem; border: 1px solid var(--cor-borda);">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 1rem;">
           <div>
-            <span style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--cor-primaria);">Configuração de Processo</span>
-            <h3 style="margin: 0.2rem 0 0; font-size: 1.25rem; display: flex; align-items: center; gap: 0.6rem;">
-              <span>Etapas de: <strong>${escaparHtml(fluxoAtual.nome)}</strong></span>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+              <span style="font-size: 0.78rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--cor-primaria);">Configuração de Processo</span>
+              <span class="badge-status" style="background: rgba(47, 111, 79, 0.12); color: var(--cor-primaria); font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600;">#${fluxoAtual.id}</span>
+            </div>
+            <h3 style="margin: 0.1rem 0 0; font-size: 1.3rem; display: flex; align-items: center; gap: 0.6rem;">
+              <span>${escaparHtml(fluxoAtual.nome)}</span>
+              ${
+                permissaoFluxos.editar
+                  ? `<button type="button" class="btn-icone btn-icone--editar btn-editar-dados-fluxo" title="Editar nome e descrição deste fluxo" aria-label="Editar dados do fluxo">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    </button>`
+                  : ""
+              }
             </h3>
+            ${
+              fluxoAtual.descricao
+                ? `<p style="font-size: 0.88rem; color: var(--cor-texto-secundario); margin: 0.35rem 0 0; line-height: 1.45; max-width: 720px;">${escaparHtml(fluxoAtual.descricao)}</p>`
+                : `<p style="font-size: 0.85rem; color: var(--cor-texto-secundario); font-style: italic; margin: 0.35rem 0 0;">Sem descrição cadastrada. ${permissaoFluxos.editar ? `<button type="button" class="btn-link-adicionar-descricao" style="background: none; border: none; color: var(--cor-primaria); font-size: 0.85rem; cursor: pointer; text-decoration: underline; padding: 0;">Adicionar descrição</button>` : ""}</p>`
+            }
           </div>
-          <div style="display: flex; gap: 0.6rem; align-items: center;">
-            <label style="font-size: 0.85rem; color: var(--cor-texto-secundario); display: flex; align-items: center; gap: 0.4rem;">
-              <span>Trocar fluxo:</span>
-              <select class="select-troca-fluxo-rapida" style="padding: 0.35rem 0.5rem; font-size: 0.85rem;">
+          <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+            <div class="troca-fluxo-wrap" style="display: flex; align-items: center; gap: 0.4rem;">
+              <label for="select-troca-fluxo" style="font-size: 0.85rem; font-weight: 600; color: var(--cor-texto-secundario); white-space: nowrap;">Trocar fluxo:</label>
+              <select id="select-troca-fluxo" class="select-padrao select-troca-fluxo-rapida" style="width: auto; min-width: 190px; padding: 0.45rem 0.75rem; font-size: 0.85rem; font-weight: 600;">
                 ${fluxos.map((f) => `<option value="${f.id}" ${f.id === fluxoAtivoId ? "selected" : ""}>${escaparHtml(f.nome)}</option>`).join("")}
               </select>
-            </label>
+            </div>
             ${
               permissaoFluxos.inserir
                 ? `<button type="button" class="btn btn-primario btn-nova-etapa">+ Adicionar Etapa</button>`
                 : ""
             }
+            <button type="button" class="btn btn-secundario btn-recolher-painel" title="Recolher painel de configuração">▲ Recolher etapas</button>
           </div>
         </div>
 
         <div class="container-tabela-etapas">
-          <p style="padding: 1.5rem; text-align: center; color: var(--cor-texto-secundario);">Carregando etapas do fluxo…</p>
+          <p style="padding: 1.5rem; text-align: center; color: var(--cor-texto-secundario);">Carregando etapas do fluxo...</p>
         </div>
       </div>
     `;
@@ -257,6 +292,20 @@ async function iniciar(container, mensagemErro) {
       fluxoAtivoId = Number(e.target.value);
       renderizarTabelaFluxos();
       renderizarPainelEtapas();
+    });
+
+    secaoEtapas.querySelector(".btn-recolher-painel")?.addEventListener("click", () => {
+      fluxoAtivoId = null;
+      renderizarTabelaFluxos();
+      renderizarPainelEtapas();
+    });
+
+    secaoEtapas.querySelector(".btn-editar-dados-fluxo")?.addEventListener("click", () => {
+      abrirModalFluxo(fluxoAtual);
+    });
+
+    secaoEtapas.querySelector(".btn-link-adicionar-descricao")?.addEventListener("click", () => {
+      abrirModalFluxo(fluxoAtual);
     });
 
     secaoEtapas.querySelector(".btn-nova-etapa")?.addEventListener("click", () => {
@@ -399,30 +448,57 @@ async function iniciar(container, mensagemErro) {
     });
   }
 
-  // Modal para criar / renomear Fluxo
+  // Modal para criar / configurar Fluxo
   function abrirModalFluxo(fluxoEdicao = null) {
     const isEdicao = !!fluxoEdicao;
     const titulo = isEdicao ? `Editar Fluxo: ${fluxoEdicao.nome}` : "Novo Fluxo de Processo";
 
     modalFluxoWrap.innerHTML = `
       <div class="modal-fundo modal-fundo--cadastro" role="dialog" aria-modal="true">
-        <div class="modal-cadastro modal-cadastro--simples" style="max-width: 500px;">
+        <div class="modal-cadastro modal-cadastro--simples" style="max-width: 560px;">
           <div class="modal-cabecalho">
             <h3>${escaparHtml(titulo)}</h3>
             <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
           </div>
           <form class="form-modal-fluxo" style="padding: 1.25rem;">
             <p class="erro-modal erro" hidden></p>
-            <div style="margin-bottom: 1.2rem;">
-              <label style="font-weight: 600; display: block; margin-bottom: 0.35rem;">
-                Nome do fluxo <span class="campo-obrigatorio">*</span>
-                ${info("Exemplo: Criação de Novo Produto, Alteração de Engenharia, Correção de Molde.")}
+            
+            <div class="campo-grupo">
+              <label class="campo-rotulo" for="input-fluxo-nome">
+                Nome do fluxo de processo <span class="campo-obrigatorio">*</span>
+                ${info("Nome claro que identifica este processo na Engenharia.")}
               </label>
-              <input type="text" name="nome" value="${escaparAtributo(fluxoEdicao?.nome || "")}" required placeholder="Digite o nome do fluxo..." style="width: 100%;">
+              <input
+                type="text"
+                id="input-fluxo-nome"
+                name="nome"
+                class="input-padrao"
+                value="${escaparAtributo(fluxoEdicao?.nome || "")}"
+                required
+                placeholder="Ex: Criação de Novo Produto, Alteração de Engenharia..."
+              >
             </div>
+
+            <div class="campo-grupo">
+              <label class="campo-rotulo" for="textarea-fluxo-descricao">
+                Descrição do fluxo
+                ${info("Descreva a finalidade do fluxo, setores envolvidos e orientações gerais do processo.")}
+              </label>
+              <textarea
+                id="textarea-fluxo-descricao"
+                name="descricao"
+                class="textarea-padrao"
+                rows="3"
+                placeholder="Descreva a finalidade deste processo, setores envolvidos e regras gerais..."
+              >${escaparHtml(fluxoEdicao?.descricao || "")}</textarea>
+              <p class="campo-ajuda">
+                ${isEdicao ? "Atualize as diretrizes gerais deste fluxo de trabalho." : "Ao salvar, o painel de configuração do fluxo será aberto diretamente na tela para você cadastrar e ordenar as etapas e ações."}
+              </p>
+            </div>
+
             <div class="modal-rodape">
               <button type="button" class="btn btn-secundario btn-cancelar-modal">Cancelar</button>
-              <button type="submit" class="btn btn-primario">${isEdicao ? "Salvar alterações" : "Criar fluxo"}</button>
+              <button type="submit" class="btn btn-primario">${isEdicao ? "Salvar alterações" : "Salvar e Configurar Fluxo"}</button>
             </div>
           </form>
         </div>
@@ -441,6 +517,7 @@ async function iniciar(container, mensagemErro) {
     });
 
     const inpNome = form.elements.nome;
+    const inpDescricao = form.elements.descricao;
     setTimeout(() => inpNome?.focus(), 60);
 
     form.addEventListener("submit", async (e) => {
@@ -454,17 +531,23 @@ async function iniciar(container, mensagemErro) {
         return;
       }
 
+      const descricao = inpDescricao ? inpDescricao.value.trim() : "";
+
       try {
+        const corpo = { nome, descricao: descricao || null };
         if (isEdicao) {
-          await api(`/fluxos/${fluxoEdicao.id}`, { method: "PUT", body: { nome } });
+          await api(`/fluxos/${fluxoEdicao.id}`, { method: "PUT", body: corpo });
         } else {
-          const criado = await api("/fluxos", { method: "POST", body: { nome } });
+          const criado = await api("/fluxos", { method: "POST", body: corpo });
           fluxoAtivoId = criado.id;
         }
         fechar();
         fluxos = await api("/fluxos");
         renderizarTabelaFluxos();
         renderizarPainelEtapas();
+        if (fluxoAtivoId) {
+          secaoEtapas.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       } catch (err) {
         mostrarErro(erroEl, err);
       }

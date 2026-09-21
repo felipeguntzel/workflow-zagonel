@@ -197,7 +197,7 @@ a.btn {
 
 @keyframes transicaoTela {
   from {
-    opacity: 0.75;
+    opacity: 0.85;
     transform: translateY(2px);
   }
   to {
@@ -205,4 +205,68 @@ a.btn {
     transform: translateY(0);
   }
 }
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+.spinner-carregando {
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--cor-borda);
+  border-top-color: var(--cor-primaria);
+  border-radius: 50%;
+  animation: girar 0.6s linear infinite;
+  display: inline-block;
+}
+
+.esqueleto-bloco {
+  height: 14px;
+  background: linear-gradient(90deg, var(--cor-borda) 25%, var(--cor-fundo-elevado) 50%, var(--cor-borda) 75%);
+  background-size: 200% 100%;
+  animation: esqueletoAnim 1.4s ease-in-out infinite;
+  border-radius: 4px;
+  display: block;
+}
+
+@keyframes esqueletoAnim {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+#secao-empresas:empty,
+#secao-setores:empty,
+#secao-usuarios:empty,
+#secao-status:empty,
+#secao-grupos:empty,
+#secao-auditoria:empty,
+#secao-fluxos-app:empty,
+#sql-container:empty,
+#conteudo-novo-chamado:empty {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+#secao-empresas:empty::after,
+#secao-setores:empty::after,
+#secao-usuarios:empty::after,
+#secao-status:empty::after,
+#secao-grupos:empty::after,
+#secao-auditoria:empty::after,
+#secao-fluxos-app:empty::after,
+#sql-container:empty::after,
+#conteudo-novo-chamado:empty::after {
+  content: "";
+  width: 26px;
+  height: 26px;
+  border: 2.5px solid var(--cor-borda);
+  border-top-color: var(--cor-primaria);
+  border-radius: 50%;
+  animation: girar 0.6s linear infinite;
+}
+
+
 

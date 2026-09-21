@@ -223,9 +223,9 @@ async function iniciarEditor(container) {
     statusEl.innerHTML = `<span style="color: var(--cor-texto-secundario);">Executando consulta no banco D1...</span>`;
 
     try {
-      const resp = await api("/api/sql", {
+      const resp = await api("/sql", {
         method: "POST",
-        body: JSON.stringify({ sql }),
+        body: { sql },
       });
 
       salvarNoHistorico(sql);
@@ -296,8 +296,8 @@ async function carregarTabelas(mostrarCarregando = true) {
   }
 
   try {
-    const dados = await api("/api/sql");
-    estadoTabelas = dados.tabelas || [];
+    const dados = await api("/sql");
+    estadoTabelas = (dados && Array.isArray(dados.tabelas)) ? dados.tabelas : [];
     if (contadorEl) {
       contadorEl.textContent = `${estadoTabelas.length} tabelas`;
     }
