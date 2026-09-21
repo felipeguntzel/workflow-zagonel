@@ -3,7 +3,7 @@ import { run } from "./db.js";
 let colunasGarantidas = false;
 
 /**
- * Garante que as colunas 'email' e 'telefone' existam na tabela 'usuarios'
+ * Garante que as colunas 'email', 'telefone' e 'token_valido_apos' existam na tabela 'usuarios'
  */
 export async function ensureColunasUsuario(db) {
   if (colunasGarantidas) return;
@@ -14,6 +14,11 @@ export async function ensureColunasUsuario(db) {
   }
   try {
     await run(db, "ALTER TABLE usuarios ADD COLUMN telefone TEXT");
+  } catch (_) {
+    // Já existe
+  }
+  try {
+    await run(db, "ALTER TABLE usuarios ADD COLUMN token_valido_apos INTEGER DEFAULT 0");
   } catch (_) {
     // Já existe
   }

@@ -53,6 +53,7 @@ async function iniciar(container, mensagemErro) {
           <tr>
             <th class="th-ordenavel th-id" data-campo="id">#ID <span class="ordem-indicador" data-indicador="id">▲</span></th>
             <th class="th-ordenavel" data-campo="nome" style="min-width: 18ch;">Nome do grupo <span class="ordem-indicador" data-indicador="nome"></span></th>
+            <th>Grupo Superior (Herança)</th>
             <th>Permissões configuradas</th>
             <th class="td-acoes">Ações</th>
           </tr>
@@ -100,7 +101,7 @@ async function iniciar(container, mensagemErro) {
     });
 
     if (dados.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 2.5rem 1.5rem; color: var(--cor-texto-secundario);">Nenhum grupo de permissão encontrado. Clique em "+ Adicionar" para cadastrar.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2.5rem 1.5rem; color: var(--cor-texto-secundario);">Nenhum grupo de permissão encontrado. Clique em "+ Adicionar" para cadastrar.</td></tr>`;
       return;
     }
 
@@ -120,6 +121,7 @@ async function iniciar(container, mensagemErro) {
           <tr data-id="${g.id}">
             <td class="td-id">#${g.id}</td>
             <td style="font-weight: 600;">${escaparHtml(g.nome)}</td>
+            <td style="color: var(--cor-texto-secundario); font-size: 0.88rem;">${escaparHtml(g.grupo_pai_nome || "-")}</td>
             <td>${resumoPermissoes}</td>
             <td class="td-acoes">
               ${botaoIconeEditar("btn-editar-grupo", g.id)}
@@ -196,6 +198,23 @@ async function iniciar(container, mensagemErro) {
                 ${info("Exemplos: Engenharia de Produto, Qualidade, Produção, Almoxarifado.")}
               </label>
               <input type="text" name="nome" value="${escaparAtributo(grupoEdicao?.nome || "")}" required placeholder="Digite o nome do grupo de permissão" style="width: 100%; max-width: 480px;">
+            </div>
+
+            <div style="margin-bottom: 1.25rem;">
+              <label style="font-weight: 600; display: block; margin-bottom: 0.35rem;">
+                Grupo Superior / Pai (Opcional - Herança de Permissões)
+                ${info("Se selecionado, os usuários deste grupo herdarão automaticamente todas as permissões concedidas ao grupo pai.")}
+              </label>
+              <select name="grupo_pai_id" style="width: 100%; max-width: 480px; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--cor-borda); background: var(--cor-superficie); color: var(--cor-texto);">
+                <option value="">Nenhum (grupo independente)</option>
+                ${grupos
+                  .filter((g) => !isEdicao || g.id !== grupoEdicao.id)
+                  .map(
+                    (g) =>
+                      `<option value="${g.id}" ${grupoEdicao?.grupo_pai_id === g.id ? "selected" : ""}>${escaparHtml(g.nome)}</option>`
+                  )
+                  .join("")}
+              </select>
             </div>
 
             <div class="secao-permissoes-grupo" style="margin-top: 1.25rem; border-top: 1px solid var(--cor-borda); padding-top: 1rem;">
@@ -401,16 +420,20 @@ async function iniciar(container, mensagemErro) {
         }
       }
 
+      const grupo_pai_id = form.elements.grupo_pai_id?.value
+        ? Number(form.elements.grupo_pai_id.value)
+        : null;
+
       try {
         if (isEdicao) {
           await api(`/grupos/${grupoEdicao.id}`, {
             method: "PUT",
-            body: { nome, permissoes },
+            body: { nome, grupo_pai_id, permissoes },
           });
         } else {
           await api("/grupos", {
             method: "POST",
-            body: { nome, permissoes },
+            body: { nome, grupo_pai_id, permissoes },
           });
         }
         fechar();

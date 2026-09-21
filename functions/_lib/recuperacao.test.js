@@ -81,3 +81,59 @@ test("gerarSolicitacaoRecuperacao gera token e mascara e-mail quando usuário po
   assert.match(res.email_mascarado, /f\*\*\*e@zagonel\.com\.br/);
   assert.match(res.link_recuperacao, /https:\/\/app\.zagonel\.com\.br\/redefinir-senha\.html\?token=[0-9a-f]{48}/);
 });
+
+test("redefinirSenhaComToken rejeita senha que nao cumpre politica de complexidade", async () => {
+  const dbMock = {
+    prepare: () => ({
+      bind: () => ({
+        all: async () => ({ results: [] }),
+        first: async () => ({
+          id: 1,
+          usuario_id: 10,
+          token: "tokenteste",
+          expira_em: new Date(Date.now() + 60000).toISOString(),
+          usado: 0,
+          usuario_nome: "Admin",
+          usuario_login: "admin",
+        }),
+        run: async () => ({ meta: {} }),
+      }),
+    }),
+  };
+
+  await assert.rejects(
+    async () => {
+      await redefinirSenhaComToken(dbMock, "tokenteste", "fraca123");
+    },
+    (err) => /maiúscula|especial/.test(err.message)
+  );
+});
+
+test("redefinirSenhaComToken aceita senha forte valida", async () => {
+  const updates = [];
+  const dbMock = {
+    prepare: (sql) => ({
+      bind: (...args) => ({
+        all: async () => ({ results: [] }),
+        first: async () => ({
+          id: 1,
+          usuario_id: 10,
+          token: "tokenteste",
+          expira_em: new Date(Date.now() + 60000).toISOString(),
+          usado: 0,
+          usuario_nome: "Admin",
+          usuario_login: "admin",
+        }),
+        run: async () => {
+          updates.push({ sql, args });
+          return { meta: {} };
+        },
+      }),
+    }),
+  };
+
+  const res = await redefinirSenhaComToken(dbMock, "tokenteste", "SenhaForte@2026");
+  assert.equal(res.sucesso, true);
+  assert.equal(updates.length, 2);
+  assert.match(updates[0].sql, /token_valido_apos/);
+});

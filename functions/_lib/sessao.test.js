@@ -3,9 +3,32 @@ import assert from "node:assert/strict";
 import { gerarToken, verificarToken } from "./sessao.js";
 
 test("gerarToken produces a token verificarToken accepts, returning the same usuarioId", async () => {
-  const token = await gerarToken(42, "segredo-teste");
+  const agora = Date.now();
+  const token = await gerarToken(42, "segredo-teste", agora);
   const resultado = await verificarToken(token, "segredo-teste");
-  assert.deepEqual(resultado, { usuarioId: 42 });
+  assert.equal(resultado.usuarioId, 42);
+  assert.equal(resultado.emitidoEm, agora);
+});
+
+test("verificarToken accepts legacy 3-part token for backward compatibility", async () => {
+  // Gera token de 3 partes legado assinado
+  const expiraEm = Date.now() + 10000;
+  const payload = `42.${expiraEm}`;
+  const chave = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode("segredo-teste"),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const assinaturaBuffer = await crypto.subtle.sign("HMAC", chave, new TextEncoder().encode(payload));
+  const assinatura = Array.from(new Uint8Array(assinaturaBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  const tokenLegado = `${payload}.${assinatura}`;
+  const resultado = await verificarToken(tokenLegado, "segredo-teste");
+  assert.equal(resultado.usuarioId, 42);
+  assert.equal(resultado.emitidoEm, 0);
 });
 
 test("verificarToken rejects a token signed with a different segredo", async () => {
@@ -16,8 +39,8 @@ test("verificarToken rejects a token signed with a different segredo", async () 
 
 test("verificarToken rejects a tampered payload", async () => {
   const token = await gerarToken(42, "segredo-teste");
-  const [usuarioId, expiraEm, assinatura] = token.split(".");
-  const tokenAdulterado = `${Number(usuarioId) + 1}.${expiraEm}.${assinatura}`;
+  const [usuarioId, emitidoEm, expiraEm, assinatura] = token.split(".");
+  const tokenAdulterado = `${Number(usuarioId) + 1}.${emitidoEm}.${expiraEm}.${assinatura}`;
   const resultado = await verificarToken(tokenAdulterado, "segredo-teste");
   assert.equal(resultado, null);
 });

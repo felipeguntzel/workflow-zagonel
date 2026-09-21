@@ -1,7 +1,8 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { exigirAdmin } from "../../_lib/permissoes.js";
+import { exigirAdmin, ensureColunaGrupoPai } from "../../_lib/permissoes.js";
 import { validarDependenciasExclusao, atualizarContadorId } from "../../_lib/dependencias.js";
+import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 
 const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados"];
 
@@ -29,6 +30,7 @@ async function carregarMatrizPermissoes(db, grupoId) {
 export async function onRequestGet(context) {
   const { erro } = await exigirAdmin(context);
   if (erro) return erro;
+  await ensureColunaGrupoPai(context.env.DB);
   const grupo = await first(context.env.DB, "SELECT * FROM grupos_permissao WHERE id = ?", context.params.id);
   if (!grupo) return error("Não encontrado", 404);
   grupo.permissoes = await carregarMatrizPermissoes(context.env.DB, grupo.id);
@@ -36,12 +38,27 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPut(context) {
-  const { erro } = await exigirAdmin(context);
+  const { usuario, erro } = await exigirAdmin(context);
   if (erro) return erro;
+  await ensureColunaGrupoPai(context.env.DB);
   const body = await context.request.json();
   if (!body.nome) return error("Campo obrigatório: nome");
 
-  await run(context.env.DB, "UPDATE grupos_permissao SET nome = ? WHERE id = ?", body.nome.trim(), context.params.id);
+  const antes = await first(context.env.DB, "SELECT * FROM grupos_permissao WHERE id = ?", context.params.id);
+  if (!antes) return error("Não encontrado", 404);
+
+  const grupoPaiId = body.grupo_pai_id !== undefined ? (body.grupo_pai_id ? Number(body.grupo_pai_id) : null) : antes.grupo_pai_id;
+  if (grupoPaiId === Number(context.params.id)) {
+    return error("Um grupo não pode ser pai de si mesmo.");
+  }
+
+  await run(
+    context.env.DB,
+    "UPDATE grupos_permissao SET nome = ?, grupo_pai_id = ? WHERE id = ?",
+    body.nome.trim(),
+    grupoPaiId,
+    context.params.id
+  );
 
   if (body.permissoes) {
     for (const tela of TELAS) {
@@ -89,21 +106,47 @@ export async function onRequestPut(context) {
   const atualizado = await first(context.env.DB, "SELECT * FROM grupos_permissao WHERE id = ?", context.params.id);
   if (!atualizado) return error("Não encontrado", 404);
   atualizado.permissoes = await carregarMatrizPermissoes(context.env.DB, atualizado.id);
+
+  await registrarAuditoriaSistema(context.env.DB, {
+    usuario_id: usuario?.id,
+    usuario_nome: usuario?.nome || "Sistema",
+    entidade: "grupos_permissao",
+    entidade_id: Number(context.params.id),
+    acao: "edicao",
+    detalhes: `Grupo de permissão atualizado: ${atualizado.nome}`,
+    dados_antigos: antes,
+    dados_novos: atualizado,
+  });
+
   return json(atualizado);
 }
 
 export async function onRequestDelete(context) {
-  const { erro } = await exigirAdmin(context);
+  const { usuario, erro } = await exigirAdmin(context);
   if (erro) return erro;
   const erroDependencia = await validarDependenciasExclusao(context.env.DB, "grupos_permissao", context.params.id);
   if (erroDependencia) return error(erroDependencia, 400);
 
+  const antes = await first(context.env.DB, "SELECT * FROM grupos_permissao WHERE id = ?", context.params.id);
+
   try {
     await run(context.env.DB, "DELETE FROM usuario_grupos WHERE grupo_id = ?", context.params.id);
     await run(context.env.DB, "DELETE FROM permissoes WHERE grupo_id = ?", context.params.id);
+    await run(context.env.DB, "UPDATE grupos_permissao SET grupo_pai_id = NULL WHERE grupo_pai_id = ?", context.params.id);
     const res = await run(context.env.DB, "DELETE FROM grupos_permissao WHERE id = ?", context.params.id);
     if (res.meta.changes === 0) return error("Não encontrado", 404);
     await atualizarContadorId(context.env.DB, "grupos_permissao");
+
+    await registrarAuditoriaSistema(context.env.DB, {
+      usuario_id: usuario?.id,
+      usuario_nome: usuario?.nome || "Sistema",
+      entidade: "grupos_permissao",
+      entidade_id: Number(context.params.id),
+      acao: "exclusao",
+      detalhes: `Grupo de permissão excluído: ${antes?.nome || context.params.id}`,
+      dados_antigos: antes,
+    });
+
     return json({ ok: true });
   } catch (e) {
     if (String(e.message).includes("FOREIGN KEY") || String(e.message).includes("CONSTRAINT")) {

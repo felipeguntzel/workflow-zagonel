@@ -1,8 +1,9 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { hashSenha, validarFormatoLogin } from "../../_lib/auth.js";
+import { hashSenha, validarFormatoLogin, validarComplexidadeSenha } from "../../_lib/auth.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
 import { ensureColunasUsuario } from "../../_lib/usuarios.js";
+import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 
 async function carregarGruposDoUsuario(db, usuarioId) {
   const linhas = await all(db, "SELECT grupo_id FROM usuario_grupos WHERE usuario_id = ?", usuarioId);
@@ -60,18 +61,24 @@ export async function onRequestPost(context) {
   if (grupos.length > 0 && usuario.admin !== 1) {
     return error("Apenas administradores podem atribuir grupos a um usuário.", 403);
   }
+  const checagemSenha = validarComplexidadeSenha(body.senha);
+  if (!checagemSenha.valido) {
+    return error(checagemSenha.mensagem);
+  }
   const senhaHash = await hashSenha(body.senha);
   const admin = body.admin ? 1 : 0;
+  const agora = Date.now();
   const resultado = await run(
     context.env.DB,
-    "INSERT INTO usuarios (nome, setor_id, login, email, telefone, senha_hash, admin, deve_trocar_senha) VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
+    "INSERT INTO usuarios (nome, setor_id, login, email, telefone, senha_hash, admin, deve_trocar_senha, token_valido_apos) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)",
     body.nome,
     body.setor_id,
     login,
     email,
     telefone,
     senhaHash,
-    admin
+    admin,
+    agora
   );
   const novoId = resultado.meta.last_row_id;
   for (const grupoId of grupos) {
@@ -88,5 +95,14 @@ export async function onRequestPost(context) {
     novoId
   );
   novo.grupos = grupos;
+  await registrarAuditoriaSistema(context.env.DB, {
+    usuario_id: usuario?.id,
+    usuario_nome: usuario?.nome || "Sistema",
+    entidade: "usuarios",
+    entidade_id: novoId,
+    acao: "insercao",
+    detalhes: `Usuário cadastrado: ${novo.nome} (${novo.login})`,
+    dados_novos: novo,
+  });
   return json(novo, 201);
 }

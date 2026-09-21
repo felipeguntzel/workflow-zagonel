@@ -1,16 +1,26 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { exigirAdmin, exigirPermissao } from "../../_lib/permissoes.js";
+import { exigirAdmin, exigirPermissao, ensureColunaGrupoPai } from "../../_lib/permissoes.js";
+import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 
 const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados"];
 
 export async function onRequestGet(context) {
   const { erro } = await exigirPermissao(context, "usuarios", "visualizar");
   if (erro) return erro;
-  const grupos = await all(context.env.DB, "SELECT * FROM grupos_permissao ORDER BY id");
-  
-  // Incluir contagem de permissões para exibir na tabela de forma clara
-  const permissoes = await all(context.env.DB, "SELECT grupo_id, tela, visualizar, inserir, editar, excluir, ver_todos_setores FROM permissoes");
+  await ensureColunaGrupoPai(context.env.DB);
+  const grupos = await all(
+    context.env.DB,
+    `SELECT g.*, p.nome AS grupo_pai_nome
+     FROM grupos_permissao g
+     LEFT JOIN grupos_permissao p ON p.id = g.grupo_pai_id
+     ORDER BY g.id`
+  );
+
+  const permissoes = await all(
+    context.env.DB,
+    "SELECT grupo_id, tela, visualizar, inserir, editar, excluir, ver_todos_setores FROM permissoes"
+  );
   const porGrupo = {};
   for (const p of permissoes) {
     if (!porGrupo[p.grupo_id]) porGrupo[p.grupo_id] = [];
@@ -26,11 +36,19 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  const { erro } = await exigirAdmin(context);
+  const { usuario, erro } = await exigirAdmin(context);
   if (erro) return erro;
+  await ensureColunaGrupoPai(context.env.DB);
   const body = await context.request.json();
   if (!body.nome) return error("Campo obrigatório: nome");
-  const resultado = await run(context.env.DB, "INSERT INTO grupos_permissao (nome) VALUES (?)", body.nome.trim());
+
+  const grupoPaiId = body.grupo_pai_id ? Number(body.grupo_pai_id) : null;
+  const resultado = await run(
+    context.env.DB,
+    "INSERT INTO grupos_permissao (nome, grupo_pai_id) VALUES (?, ?)",
+    body.nome.trim(),
+    grupoPaiId
+  );
   const grupoId = resultado.meta.last_row_id;
 
   if (body.permissoes) {
@@ -56,5 +74,16 @@ export async function onRequestPost(context) {
     "SELECT * FROM grupos_permissao WHERE id = ?",
     grupoId
   );
+
+  await registrarAuditoriaSistema(context.env.DB, {
+    usuario_id: usuario?.id,
+    usuario_nome: usuario?.nome || "Sistema",
+    entidade: "grupos_permissao",
+    entidade_id: grupoId,
+    acao: "insercao",
+    detalhes: `Grupo de permissão criado: ${novo.nome}`,
+    dados_novos: novo,
+  });
+
   return json(novo, 201);
 }

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { hashSenha, verificarSenha, ehHashLegado, validarFormatoLogin } from "./auth.js";
+import { hashSenha, verificarSenha, ehHashLegado, validarFormatoLogin, validarComplexidadeSenha } from "./auth.js";
 
 test("hashSenha produces a self-describing pbkdf2$iterações$salt$hash string", async () => {
   const hash = await hashSenha("1234ana");
@@ -53,4 +53,39 @@ test("validarFormatoLogin rejects spaces, dots, and special characters", () => {
 
 test("validarFormatoLogin rejects uppercase (caller must lowercase first)", () => {
   assert.equal(validarFormatoLogin("Ana"), false);
+});
+
+test("validarComplexidadeSenha aceita senha forte valida", () => {
+  const res = validarComplexidadeSenha("SenhaForte@2026");
+  assert.equal(res.valido, true);
+});
+
+test("validarComplexidadeSenha rejeita senhas com menos de 8 caracteres", () => {
+  const res = validarComplexidadeSenha("S1@a");
+  assert.equal(res.valido, false);
+  assert.match(res.mensagem, /8 caracteres/);
+});
+
+test("validarComplexidadeSenha rejeita senha sem letra maiuscula", () => {
+  const res = validarComplexidadeSenha("senhaforte@2026");
+  assert.equal(res.valido, false);
+  assert.match(res.mensagem, /maiúscula/);
+});
+
+test("validarComplexidadeSenha rejeita senha sem letra minuscula", () => {
+  const res = validarComplexidadeSenha("SENHAFORTE@2026");
+  assert.equal(res.valido, false);
+  assert.match(res.mensagem, /minúscula/);
+});
+
+test("validarComplexidadeSenha rejeita senha sem numero", () => {
+  const res = validarComplexidadeSenha("SenhaForte@Alfa");
+  assert.equal(res.valido, false);
+  assert.match(res.mensagem, /número/);
+});
+
+test("validarComplexidadeSenha rejeita senha sem caractere especial", () => {
+  const res = validarComplexidadeSenha("SenhaForte2026");
+  assert.equal(res.valido, false);
+  assert.match(res.mensagem, /especial ou símbolo/);
 });

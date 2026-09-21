@@ -64,3 +64,22 @@ export function ehHashLegado(hashArmazenado) {
 export function validarFormatoLogin(login) {
   return /^[a-z0-9]+$/.test(login);
 }
+
+export function validarComplexidadeSenha(senha) {
+  if (typeof senha !== "string" || senha.length < 8) {
+    return { valido: false, mensagem: "A senha deve ter pelo menos 8 caracteres." };
+  }
+  if (!/[A-Z]/.test(senha)) {
+    return { valido: false, mensagem: "A senha deve conter pelo menos uma letra maiúscula." };
+  }
+  if (!/[a-z]/.test(senha)) {
+    return { valido: false, mensagem: "A senha deve conter pelo menos uma letra minúscula." };
+  }
+  if (!/[0-9]/.test(senha)) {
+    return { valido: false, mensagem: "A senha deve conter pelo menos um número." };
+  }
+  if (!/[^A-Za-z0-9]/.test(senha)) {
+    return { valido: false, mensagem: "A senha deve conter pelo menos um caractere especial ou símbolo." };
+  }
+  return { valido: true };
+}
