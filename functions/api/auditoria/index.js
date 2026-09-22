@@ -1,6 +1,6 @@
 import { json } from "../../_lib/http.js";
 import { exigirAdmin } from "../../_lib/permissoes.js";
-import { listarAuditoriaSistema } from "../../_lib/auditoria.js";
+import { listarAuditoriaSistema, contarAuditoriaSistema } from "../../_lib/auditoria.js";
 
 export async function onRequestGet(context) {
   const { erro } = await exigirAdmin(context);
@@ -12,6 +12,7 @@ export async function onRequestGet(context) {
   const usuario_id = url.searchParams.get("usuario_id") ? Number(url.searchParams.get("usuario_id")) : undefined;
   const limite = url.searchParams.get("limite") ? Number(url.searchParams.get("limite")) : 100;
   const offset = url.searchParams.get("offset") ? Number(url.searchParams.get("offset")) : 0;
+  const incluirEnvelope = url.searchParams.get("envelope") === "1" || url.searchParams.get("total") === "1";
 
   const lista = await listarAuditoriaSistema(context.env.DB, {
     entidade,
@@ -20,6 +21,22 @@ export async function onRequestGet(context) {
     limite,
     offset,
   });
+
+  if (incluirEnvelope) {
+    const total = await contarAuditoriaSistema(context.env.DB, {
+      entidade,
+      acao,
+      usuario_id,
+    });
+    return json({
+      itens: lista,
+      total,
+      limite,
+      offset,
+      pagina: Math.floor(offset / limite) + 1,
+      paginas: Math.ceil(total / limite) || 1,
+    });
+  }
 
   return json(lista);
 }

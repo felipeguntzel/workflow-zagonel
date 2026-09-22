@@ -50,19 +50,22 @@
     </div>
     <p id="msg-erro-anexo" class="erro" hidden></p>
     <ul id="lista-anexos" style="list-style: none; padding: 0; margin-bottom: 1.25rem;"></ul>
-    <form class="formulario" id="form-anexo" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; background: var(--cor-fundo); padding: 1rem; border-radius: 0.35rem; border: 1px dashed var(--cor-borda);">
-      <div style="flex: 1 1 240px;">
-        <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">
-          Selecionar arquivo (PDF, XLSX, DOCX, PNG, JPG - máx 2MB)
-        </label>
-        <input type="file" id="input-arquivo-anexo" required style="width: 100%; font-size: 0.85rem;">
+    <form class="formulario" id="form-anexo" style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <div id="dropzone-anexo" class="dropzone-anexo" tabindex="0" role="button" aria-label="Área para soltar arquivos anexos">
+        <span class="dropzone-anexo__icone">📁</span>
+        <p class="dropzone-anexo__texto"><strong>Arraste e solte o arquivo aqui</strong> ou clique para navegar</p>
+        <p class="dropzone-anexo__subtexto">Formatos aceitos: PDF, XLSX, DOCX, PNG, JPG, JPEG, CSV, TXT (Máx. 2MB)</p>
+        <input type="file" id="input-arquivo-anexo" style="display: none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.csv">
       </div>
-      <div style="display: flex; align-items: center; gap: 0.4rem; padding-bottom: 0.5rem;">
-        <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; cursor: pointer;">
+
+      <div id="preview-anexo-wrap" hidden></div>
+
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; background: var(--cor-fundo); padding: 0.75rem 1rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda);">
+        <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; margin: 0;">
           <input type="checkbox" id="check-anexo-privado"> Anexo privado (visível apenas para este setor/etapa)
         </label>
+        <button type="submit" id="btn-enviar-anexo" class="btn btn-primario btn-pequeno" disabled>Enviar anexo</button>
       </div>
-      <button type="submit" id="btn-enviar-anexo" class="btn btn-primario btn-pequeno">Enviar anexo</button>
     </form>
   </section>
 

@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { info, mostrarErro, escaparAtributo, escaparHtml, botaoIconeEditar, botaoIconeExcluir } from "./ui.js";
+import { info, mostrarErro, escaparAtributo, escaparHtml, botaoIconeEditar, botaoIconeExcluir, debounce } from "./ui.js";
 import { permissaoDaTela } from "./auth.js";
 import { confirmarAcao } from "./modal.js";
 
@@ -138,6 +138,7 @@ export async function renderCrud(container, config) {
   let listaDados = [];
   let editandoLinhaId = null;
   let ordemAtual = { campo: "id", direcao: "asc" };
+  let termoBusca = "";
   const opcoesFK = {};
 
   // Renderiza imediatamente a estrutura da tela com esqueleto de carregamento
@@ -146,7 +147,8 @@ export async function renderCrud(container, config) {
       <div class="pagina-cabecalho__esquerda">
         <h2>${config.titulo}</h2>
       </div>
-      <div class="pagina-cabecalho__acoes">
+      <div class="pagina-cabecalho__acoes" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <input type="search" class="input-busca-crud" placeholder="Buscar..." aria-label="Filtrar registros" style="padding: 0.4rem 0.75rem; font-size: 0.88rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda); background: var(--cor-fundo); color: var(--cor-texto); min-width: 180px;">
         ${permissao.inserir ? `<button type="button" class="btn btn-primario btn-adicionar-registro">+ Adicionar</button>` : ""}
       </div>
     </div>
@@ -266,8 +268,31 @@ export async function renderCrud(container, config) {
     });
   });
 
+  const inputBusca = container.querySelector(".input-busca-crud");
+  if (inputBusca) {
+    inputBusca.addEventListener(
+      "input",
+      debounce((e) => {
+        termoBusca = e.target.value || "";
+        renderizarLinhas();
+      }, 300)
+    );
+  }
+
   function renderizarLinhas() {
-    const dados = [...listaDados];
+    let dados = [...listaDados];
+    if (termoBusca.trim()) {
+      const q = termoBusca.trim().toLowerCase();
+      dados = dados.filter((linha) => {
+        if (String(linha.id).includes(q)) return true;
+        for (const c of camposVisiveis) {
+          const val = String(valorExibicao(linha, c, opcoesFK) || "").toLowerCase();
+          if (val.includes(q)) return true;
+        }
+        return false;
+      });
+    }
+
     dados.sort((a, b) => {
       let valA = a[ordemAtual.campo];
       let valB = b[ordemAtual.campo];
@@ -298,7 +323,10 @@ export async function renderCrud(container, config) {
     });
 
     if (dados.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="${camposVisiveis.length + 2}" style="text-align:center; padding: 2rem 1.5rem; color: var(--cor-texto-secundario);">Nenhum registro encontrado.</td></tr>`;
+      const msgVazio = termoBusca.trim()
+        ? `Nenhum registro encontrado para "${escaparHtml(termoBusca)}".`
+        : "Nenhum registro encontrado.";
+      tbody.innerHTML = `<tr><td colspan="${camposVisiveis.length + 2}" style="text-align:center; padding: 2rem 1.5rem; color: var(--cor-texto-secundario);">${msgVazio}</td></tr>`;
       return;
     }
 

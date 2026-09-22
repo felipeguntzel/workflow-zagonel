@@ -113,23 +113,148 @@ function iniciar() {
     }
   });
 
-  // Envio de Anexos (até 2MB por arquivo)
+  // Envio de Anexos com Dropzone interativa e Preview (até 2MB por arquivo)
   const formAnexo = document.getElementById("form-anexo");
+  const dropzoneAnexo = document.getElementById("dropzone-anexo");
   const inputArquivo = document.getElementById("input-arquivo-anexo");
+  const previewWrap = document.getElementById("preview-anexo-wrap");
   const checkPrivado = document.getElementById("check-anexo-privado");
   const msgErroAnexo = document.getElementById("msg-erro-anexo");
   const btnEnviarAnexo = document.getElementById("btn-enviar-anexo");
 
+  let arquivoSelecionado = null;
+
+  function obterIconeDocumento(nome, tipo) {
+    const ext = (nome || "").split(".").pop().toLowerCase();
+    if (["xls", "xlsx", "csv"].includes(ext) || (tipo && tipo.includes("sheet"))) return "📊";
+    if (["doc", "docx", "txt", "rtf"].includes(ext) || (tipo && tipo.includes("word"))) return "📑";
+    if (ext === "pdf" || (tipo && tipo.includes("pdf"))) return "📄";
+    return "📁";
+  }
+
+  function limparArquivo() {
+    arquivoSelecionado = null;
+    if (inputArquivo) inputArquivo.value = "";
+    if (previewWrap) {
+      previewWrap.innerHTML = "";
+      previewWrap.hidden = true;
+    }
+    if (btnEnviarAnexo) btnEnviarAnexo.disabled = true;
+  }
+
+  function selecionarArquivo(arquivo) {
+    if (msgErroAnexo) msgErroAnexo.hidden = true;
+    if (!arquivo) {
+      limparArquivo();
+      return;
+    }
+
+    if (arquivo.size > 2 * 1024 * 1024) {
+      if (msgErroAnexo) {
+        msgErroAnexo.textContent = "O arquivo excede o limite máximo permitido de 2MB.";
+        msgErroAnexo.hidden = false;
+      }
+      limparArquivo();
+      return;
+    }
+
+    arquivoSelecionado = arquivo;
+    if (btnEnviarAnexo) btnEnviarAnexo.disabled = false;
+
+    const ehImagem = arquivo.type && arquivo.type.startsWith("image/");
+    const iconeDoc = obterIconeDocumento(arquivo.name, arquivo.type);
+
+    if (previewWrap) {
+      previewWrap.innerHTML = `
+        <div class="preview-anexo-card">
+          ${
+            ehImagem
+              ? `<img id="preview-img-anexo" class="preview-anexo-miniatura" alt="Prévia do anexo">`
+              : `<div class="preview-anexo-icone-doc">${iconeDoc}</div>`
+          }
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${escaparHtml(arquivo.name)}
+            </div>
+            <div style="font-size: 0.8rem; color: var(--cor-texto-secundario);">
+              ${formatarTamanho(arquivo.size)} ${arquivo.type ? `• ${escaparHtml(arquivo.type)}` : ""}
+            </div>
+          </div>
+          <button type="button" id="btn-remover-anexo-preview" class="btn-icone btn-icone--excluir" title="Remover arquivo" aria-label="Remover arquivo">✕</button>
+        </div>
+      `;
+      previewWrap.hidden = false;
+
+      if (ehImagem) {
+        const leitorImg = new FileReader();
+        leitorImg.onload = () => {
+          const imgEl = document.getElementById("preview-img-anexo");
+          if (imgEl) imgEl.src = leitorImg.result;
+        };
+        leitorImg.readAsDataURL(arquivo);
+      }
+
+      const btnRemover = document.getElementById("btn-remover-anexo-preview");
+      if (btnRemover) {
+        btnRemover.addEventListener("click", () => limparArquivo());
+      }
+    }
+  }
+
+  if (dropzoneAnexo && inputArquivo) {
+    dropzoneAnexo.addEventListener("click", () => inputArquivo.click());
+    dropzoneAnexo.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        inputArquivo.click();
+      }
+    });
+
+    ["dragenter", "dragover"].forEach((evt) => {
+      dropzoneAnexo.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzoneAnexo.classList.add("dropzone-anexo--ativa");
+      });
+    });
+
+    ["dragleave", "dragend"].forEach((evt) => {
+      dropzoneAnexo.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzoneAnexo.classList.remove("dropzone-anexo--ativa");
+      });
+    });
+
+    dropzoneAnexo.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzoneAnexo.classList.remove("dropzone-anexo--ativa");
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        selecionarArquivo(files[0]);
+      }
+    });
+
+    inputArquivo.addEventListener("change", () => {
+      if (inputArquivo.files && inputArquivo.files[0]) {
+        selecionarArquivo(inputArquivo.files[0]);
+      }
+    });
+  }
+
   formAnexo.addEventListener("submit", async (ev) => {
     ev.preventDefault();
-    msgErroAnexo.hidden = true;
+    if (msgErroAnexo) msgErroAnexo.hidden = true;
 
-    const arquivo = inputArquivo.files[0];
+    const arquivo = arquivoSelecionado || (inputArquivo && inputArquivo.files[0]);
     if (!arquivo) return;
 
     if (arquivo.size > 2 * 1024 * 1024) {
-      msgErroAnexo.textContent = "O arquivo excede o limite de 2MB.";
-      msgErroAnexo.hidden = false;
+      if (msgErroAnexo) {
+        msgErroAnexo.textContent = "O arquivo excede o limite de 2MB.";
+        msgErroAnexo.hidden = false;
+      }
       return;
     }
 
@@ -152,19 +277,24 @@ function iniciar() {
         });
         formAnexo.reset();
         checkPrivado.checked = false;
+        limparArquivo();
         carregarAnexos();
         carregarAuditoria();
       } catch (e) {
-        msgErroAnexo.textContent = e.message || "Erro ao enviar anexo.";
-        msgErroAnexo.hidden = false;
+        if (msgErroAnexo) {
+          msgErroAnexo.textContent = e.message || "Erro ao enviar anexo.";
+          msgErroAnexo.hidden = false;
+        }
       } finally {
         btnEnviarAnexo.disabled = false;
         btnEnviarAnexo.textContent = "Enviar anexo";
       }
     };
     leitor.onerror = () => {
-      msgErroAnexo.textContent = "Erro ao ler arquivo local.";
-      msgErroAnexo.hidden = false;
+      if (msgErroAnexo) {
+        msgErroAnexo.textContent = "Erro ao ler arquivo local.";
+        msgErroAnexo.hidden = false;
+      }
       btnEnviarAnexo.disabled = false;
       btnEnviarAnexo.textContent = "Enviar anexo";
     };
@@ -326,35 +456,37 @@ async function carregarCamposDinamicos() {
           .map((c) => {
             const disabledAttr = podeEditar && chamado.status_nome !== "finalizado" ? "" : "disabled";
             const val = c.valor != null ? c.valor : "";
+            const tipoNorm = String(c.tipo || "texto").toLowerCase();
             let inputHtml = "";
 
-            if (c.tipo === "texto_longo") {
-              inputHtml = `<textarea name="campo_${c.id}" ${disabledAttr} rows="3" style="width: 100%; padding: 0.5rem; font-family: inherit; font-size: 0.9rem;">${escaparHtml(val)}</textarea>`;
-            } else if (c.tipo === "numero") {
-              inputHtml = `<input type="number" step="any" name="campo_${c.id}" value="${escaparHtml(val)}" ${disabledAttr} style="width: 100%; padding: 0.5rem;">`;
-            } else if (c.tipo === "data") {
-              inputHtml = `<input type="date" name="campo_${c.id}" value="${escaparHtml(val)}" ${disabledAttr} style="width: 100%; padding: 0.5rem;">`;
-            } else if (c.tipo === "selecao") {
-              let opcoes = [];
-              try {
-                opcoes = c.opcoes_json ? JSON.parse(c.opcoes_json) : [];
-              } catch (e) {
-                opcoes = [];
+            if (tipoNorm === "texto_longo" || tipoNorm === "textarea") {
+              inputHtml = `<textarea name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" ${disabledAttr} rows="3" class="textarea-padrao" style="width: 100%;">${escaparHtml(val)}</textarea>`;
+            } else if (tipoNorm === "numero" || tipoNorm === "number") {
+              inputHtml = `<input type="number" step="any" name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" value="${escaparHtml(val)}" ${disabledAttr} class="input-padrao" style="width: 100%;">`;
+            } else if (tipoNorm === "data" || tipoNorm === "date") {
+              inputHtml = `<input type="date" name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" value="${escaparHtml(val)}" ${disabledAttr} class="input-padrao" style="width: 100%;">`;
+            } else if (tipoNorm === "selecao" || tipoNorm === "select") {
+              let opcoes = Array.isArray(c.opcoes_parsed) && c.opcoes_parsed.length > 0 ? c.opcoes_parsed : [];
+              if (opcoes.length === 0 && (c.opcoes_json || c.opcoes)) {
+                try {
+                  const parsed = JSON.parse(c.opcoes_json || c.opcoes);
+                  if (Array.isArray(parsed)) opcoes = parsed;
+                } catch (_) {}
               }
               inputHtml = `
-                <select name="campo_${c.id}" ${disabledAttr} style="width: 100%; padding: 0.5rem;">
+                <select name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" ${disabledAttr} class="select-padrao" style="width: 100%;">
                   <option value="">Selecione…</option>
-                  ${opcoes.map((op) => `<option value="${escaparHtml(op)}" ${op === val ? "selected" : ""}>${escaparHtml(op)}</option>`).join("")}
+                  ${opcoes.map((op) => `<option value="${escaparHtml(op)}" ${String(op) === String(val) ? "selected" : ""}>${escaparHtml(op)}</option>`).join("")}
                 </select>
               `;
             } else {
               // texto simples
-              inputHtml = `<input type="text" name="campo_${c.id}" value="${escaparHtml(val)}" ${disabledAttr} style="width: 100%; padding: 0.5rem;">`;
+              inputHtml = `<input type="text" name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" value="${escaparHtml(val)}" ${disabledAttr} class="input-padrao" style="width: 100%;">`;
             }
 
             return `
-              <div>
-                <label style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 0.3rem;">
+              <div class="campo-grupo" style="margin-bottom: 0;">
+                <label class="campo-rotulo" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 0.3rem;">
                   ${escaparHtml(c.rotulo)} ${c.obrigatorio ? '<span class="campo-obrigatorio">*</span>' : ""}
                 </label>
                 ${inputHtml}
@@ -372,6 +504,7 @@ async function carregarCamposDinamicos() {
       for (const c of camposComValores) {
         const el = form.elements[`campo_${c.id}`];
         if (el) {
+          valores[c.id] = el.value;
           valores[c.nome] = el.value;
         }
       }
@@ -384,8 +517,10 @@ async function carregarCamposDinamicos() {
           method: "PUT",
           body: { valores },
         });
-        carregarCamposDinamicos();
-        carregarAuditoria();
+        await carregarCamposDinamicos();
+        if (typeof carregarAuditoria === "function") {
+          carregarAuditoria();
+        }
       } catch (err) {
         msgErro.textContent = err.message || "Erro ao salvar campos.";
         msgErro.hidden = false;

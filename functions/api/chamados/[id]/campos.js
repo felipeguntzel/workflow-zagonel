@@ -33,7 +33,7 @@ export async function onRequestPut(context) {
   const body = await context.request.json();
   const valores = body.valores || body; // aceita { valores: { ... } } ou { campoId: valor }
 
-  await salvarValoresCamposChamado(context.env.DB, chamado.id, valores);
+  await salvarValoresCamposChamado(context.env.DB, chamado.id, valores, chamado.etapa_id);
 
   const raizId = chamado.chamado_mae_id || chamado.id;
   await registrarAuditoria(context.env.DB, {

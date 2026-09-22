@@ -25,10 +25,34 @@
     <div class="pagina-cabecalho__esquerda">
       <h1>Meus chamados</h1>
     </div>
-    <div class="pagina-cabecalho__acoes">
+    <div class="pagina-cabecalho__acoes" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <button type="button" id="btn-exportar-chamados" class="btn btn-secundario" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Exportar chamados em CSV">
+        <span>📥</span> Exportar CSV
+      </button>
       <a href="/novo-chamado" class="btn btn-primario" id="link-novo-chamado">+ Abrir novo chamado</a>
     </div>
   </div>
+
+  <div class="painel" style="margin-bottom: 1.25rem;">
+    <div style="display: flex; gap: 0.85rem; flex-wrap: wrap; align-items: flex-end;">
+      <div style="flex: 2; min-width: 240px;">
+        <label for="filtro-busca-chamados" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Buscar chamados</label>
+        <input type="text" id="filtro-busca-chamados" placeholder="Buscar por ID, título, responsável..." class="input-padrao" style="padding: 0.55rem 0.75rem;">
+      </div>
+      <div style="flex: 1; min-width: 180px;">
+        <label for="filtro-status-chamados" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Status</label>
+        <select id="filtro-status-chamados" class="select-padrao" style="width: 100%; padding: 0.55rem 0.75rem;">
+          <option value="">Todos os status</option>
+          <option value="ativos" selected>Em aberto (não finalizados)</option>
+          <option value="finalizado">Finalizados</option>
+        </select>
+      </div>
+      <div>
+        <button type="button" id="btn-limpar-filtros-chamados" class="btn btn-secundario">Limpar</button>
+      </div>
+    </div>
+  </div>
+
   <p id="mensagem-erro" class="erro" hidden></p>
   <div class="tabela-wrap">
     <table>
@@ -44,6 +68,7 @@
       <tbody id="tabela-chamados"></tbody>
     </table>
   </div>
+  <div id="paginacao-chamados-wrap"></div>
 </main>
 <script type="module" src="chamados.js"></script>
 </body>

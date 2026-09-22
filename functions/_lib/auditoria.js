@@ -131,3 +131,38 @@ export async function listarAuditoriaSistema(
     return [];
   }
 }
+
+/**
+ * Retorna o total de registros de auditoria administrativa que atendem aos filtros.
+ */
+export async function contarAuditoriaSistema(
+  db,
+  { entidade, usuario_id, acao } = {}
+) {
+  try {
+    await ensureAuditoriaSistemaTabela(db);
+    const condicoes = [];
+    const params = [];
+
+    if (entidade) {
+      condicoes.push("entidade = ?");
+      params.push(entidade);
+    }
+    if (usuario_id) {
+      condicoes.push("usuario_id = ?");
+      params.push(usuario_id);
+    }
+    if (acao) {
+      condicoes.push("acao = ?");
+      params.push(acao);
+    }
+
+    const where = condicoes.length > 0 ? `WHERE ${condicoes.join(" AND ")}` : "";
+    const res = await first(db, `SELECT COUNT(*) AS total FROM auditoria_sistema ${where}`, ...params);
+    return Number(res?.total) || 0;
+  } catch (e) {
+    console.error("Erro ao contar auditoria do sistema:", e);
+    return 0;
+  }
+}
+

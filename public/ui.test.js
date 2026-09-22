@@ -59,4 +59,46 @@ test("api expõe métodos auxiliares get, post, put e delete", async () => {
   assert.equal(typeof api.delete, "function");
 });
 
+test("debounce adia chamadas repetidas e executa apenas a última após o delay", async () => {
+  const { debounce } = await import("./ui.js");
+  let chamadas = 0;
+  let ultimoValor = null;
+
+  const fn = debounce((v) => {
+    chamadas++;
+    ultimoValor = v;
+  }, 40);
+
+  fn(1);
+  fn(2);
+  fn(3);
+
+  assert.equal(chamadas, 0);
+  await new Promise((r) => setTimeout(r, 60));
+
+  assert.equal(chamadas, 1);
+  assert.equal(ultimoValor, 3);
+});
+
+test("gerarConteudoCsv cria CSV com BOM UTF-8, delimitador correto e escape de aspas", async () => {
+  const { gerarConteudoCsv } = await import("./ui.js");
+  const colunas = [
+    { chave: "id", rotulo: "Código" },
+    { chave: "nome", rotulo: "Nome Completo" },
+    { chave: "observacao", rotulo: "Obs" },
+  ];
+  const dados = [
+    { id: 1, nome: "Ducha Zagonel", observacao: "Produto; topo de linha" },
+    { id: 2, nome: 'Torneira "Eletrônica"', observacao: "Sem observações" },
+  ];
+
+  const csv = gerarConteudoCsv(colunas, dados, ";");
+
+  assert.ok(csv.startsWith("\uFEFF"));
+  assert.ok(csv.includes("Código;Nome Completo;Obs"));
+  assert.ok(csv.includes('1;Ducha Zagonel;"Produto; topo de linha"'));
+  assert.ok(csv.includes('2;"Torneira ""Eletrônica""";Sem observações'));
+});
+
+
 
