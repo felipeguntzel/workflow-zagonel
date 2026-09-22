@@ -26,6 +26,9 @@ ON CONFLICT(id) DO UPDATE SET
   centro_custo = '1033',
   prazo_padrao_dias = 5;
 
+-- Vincular usuarios existentes ao setor 1 antes de remover outros setores
+UPDATE usuarios SET setor_id = 1;
+
 -- Limpar outros setores residuais
 DELETE FROM setores WHERE id > 1;
 
