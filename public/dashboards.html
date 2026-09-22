@@ -23,37 +23,116 @@
 <main>
   <div class="pagina-cabecalho">
     <div class="pagina-cabecalho__esquerda">
-      <h2>Dashboards</h2>
+      <h2>Dashboards & Indicadores Operacionais</h2>
       <p style="font-size: 0.9rem; color: var(--cor-texto-secundario); margin: 0.2rem 0 0;">
-        Indicadores consolidados, métricas operacionais e distribuição de processos
+        Métricas de produtividade, tempos de atendimento por setor e monitoramento de gargalos
       </p>
     </div>
-  </div>
-  <p id="mensagem-erro" class="erro" hidden></p>
-  
-  <div class="cards-metricas" id="cards-metricas">
-    <div class="card-metrica">
-      <span class="card-metrica__rotulo">Total de chamados</span>
-      <strong class="card-metrica__valor" id="metrica-total">0</strong>
-    </div>
-    <div class="card-metrica">
-      <span class="card-metrica__rotulo">Em andamento</span>
-      <strong class="card-metrica__valor" id="metrica-andamento">0</strong>
-    </div>
-    <div class="card-metrica">
-      <span class="card-metrica__rotulo">Finalizados</span>
-      <strong class="card-metrica__valor" id="metrica-finalizados">0</strong>
-    </div>
-    <div class="card-metrica">
-      <span class="card-metrica__rotulo">Com alerta ou atraso</span>
-      <strong class="card-metrica__valor" id="metrica-atencao">0</strong>
+    <div class="pagina-cabecalho__acoes">
+      <button type="button" id="btn-exportar-csv" class="btn btn-secundario">📥 Exportar Relatório (CSV)</button>
     </div>
   </div>
 
-  <div class="painel" style="margin-top: 1.5rem;">
-    <h2>Visão geral de distribuição</h2>
-    <p class="texto-secundario" style="margin-bottom: 1rem;">
-      Acompanhe o volume e a evolução dos chamados de produto por status e setor responsável.
+  <p id="mensagem-erro" class="erro" hidden></p>
+
+  <!-- Barra de Filtros -->
+  <div class="dashboard-filtros">
+    <div style="display: flex; align-items: center; gap: 0.4rem;">
+      <label for="filtro-periodo" style="font-size: 0.85rem; font-weight: 600; color: var(--cor-texto);">Período:</label>
+      <select id="filtro-periodo" class="select-padrao" style="padding: 0.35rem 0.65rem; font-size: 0.85rem;">
+        <option value="">Todo o histórico</option>
+        <option value="30">Últimos 30 dias</option>
+        <option value="90">Últimos 90 dias</option>
+        <option value="180">Últimos 180 dias</option>
+      </select>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.4rem;">
+      <label for="filtro-empresa" style="font-size: 0.85rem; font-weight: 600; color: var(--cor-texto);">Empresa:</label>
+      <select id="filtro-empresa" class="select-padrao" style="padding: 0.35rem 0.65rem; font-size: 0.85rem;">
+        <option value="">Todas as empresas</option>
+      </select>
+    </div>
+
+    <button type="button" id="btn-atualizar-metricas" class="btn btn-pequeno btn-secundario" style="margin-left: auto;">🔄 Atualizar</button>
+  </div>
+  
+  <!-- Cards de Métricas Consolidadas -->
+  <div class="cards-metricas" id="cards-metricas">
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Total de Chamados</span>
+      <strong class="card-metrica__valor" id="metrica-total">0</strong>
+      <small style="font-size: 0.75rem; color: var(--cor-texto-secundario); margin-top: 0.2rem;" id="metrica-tarefas-mae">0 tarefas-mãe</small>
+    </div>
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Em Andamento</span>
+      <strong class="card-metrica__valor" id="metrica-andamento" style="color: var(--cor-primaria);">0</strong>
+      <small style="font-size: 0.75rem; color: var(--cor-texto-secundario); margin-top: 0.2rem;" id="metrica-ativos-info">Fila ativa</small>
+    </div>
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Finalizados</span>
+      <strong class="card-metrica__valor" id="metrica-finalizados" style="color: var(--cor-ok, #10b981);">0</strong>
+      <small style="font-size: 0.75rem; color: var(--cor-ok, #10b981); margin-top: 0.2rem;" id="metrica-taxa-pontualidade">100% no prazo</small>
+    </div>
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Vencidos / Em Alerta</span>
+      <strong class="card-metrica__valor" id="metrica-atencao" style="color: var(--cor-vencido, #ef4444);">0</strong>
+      <small style="font-size: 0.75rem; color: var(--cor-vencido, #ef4444); margin-top: 0.2rem;" id="metrica-vencidos-info">Atenção requerida</small>
+    </div>
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Tempo Médio Resolução</span>
+      <strong class="card-metrica__valor" id="metrica-tempo-medio">0 <span style="font-size: 0.9rem; font-weight: normal;">dias</span></strong>
+      <small style="font-size: 0.75rem; color: var(--cor-texto-secundario); margin-top: 0.2rem;">Por chamado finalizado</small>
+    </div>
+  </div>
+
+  <!-- Seção de Gargalos Operacionais Identificados -->
+  <section class="painel" style="margin-top: 1.5rem;" id="secao-gargalos">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+      <h3 style="margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 0.5rem;">
+        <span>⚠️ Gargalos Operacionais Detectados</span>
+      </h3>
+    </div>
+    <div id="container-gargalos">
+      <p style="color: var(--cor-texto-secundario); font-size: 0.9rem;">Analisando processos...</p>
+    </div>
+  </section>
+
+  <!-- Tabela de Desempenho e Tempos Médios por Setor -->
+  <section class="painel" style="margin-top: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+      <div>
+        <h3 style="margin: 0; font-size: 1.15rem;">Desempenho e Tempos Médios por Setor</h3>
+        <p class="texto-secundario" style="margin: 0.2rem 0 0; font-size: 0.85rem;">
+          Volume de chamados, tarefas-mãe, retenção média e taxa de pontualidade por área
+        </p>
+      </div>
+    </div>
+    <div class="tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Setor Responsável</th>
+            <th style="text-align: right; width: 110px;">Tarefas-Mãe</th>
+            <th style="text-align: right; width: 100px;">Em Fila</th>
+            <th style="text-align: right; width: 100px;">Finalizados</th>
+            <th style="text-align: right; width: 90px;">Atrasados</th>
+            <th style="text-align: right; width: 130px;">Tempo Médio</th>
+            <th style="width: 170px;">Pontualidade</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-desempenho-setores">
+          <tr><td colspan="7" style="text-align: center; padding: 2rem;">Carregando indicadores por setor...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Visão de Distribuição por Status -->
+  <section class="painel" style="margin-top: 1.5rem;">
+    <h2>Distribuição por Status de Processo</h2>
+    <p class="texto-secundario" style="margin-bottom: 1rem; font-size: 0.85rem;">
+      Contagem de chamados em cada etapa e fase de aprovação
     </p>
     <div class="tabela-wrap">
       <table>
@@ -61,23 +140,15 @@
           <tr>
             <th>Status</th>
             <th style="width: 120px; text-align: right;">Quantidade</th>
+            <th style="width: 180px;">Participação</th>
           </tr>
         </thead>
         <tbody id="tabela-distribuicao-status">
-          <tr><td colspan="2">Carregando dados...</td></tr>
+          <tr><td colspan="3">Carregando dados...</td></tr>
         </tbody>
       </table>
     </div>
-  </div>
-
-  <div class="painel" style="margin-top: 1.5rem;">
-    <h2>Relatórios planejados para as próximas versões</h2>
-    <ul style="margin: 0.5rem 0 0 1.25rem; line-height: 1.7; color: var(--cor-texto-secundario);">
-      <li>Volume de tarefas mãe existentes e distribuição por setor produtivo</li>
-      <li>Tempo médio de finalização por etapa e setor</li>
-      <li>Identificação visual de gargalos no fluxo de aprovação e desenvolvimento</li>
-    </ul>
-  </div>
+  </section>
 </main>
 <script type="module" src="dashboards.js"></script>
 </body>

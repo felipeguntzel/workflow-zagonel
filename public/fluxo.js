@@ -31,6 +31,7 @@ async function iniciar(container, mensagemErro) {
   let setores = [];
   let fluxoAtivoId = null;
   let ordemAtual = { campo: "id", direcao: "asc" };
+  let modoVisualizacao = "tabela";
 
   try {
     [fluxos, setores] = await Promise.all([api("/fluxos"), api("/setores")]);
@@ -273,6 +274,10 @@ async function iniciar(container, mensagemErro) {
                 ${fluxos.map((f) => `<option value="${f.id}" ${f.id === fluxoAtivoId ? "selected" : ""}>${escaparHtml(f.nome)}</option>`).join("")}
               </select>
             </div>
+            <div style="display: flex; gap: 0.25rem; background: var(--cor-fundo); padding: 0.2rem; border-radius: 0.4rem; border: 1px solid var(--cor-borda);">
+              <button type="button" class="btn btn-pequeno ${modoVisualizacao === "tabela" ? "btn-primario" : "btn-secundario"} btn-alternar-modo" data-modo="tabela" title="Visão em tabela">📋 Tabela</button>
+              <button type="button" class="btn btn-pequeno ${modoVisualizacao === "diagrama" ? "btn-primario" : "btn-secundario"} btn-alternar-modo" data-modo="diagrama" title="Visão visual em grafo de nós">🔀 Diagrama</button>
+            </div>
             ${
               permissaoFluxos.inserir
                 ? `<button type="button" class="btn btn-primario btn-nova-etapa">+ Adicionar Etapa</button>`
@@ -287,6 +292,13 @@ async function iniciar(container, mensagemErro) {
         </div>
       </div>
     `;
+
+    secaoEtapas.querySelectorAll(".btn-alternar-modo").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        modoVisualizacao = btn.dataset.modo;
+        renderizarPainelEtapas();
+      });
+    });
 
     secaoEtapas.querySelector(".select-troca-fluxo-rapida").addEventListener("change", (e) => {
       fluxoAtivoId = Number(e.target.value);
@@ -343,65 +355,152 @@ async function iniciar(container, mensagemErro) {
       return;
     }
 
-    containerTabela.innerHTML = `
-      <div class="tabela-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 4rem;">#ID</th>
-              <th style="min-width: 18ch;">Nome da Etapa</th>
-              <th>Setor Responsável</th>
-              <th>Tipo</th>
-              <th>Inicial?</th>
-              <th>Próxima Etapa</th>
-              <th>Vínculo</th>
-              <th>Decisões / Ações</th>
-              <th>Campos Dinâmicos</th>
-              <th class="td-acoes">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${etapasAtuais
-              .map((e) => {
+    if (modoVisualizacao === "diagrama") {
+      const ordenadas = [...etapasAtuais].sort((a, b) => {
+        if (a.eh_inicial && !b.eh_inicial) return -1;
+        if (!a.eh_inicial && b.eh_inicial) return 1;
+        return a.id - b.id;
+      });
+
+      containerTabela.innerHTML = `
+        <div class="diagrama-toolbar">
+          <div style="font-size: 0.85rem; color: var(--cor-texto-secundario);">
+            Visualização sequencial das etapas e conexões do processo. Arraste horizontalmente para navegar.
+          </div>
+          ${
+            permissaoFluxos.inserir
+              ? `<button type="button" class="btn btn-pequeno btn-primario btn-nova-etapa-diagrama">+ Nova Etapa</button>`
+              : ""
+          }
+        </div>
+        <div class="diagrama-container">
+          <div class="diagrama-grafo">
+            ${ordenadas
+              .map((e, idx) => {
                 const badgeTipo =
                   e.tipo === "aprovacao"
-                    ? `<span class="badge-status" style="background: #e0f2fe; color: #0369a1; font-weight: 600;">Aprovação</span>`
-                    : `<span class="badge-status" style="background: #f1f5f9; color: #475569; font-weight: 600;">Tarefa</span>`;
+                    ? `<span class="badge-status" style="background: #e0f2fe; color: #0369a1; font-size: 0.72rem; font-weight: 700;">⚖️ Aprovação</span>`
+                    : `<span class="badge-status" style="background: #f1f5f9; color: #475569; font-size: 0.72rem; font-weight: 700;">📋 Tarefa</span>`;
 
                 const badgeInicial = e.eh_inicial
-                  ? `<span class="badge-status" style="background: #dcfce7; color: #15803d; font-weight: 600;">✓ Sim</span>`
-                  : '<span style="color: var(--cor-texto-secundario); font-size: 0.85rem;">Não</span>';
+                  ? `<span class="badge-status" style="background: #dcfce7; color: #15803d; font-size: 0.72rem; font-weight: 700;">🚀 Início</span>`
+                  : "";
 
-                const botaoAcoes =
-                  e.tipo === "aprovacao"
-                    ? `<button type="button" class="btn btn-pequeno btn-secundario btn-gerenciar-acoes" data-id="${e.id}">⚡ Configurar Ações</button>`
-                    : '<span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">-</span>';
+                const setorInfo = setores.find((s) => s.id === e.setor_id);
+                const proximaTexto = e.etapa_proxima_id
+                  ? `${escaparHtml(nomeEtapa(e.etapa_proxima_id))} (${e.etapa_proxima_vinculo === "pai" ? "Pai" : "Mãe"})`
+                  : e.tipo === "aprovacao"
+                  ? "Ramificação por ações"
+                  : "Final do processo";
 
-                const botaoCampos = `<button type="button" class="btn btn-pequeno btn-secundario btn-gerenciar-campos" data-id="${e.id}">📋 Campos da Etapa</button>`;
+                const conector =
+                  idx < ordenadas.length - 1
+                    ? `<div class="diagrama-conector" aria-hidden="true">➔</div>`
+                    : "";
 
                 return `
-                  <tr data-id="${e.id}">
-                    <td class="td-id">#${e.id}</td>
-                    <td style="font-weight: 600;">${escaparHtml(e.nome)}</td>
-                    <td>${escaparHtml(nomeSetor(e.setor_id))}</td>
-                    <td>${badgeTipo}</td>
-                    <td>${badgeInicial}</td>
-                    <td>${e.etapa_proxima_id ? escaparHtml(nomeEtapa(e.etapa_proxima_id)) : '<span style="color:var(--cor-texto-secundario);">Nenhuma / Usa ações</span>'}</td>
-                    <td>${e.etapa_proxima_vinculo === "mae" ? "Chamado mãe" : e.etapa_proxima_vinculo === "pai" ? "Chamado pai" : "-"}</td>
-                    <td>${botaoAcoes}</td>
-                    <td>${botaoCampos}</td>
-                    <td class="td-acoes">
-                      ${permissaoFluxos.editar ? botaoIconeEditar("btn-editar-etapa", e.id) : ""}
-                      ${permissaoFluxos.excluir ? botaoIconeExcluir("btn-excluir-etapa", e.id) : ""}
-                    </td>
-                  </tr>
+                  <div class="diagrama-no ${e.eh_inicial ? "diagrama-no--inicial" : ""}" data-id="${e.id}">
+                    <div class="diagrama-no__cabecalho">
+                      <strong class="diagrama-no__titulo" title="${escaparAtributo(e.nome)}">${escaparHtml(e.nome)}</strong>
+                      <div style="display: flex; gap: 0.3rem;">
+                        ${badgeInicial}
+                        ${badgeTipo}
+                      </div>
+                    </div>
+                    <div class="diagrama-no__corpo">
+                      <div><strong>🏢 Setor:</strong> ${escaparHtml(nomeSetor(e.setor_id))}</div>
+                      <div><strong>⏱️ Prazo Padrão:</strong> ${setorInfo?.prazo_padrao_dias ?? 5} dias úteis</div>
+                      <div><strong>➡️ Próxima Etapa:</strong> ${proximaTexto}</div>
+                    </div>
+                    <div class="diagrama-no__acoes">
+                      <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                        <div style="display: flex; gap: 0.3rem;">
+                          <button type="button" class="btn btn-pequeno btn-secundario btn-gerenciar-campos" data-id="${e.id}" title="Configurar campos dinâmicos da etapa">📝 Campos</button>
+                          ${
+                            e.tipo === "aprovacao"
+                              ? `<button type="button" class="btn btn-pequeno btn-secundario btn-gerenciar-acoes" data-id="${e.id}" title="Configurar ações condicionais">⚡ Ações</button>`
+                              : ""
+                          }
+                        </div>
+                        <div style="display: flex; gap: 0.25rem;">
+                          ${permissaoFluxos.editar ? botaoIconeEditar("btn-editar-etapa", e.id) : ""}
+                          ${permissaoFluxos.excluir ? botaoIconeExcluir("btn-excluir-etapa", e.id) : ""}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  ${conector}
                 `;
               })
               .join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
+          </div>
+        </div>
+      `;
+
+      containerTabela.querySelector(".btn-nova-etapa-diagrama")?.addEventListener("click", () => {
+        abrirModalEtapa(null, etapasAtuais);
+      });
+    } else {
+      containerTabela.innerHTML = `
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 4rem;">#ID</th>
+                <th style="min-width: 18ch;">Nome da Etapa</th>
+                <th>Setor Responsável</th>
+                <th>Tipo</th>
+                <th>Inicial?</th>
+                <th>Próxima Etapa</th>
+                <th>Vínculo</th>
+                <th>Decisões / Ações</th>
+                <th>Campos Dinâmicos</th>
+                <th class="td-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${etapasAtuais
+                .map((e) => {
+                  const badgeTipo =
+                    e.tipo === "aprovacao"
+                      ? `<span class="badge-status" style="background: #e0f2fe; color: #0369a1; font-weight: 600;">Aprovação</span>`
+                      : `<span class="badge-status" style="background: #f1f5f9; color: #475569; font-weight: 600;">Tarefa</span>`;
+
+                  const badgeInicial = e.eh_inicial
+                    ? `<span class="badge-status" style="background: #dcfce7; color: #15803d; font-weight: 600;">✓ Sim</span>`
+                    : '<span style="color: var(--cor-texto-secundario); font-size: 0.85rem;">Não</span>';
+
+                  const botaoAcoes =
+                    e.tipo === "aprovacao"
+                      ? `<button type="button" class="btn btn-pequeno btn-secundario btn-gerenciar-acoes" data-id="${e.id}">⚡ Configurar Ações</button>`
+                      : '<span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">-</span>';
+
+                  const botaoCampos = `<button type="button" class="btn btn-pequeno btn-secundario btn-gerenciar-campos" data-id="${e.id}">📋 Campos da Etapa</button>`;
+
+                  return `
+                    <tr data-id="${e.id}">
+                      <td class="td-id">#${e.id}</td>
+                      <td style="font-weight: 600;">${escaparHtml(e.nome)}</td>
+                      <td>${escaparHtml(nomeSetor(e.setor_id))}</td>
+                      <td>${badgeTipo}</td>
+                      <td>${badgeInicial}</td>
+                      <td>${e.etapa_proxima_id ? escaparHtml(nomeEtapa(e.etapa_proxima_id)) : '<span style="color:var(--cor-texto-secundario);">Nenhuma / Usa ações</span>'}</td>
+                      <td>${e.etapa_proxima_vinculo === "mae" ? "Chamado mãe" : e.etapa_proxima_vinculo === "pai" ? "Chamado pai" : "-"}</td>
+                      <td>${botaoAcoes}</td>
+                      <td>${botaoCampos}</td>
+                      <td class="td-acoes">
+                        ${permissaoFluxos.editar ? botaoIconeEditar("btn-editar-etapa", e.id) : ""}
+                        ${permissaoFluxos.excluir ? botaoIconeExcluir("btn-excluir-etapa", e.id) : ""}
+                      </td>
+                    </tr>
+                  `;
+                })
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
 
     // Eventos da tabela de etapas
     containerTabela.querySelectorAll(".btn-gerenciar-campos").forEach((btn) => {
@@ -887,18 +986,41 @@ async function iniciar(container, mensagemErro) {
                           ? `<tr><td colspan="6" style="text-align: center; padding: 1.25rem; color: var(--cor-texto-secundario);">Nenhum campo personalizado configurado para esta etapa.</td></tr>`
                           : campos
                               .map(
-                                (c) => `
+                                (c) => {
+                                  const tiposLegiveis = {
+                                    texto: "Texto curto",
+                                    textarea: "Texto longo",
+                                    texto_longo: "Texto longo",
+                                    numero: "Número",
+                                    data: "Data",
+                                    select: "Seleção",
+                                    selecao: "Seleção",
+                                  };
+                                  const tipoRotulo = tiposLegiveis[c.tipo] || c.tipo;
+                                  const opcoesRaw = c.opcoes_json || c.opcoes;
+                                  let opcoesFormatadas = "-";
+                                  if (opcoesRaw) {
+                                    try {
+                                      const arr = JSON.parse(opcoesRaw);
+                                      opcoesFormatadas = Array.isArray(arr) ? arr.join(", ") : String(opcoesRaw);
+                                    } catch (_) {
+                                      opcoesFormatadas = String(opcoesRaw);
+                                    }
+                                  }
+
+                                  return `
                         <tr>
                           <td style="font-family: monospace; font-size: 0.85rem;">${escaparHtml(c.nome)}</td>
                           <td style="font-weight: 600;">${escaparHtml(c.rotulo)}</td>
-                          <td><span class="badge-status" style="background: var(--cor-fundo-elevado); border: 1px solid var(--cor-borda);">${escaparHtml(c.tipo)}</span></td>
+                          <td><span class="badge-status" style="background: var(--cor-fundo-elevado); border: 1px solid var(--cor-borda); font-size: 0.8rem;">${escaparHtml(tipoRotulo)}</span></td>
                           <td>${c.obrigatorio ? '<strong style="color: var(--cor-alerta);">Sim</strong>' : "Não"}</td>
-                          <td style="font-size: 0.85rem; color: var(--cor-texto-secundario);">${c.opcoes_json ? escaparHtml(c.opcoes_json) : "-"}</td>
+                          <td style="font-size: 0.85rem; color: var(--cor-texto-secundario);">${escaparHtml(opcoesFormatadas)}</td>
                           <td class="td-acoes">
                             ${permissaoFluxos.excluir ? botaoIconeExcluir("btn-excluir-campo", c.id) : ""}
                           </td>
                         </tr>
-                      `
+                      `;
+                                }
                               )
                               .join("")
                       }
@@ -993,6 +1115,7 @@ async function iniciar(container, mensagemErro) {
             rotulo: formCampo.elements.rotulo.value.trim(),
             tipo: tipo,
             obrigatorio: formCampo.elements.obrigatorio.checked,
+            opcoes: opcoesJson,
             opcoes_json: opcoesJson,
           };
 

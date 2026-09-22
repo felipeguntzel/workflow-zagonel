@@ -3,7 +3,7 @@ import { json, error } from "../../_lib/http.js";
 import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
 import { criarChamado, avancarFluxo, hojeISO } from "../../_lib/chamados.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
-import { salvarValoresCamposChamado } from "../../_lib/campos.js";
+import { salvarValoresCamposChamado, listarCamposDaEtapa, validarCamposObrigatorios } from "../../_lib/campos.js";
 import { registrarAuditoria } from "../../_lib/auditoria.js";
 
 export async function onRequestGet(context) {
@@ -52,6 +52,13 @@ export async function onRequestPost(context) {
   );
   if (!solicitante) return error("solicitante inválido");
 
+  // Validação de campos personalizados obrigatórios
+  const camposDef = await listarCamposDaEtapa(context.env.DB, etapa.id);
+  const validacao = validarCamposObrigatorios(camposDef, body.campos || {});
+  if (!validacao.valido) {
+    return error(validacao.erro, 400);
+  }
+
   const mae = await criarChamado(context.env.DB, {
     fluxo_template_id: body.fluxo_template_id,
     etapa_id: etapa.id,
@@ -64,7 +71,7 @@ export async function onRequestPost(context) {
 
   // Salva campos personalizados se enviados
   if (body.campos && typeof body.campos === "object") {
-    await salvarValoresCamposChamado(context.env.DB, mae.id, body.campos);
+    await salvarValoresCamposChamado(context.env.DB, mae.id, body.campos, etapa.id);
   }
 
   // Registrar auditoria de criação do chamado mãe

@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { escaparHtml, mostrarErro } from "./ui.js";
+import { escaparHtml, mostrarErro, debounce, exportarParaCsv, anunciarA11y } from "./ui.js";
 
 export function inicializar() {
   const usuario = exigirLogin();
@@ -14,6 +14,11 @@ export function inicializar() {
   }
   inicializarAuditoria();
 }
+
+let paginaAtual = 1;
+let limitePorPagina = 25;
+let totalRegistros = 0;
+let logsCarregados = [];
 
 export const inicializarAuditoria = async function () {
   const container = document.getElementById("secao-auditoria");
@@ -31,7 +36,12 @@ export const inicializarAuditoria = async function () {
 
     <div class="painel" style="margin-bottom: 1.5rem;">
       <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
-        <div style="flex: 1; min-width: 180px;">
+        <div style="flex: 1.5; min-width: 200px;">
+          <label for="filtro-busca" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Buscar no histórico</label>
+          <input type="text" id="filtro-busca" placeholder="Filtrar por usuário ou detalhe..." class="input-padrao" style="padding: 0.55rem 0.75rem;">
+        </div>
+
+        <div style="flex: 1; min-width: 170px;">
           <label for="filtro-entidade" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Entidade / Tabela</label>
           <select id="filtro-entidade" class="select-padrao" style="width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda); background: var(--cor-fundo-elevado); color: var(--cor-texto);">
             <option value="">Todas as entidades</option>
@@ -46,7 +56,7 @@ export const inicializarAuditoria = async function () {
           </select>
         </div>
 
-        <div style="flex: 1; min-width: 160px;">
+        <div style="flex: 1; min-width: 150px;">
           <label for="filtro-acao" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Tipo de Ação</label>
           <select id="filtro-acao" class="select-padrao" style="width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda); background: var(--cor-fundo-elevado); color: var(--cor-texto);">
             <option value="">Todas as ações</option>
@@ -56,9 +66,12 @@ export const inicializarAuditoria = async function () {
           </select>
         </div>
 
-        <div>
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
           <button type="button" id="btn-filtrar-auditoria" class="btn btn-primario">Filtrar</button>
-          <button type="button" id="btn-limpar-filtros" class="btn btn-secundario" style="margin-left: 0.5rem;">Limpar</button>
+          <button type="button" id="btn-limpar-filtros" class="btn btn-secundario">Limpar</button>
+          <button type="button" id="btn-exportar-csv" class="btn btn-secundario" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Exportar registros filtrados para Excel/CSV">
+            <span>📥</span> Exportar CSV
+          </button>
         </div>
       </div>
     </div>
@@ -94,6 +107,8 @@ export const inicializarAuditoria = async function () {
       </table>
     </div>
 
+    <div id="paginacao-auditoria-wrap"></div>
+
     <div id="modal-auditoria-detalhes" class="modal-fundo" hidden style="display: none;">
       <div class="modal-cadastro" role="dialog" style="max-width: 650px; max-height: 85vh; display: flex; flex-direction: column;">
         <div class="modal-cabecalho">
@@ -108,12 +123,32 @@ export const inicializarAuditoria = async function () {
     </div>
   `;
 
-  document.getElementById("btn-filtrar-auditoria").addEventListener("click", carregarLogs);
-  document.getElementById("btn-limpar-filtros").addEventListener("click", () => {
-    document.getElementById("filtro-entidade").value = "";
-    document.getElementById("filtro-acao").value = "";
+  const inputBusca = document.getElementById("filtro-busca");
+  if (inputBusca) {
+    const buscaDebounced = debounce(() => {
+      paginaAtual = 1;
+      carregarLogs();
+    }, 300);
+    inputBusca.addEventListener("input", buscaDebounced);
+  }
+
+  document.getElementById("btn-filtrar-auditoria").addEventListener("click", () => {
+    paginaAtual = 1;
     carregarLogs();
   });
+
+  document.getElementById("btn-limpar-filtros").addEventListener("click", () => {
+    if (inputBusca) inputBusca.value = "";
+    document.getElementById("filtro-entidade").value = "";
+    document.getElementById("filtro-acao").value = "";
+    paginaAtual = 1;
+    carregarLogs();
+  });
+
+  const btnExportar = document.getElementById("btn-exportar-csv");
+  if (btnExportar) {
+    btnExportar.addEventListener("click", exportarAuditoriaCsv);
+  }
 
   const modalFundo = document.getElementById("modal-auditoria-detalhes");
   const fecharModal = () => {
@@ -129,7 +164,55 @@ export const inicializarAuditoria = async function () {
   await carregarLogs();
 };
 
-let logsCarregados = [];
+async function exportarAuditoriaCsv() {
+  const btn = document.getElementById("btn-exportar-csv");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = "<span>⏳</span> Exportando...";
+  }
+
+  try {
+    const entidade = document.getElementById("filtro-entidade")?.value || "";
+    const acao = document.getElementById("filtro-acao")?.value || "";
+    const params = new URLSearchParams();
+    if (entidade) params.set("entidade", entidade);
+    if (acao) params.set("acao", acao);
+    params.set("limite", "2000");
+
+    const res = await api(`/auditoria?${params.toString()}`);
+    let dados = Array.isArray(res) ? res : (res?.itens || []);
+
+    const termoBusca = (document.getElementById("filtro-busca")?.value || "").trim().toLowerCase();
+    if (termoBusca) {
+      dados = dados.filter(
+        (l) =>
+          (l.usuario_nome || "").toLowerCase().includes(termoBusca) ||
+          (l.detalhes || "").toLowerCase().includes(termoBusca) ||
+          (l.entidade || "").toLowerCase().includes(termoBusca)
+      );
+    }
+
+    const colunas = [
+      { chave: "criado_em", rotulo: "Data/Hora" },
+      { chave: "usuario_nome", rotulo: "Usuário" },
+      { chave: "acao", rotulo: "Ação" },
+      { chave: "entidade", rotulo: "Entidade" },
+      { chave: "entidade_id", rotulo: "ID Registro" },
+      { chave: "detalhes", rotulo: "Descrição/Detalhes" },
+    ];
+
+    const dataHoje = new Date().toISOString().slice(0, 10);
+    exportarParaCsv(`auditoria_sistema_${dataHoje}`, colunas, dados);
+    anunciarA11y(`Exportação de ${dados.length} registros de auditoria concluída com sucesso.`);
+  } catch (err) {
+    mostrarErro(document.getElementById("mensagem-erro"), err);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = "<span>📥</span> Exportar CSV";
+    }
+  }
+}
 
 async function carregarLogs() {
   const wrap = document.getElementById("tabela-auditoria-wrap");
@@ -137,19 +220,112 @@ async function carregarLogs() {
 
   const entidade = document.getElementById("filtro-entidade")?.value || "";
   const acao = document.getElementById("filtro-acao")?.value || "";
+  const offset = (paginaAtual - 1) * limitePorPagina;
 
   const params = new URLSearchParams();
   if (entidade) params.set("entidade", entidade);
   if (acao) params.set("acao", acao);
+  params.set("limite", String(limitePorPagina));
+  params.set("offset", String(offset));
+  params.set("envelope", "1");
 
   try {
     const res = await api(`/auditoria?${params.toString()}`);
-    logsCarregados = Array.isArray(res) ? res : [];
+    let itens = [];
+    if (Array.isArray(res)) {
+      itens = res;
+      totalRegistros = res.length;
+    } else if (res && Array.isArray(res.itens)) {
+      itens = res.itens;
+      totalRegistros = Number(res.total) || 0;
+    }
+
+    const termoBusca = (document.getElementById("filtro-busca")?.value || "").trim().toLowerCase();
+    if (termoBusca) {
+      itens = itens.filter(
+        (l) =>
+          (l.usuario_nome || "").toLowerCase().includes(termoBusca) ||
+          (l.detalhes || "").toLowerCase().includes(termoBusca) ||
+          (l.entidade || "").toLowerCase().includes(termoBusca)
+      );
+    }
+
+    logsCarregados = itens;
     renderizarTabela(logsCarregados);
+    renderizarPaginacaoAuditoria();
   } catch (e) {
     mostrarErro(document.getElementById("mensagem-erro"), "Erro ao carregar auditoria: " + (e.message || e));
     wrap.innerHTML = '<div style="padding: 2rem; color: var(--cor-vencido); text-align: center;">Não foi possível carregar os registros de auditoria.</div>';
   }
+}
+
+function renderizarPaginacaoAuditoria() {
+  const wrapPag = document.getElementById("paginacao-auditoria-wrap");
+  if (!wrapPag) return;
+
+  const totalPaginas = Math.ceil(totalRegistros / limitePorPagina) || 1;
+  const inicio = totalRegistros === 0 ? 0 : (paginaAtual - 1) * limitePorPagina + 1;
+  const fim = Math.min(paginaAtual * limitePorPagina, totalRegistros);
+
+  wrapPag.innerHTML = `
+    <div class="paginacao-container">
+      <div class="paginacao-info">
+        Exibindo <strong>${inicio}</strong> a <strong>${fim}</strong> de <strong>${totalRegistros}</strong> registros
+        <span style="margin: 0 0.4rem; color: var(--cor-borda);">|</span>
+        Por página:
+        <select id="seletor-limite-auditoria" class="paginacao-seletor-limite">
+          <option value="25" ${limitePorPagina === 25 ? "selected" : ""}>25</option>
+          <option value="50" ${limitePorPagina === 50 ? "selected" : ""}>50</option>
+          <option value="100" ${limitePorPagina === 100 ? "selected" : ""}>100</option>
+        </select>
+      </div>
+      <div class="paginacao-acoes">
+        <button type="button" class="btn-pagina" id="btn-pag-primeira" ${paginaAtual <= 1 ? "disabled" : ""} title="Primeira página">«</button>
+        <button type="button" class="btn-pagina" id="btn-pag-anterior" ${paginaAtual <= 1 ? "disabled" : ""} title="Página anterior">‹ Anterior</button>
+        <span style="font-size: 0.85rem; font-weight: 600; padding: 0 0.5rem;">Página ${paginaAtual} de ${totalPaginas}</span>
+        <button type="button" class="btn-pagina" id="btn-pag-proxima" ${paginaAtual >= totalPaginas ? "disabled" : ""} title="Próxima página">Próxima ›</button>
+        <button type="button" class="btn-pagina" id="btn-pag-ultima" ${paginaAtual >= totalPaginas ? "disabled" : ""} title="Última página">»</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("seletor-limite-auditoria")?.addEventListener("change", (e) => {
+    limitePorPagina = Number(e.target.value) || 25;
+    paginaAtual = 1;
+    carregarLogs();
+  });
+
+  document.getElementById("btn-pag-primeira")?.addEventListener("click", () => {
+    if (paginaAtual > 1) {
+      paginaAtual = 1;
+      carregarLogs();
+      anunciarA11y("Primeira página carregada.");
+    }
+  });
+
+  document.getElementById("btn-pag-anterior")?.addEventListener("click", () => {
+    if (paginaAtual > 1) {
+      paginaAtual--;
+      carregarLogs();
+      anunciarA11y(`Página ${paginaAtual} carregada.`);
+    }
+  });
+
+  document.getElementById("btn-pag-proxima")?.addEventListener("click", () => {
+    if (paginaAtual < totalPaginas) {
+      paginaAtual++;
+      carregarLogs();
+      anunciarA11y(`Página ${paginaAtual} carregada.`);
+    }
+  });
+
+  document.getElementById("btn-pag-ultima")?.addEventListener("click", () => {
+    if (paginaAtual < totalPaginas) {
+      paginaAtual = totalPaginas;
+      carregarLogs();
+      anunciarA11y(`Última página carregada.`);
+    }
+  });
 }
 
 function renderizarTabela(logs) {

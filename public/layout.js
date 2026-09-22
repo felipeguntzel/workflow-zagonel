@@ -1,5 +1,6 @@
 import { logout, permissaoDaTela } from "./auth.js";
 import { escaparHtml } from "./ui.js";
+import { api } from "./api.js";
 
 const CHAVE_COLAPSADA = "workflow_zagonel_sidebar_colapsada";
 
@@ -384,12 +385,12 @@ function construirModalBusca(usuario) {
   fundo.innerHTML = `
     <div class="modal modal--busca" role="dialog" aria-modal="true" aria-labelledby="titulo-busca-tela">
       <div class="modal__cabecalho-busca">
-        <label id="titulo-busca-tela" for="campo-busca-tela" class="modal__busca-label">Navegação rápida de telas</label>
-        <input type="text" id="campo-busca-tela" class="modal__busca-input" placeholder="Digite o número (ex: 01) ou nome da tela..." autocomplete="off">
+        <label id="titulo-busca-tela" for="campo-busca-tela" class="modal__busca-label">Busca rápida universal</label>
+        <input type="text" id="campo-busca-tela" class="modal__busca-input" placeholder="Buscar chamados (#12) ou telas (ex: 01, usuarios)..." autocomplete="off">
       </div>
       <div class="modal__busca-lista" id="lista-busca-telas"></div>
       <div class="modal__busca-rodape">
-        <span>Use <strong>Enter</strong> para ir até a tela, <strong>Esc</strong> para fechar</span>
+        <span>Use <strong>Enter</strong> para abrir, <strong>Esc</strong> para fechar • Atalho: <strong>Ctrl + K</strong></span>
       </div>
     </div>
   `;
@@ -402,6 +403,18 @@ function construirModalBusca(usuario) {
     const termo = filtro.trim().toLowerCase();
     const telasPermitidas = TELAS_SISTEMA.filter((t) => podeAcessarTela(t, usuario));
 
+    let resultados = [];
+    const numeroMatch = termo.replace(/^#/, "").match(/^\d+$/);
+    if (numeroMatch) {
+      const idChamado = termo.replace(/^#/, "");
+      resultados.push({
+        numero: `#${idChamado}`,
+        titulo: `Abrir Chamado #${idChamado}`,
+        grupo: "Chamados",
+        href: `/chamado?id=${idChamado}`,
+      });
+    }
+
     const filtradas = telasPermitidas.filter((t) => {
       if (!termo) return true;
       const matchNum = t.numero.toLowerCase().includes(termo) || t.codigo === termo;
@@ -410,14 +423,16 @@ function construirModalBusca(usuario) {
       return matchNum || matchTitulo || matchGrupo;
     });
 
-    if (filtradas.length === 0) {
-      lista.innerHTML = '<div style="padding: 0.8rem; font-size: 0.88rem; color: var(--cor-texto-secundario); text-align: center;">Nenhuma tela encontrada.</div>';
+    resultados = [...resultados, ...filtradas];
+
+    if (resultados.length === 0) {
+      lista.innerHTML = '<div style="padding: 0.8rem; font-size: 0.88rem; color: var(--cor-texto-secundario); text-align: center;">Nenhum resultado encontrado.</div>';
       return;
     }
 
-    if (indiceFoco >= filtradas.length) indiceFoco = 0;
+    if (indiceFoco >= resultados.length) indiceFoco = 0;
 
-    lista.innerHTML = filtradas
+    lista.innerHTML = resultados
       .map((t, idx) => `
         <a href="${t.href}" class="modal__busca-item${idx === indiceFoco ? " modal__busca-item--foco" : ""}" data-href="${t.href}" data-idx="${idx}">
           <div class="modal__busca-item-esquerda">
@@ -501,32 +516,99 @@ function construirModalBusca(usuario) {
       else abrirModal();
       return;
     }
-    if ((ev.ctrlKey || ev.metaKey) && (ev.key === "f" || ev.key === "F")) {
+    if ((ev.ctrlKey || ev.metaKey) && (ev.key === "k" || ev.key === "K" || ev.key === "f" || ev.key === "F")) {
       ev.preventDefault();
       if (estaAberto) fecharModal();
       else abrirModal();
       return;
     }
-    if (ev.key === "Escape" && estaAberto) {
-      fecharModal();
+    if (ev.key === "Escape") {
+      if (estaAberto) {
+        fecharModal();
+      } else {
+        // Fechar modais abertos no documento
+        const modais = document.querySelectorAll(".modal-fundo:not([hidden])");
+        modais.forEach((m) => {
+          m.hidden = true;
+          if (m.style) m.style.display = "none";
+        });
+      }
+    }
+    // Suporte a Ctrl + Enter para submissão ágil
+    if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
+      const active = document.activeElement;
+      if (active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT")) {
+        const form = active.closest("form");
+        if (form) {
+          const btn = form.querySelector("button[type='submit']") || form.querySelector(".btn-primario");
+          if (btn && !btn.disabled) {
+            ev.preventDefault();
+            btn.click();
+          }
+        }
+      }
     }
   });
 
   return { fundo, abrirModal, fecharModal };
 }
 
-function construirTopbar(usuario, sidebar) {
+function construirTopbar(usuario, sidebar, modalBusca) {
   const topbar = document.createElement("div");
   topbar.className = "topbar";
   topbar.innerHTML = `
     <button type="button" class="topbar__hamburguer" id="btn-abrir-sidebar" aria-label="Abrir menu">☰</button>
+    <div style="display: flex; align-items: center; gap: 0.65rem; margin-left: auto;">
+      <button type="button" id="btn-busca-rapida-topbar" class="btn btn-secundario btn-pequeno" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.6rem; font-size: 0.8rem;" title="Busca rápida universal (Ctrl + K)">
+        <span>🔍</span>
+        <span class="paleta-atalho-tag" style="margin: 0; padding: 0.1rem 0.35rem; font-size: 0.7rem;">Ctrl+K</span>
+      </button>
+      <a href="/chamados" id="link-notificacao-topbar" class="btn-icone" title="Meus chamados" style="position: relative; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; font-size: 1.15rem; width: 34px; height: 34px;">
+        🔔
+        <span id="badge-contador-chamados" style="display: none; position: absolute; top: -1px; right: -1px; background: var(--cor-alerta); color: #fff; font-size: 0.65rem; font-weight: bold; border-radius: 999px; padding: 1px 5px; min-width: 14px; text-align: center;"></span>
+      </a>
+    </div>
   `;
 
   topbar.querySelector("#btn-abrir-sidebar").addEventListener("click", () => {
     sidebar.classList.toggle("aberta");
   });
 
+  const btnBusca = topbar.querySelector("#btn-busca-rapida-topbar");
+  if (btnBusca && modalBusca) {
+    btnBusca.addEventListener("click", () => modalBusca.abrirModal());
+  }
+
+  // Notificações leves periódicas
+  iniciarNotificacoesLeves(topbar);
+
   return topbar;
+}
+
+let timerNotificacoes = null;
+async function iniciarNotificacoesLeves(topbar) {
+  if (!topbar) return;
+  const badge = topbar.querySelector("#badge-contador-chamados");
+  if (!badge) return;
+
+  async function checar() {
+    try {
+      const chamados = await api("/chamados");
+      if (Array.isArray(chamados)) {
+        const pendentes = chamados.filter((c) => c.status_nome !== "finalizado");
+        if (pendentes.length > 0) {
+          badge.textContent = pendentes.length > 99 ? "99+" : String(pendentes.length);
+          badge.style.display = "inline-block";
+        } else {
+          badge.style.display = "none";
+        }
+      }
+    } catch (_) {}
+  }
+
+  checar();
+  clearInterval(timerNotificacoes);
+  timerNotificacoes = setInterval(checar, 60000);
 }
 
 let listenerNavegacaoInstalado = false;
@@ -554,7 +636,7 @@ export function aplicarLayout(usuario) {
 
   const modalBusca = construirModalBusca(usuario);
   const sidebar = construirSidebar(usuario, modalBusca);
-  const topbar = construirTopbar(usuario, sidebar);
+  const topbar = construirTopbar(usuario, sidebar, modalBusca);
 
   const conteudo = document.createElement("div");
   conteudo.className = "app-shell__conteudo";

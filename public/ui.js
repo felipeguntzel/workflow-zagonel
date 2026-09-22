@@ -91,3 +91,91 @@ export function linkWhatsApp(telefone, chamadoId, chamadoTitulo) {
     </a>
   `;
 }
+
+/**
+ * Utilitário de debounce para adiar execuções repetidas (ex: busca ao digitar).
+ */
+export function debounce(funcao, delayMs = 300) {
+  let timer = null;
+  function debounced(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      funcao.apply(this, args);
+    }, delayMs);
+  }
+  debounced.cancel = () => clearTimeout(timer);
+  return debounced;
+}
+
+/**
+ * Gera conteúdo formatado em CSV com BOM UTF-8 e delimitador padrão (';' para Excel pt-BR).
+ */
+export function gerarConteudoCsv(colunas, dados, delimitador = ";") {
+  if (!Array.isArray(colunas) || colunas.length === 0) return "";
+
+  const formatarValor = (val) => {
+    if (val === null || val === undefined) return "";
+    let str = typeof val === "object" ? JSON.stringify(val) : String(val);
+    if (str.includes(delimitador) || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+      str = `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const cabecalhos = colunas.map((c) => formatarValor(typeof c === "object" ? c.rotulo : c));
+  const linhas = [cabecalhos.join(delimitador)];
+
+  if (Array.isArray(dados)) {
+    for (const item of dados) {
+      const linha = colunas.map((c) => {
+        const chave = typeof c === "object" ? c.chave : c;
+        return formatarValor(item?.[chave]);
+      });
+      linhas.push(linha.join(delimitador));
+    }
+  }
+
+  // UTF-8 BOM (\uFEFF) para garantir abertura correta no Excel brasileiro
+  return "\uFEFF" + linhas.join("\r\n");
+}
+
+/**
+ * Dispara o download de um arquivo CSV no navegador.
+ */
+export function exportarParaCsv(nomeArquivo, colunas, dados, delimitador = ";") {
+  const conteudo = gerarConteudoCsv(colunas, dados, delimitador);
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    const blob = new Blob([conteudo], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", nomeArquivo.endsWith(".csv") ? nomeArquivo : `${nomeArquivo}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+  return conteudo;
+}
+
+/**
+ * Anuncia mensagens dinâmicas para leitores de tela e acessibilidade (a11y).
+ */
+export function anunciarA11y(mensagem, prioridade = "polite") {
+  if (typeof document === "undefined") return;
+  let regiao = document.getElementById("regiao-a11y-live");
+  if (!regiao) {
+    regiao = document.createElement("div");
+    regiao.id = "regiao-a11y-live";
+    regiao.setAttribute("role", "status");
+    regiao.setAttribute("aria-live", prioridade);
+    regiao.style.cssText = "position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;";
+    document.body.appendChild(regiao);
+  }
+  regiao.setAttribute("aria-live", prioridade);
+  regiao.textContent = "";
+  setTimeout(() => {
+    regiao.textContent = mensagem;
+  }, 50);
+}
+

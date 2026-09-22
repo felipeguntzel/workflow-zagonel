@@ -43,7 +43,7 @@ async function resolverSetorEPrazoPadrao(db, { etapa_id, acao_origem_id }) {
 export async function criarChamado(db, spec) {
   const { prazo_padrao_dias } = await resolverSetorEPrazoPadrao(db, spec);
   const hoje = hojeISO();
-  const prazo = spec.prazo ?? calcularPrazoSugerido(hoje, prazo_padrao_dias);
+  const prazo = spec.prazo ?? calcularPrazoSugerido(hoje, prazo_padrao_dias, { apenasDiasUteis: true });
   const statusPrevisto = await statusIdPorNome(db, "previsto");
   const resultado = await run(
     db,
@@ -124,7 +124,7 @@ export async function aplicarCascataAtraso(db, chamado, hoje) {
     raizId
   );
   for (const dep of dependentes) {
-    const novoPrazo = empurrarPrazo(dep.prazo, diasAtraso);
+    const novoPrazo = empurrarPrazo(dep.prazo, diasAtraso, { apenasDiasUteis: true });
     await run(db, "UPDATE chamados SET prazo = ? WHERE id = ?", novoPrazo, dep.id);
     await run(
       db,
@@ -132,7 +132,7 @@ export async function aplicarCascataAtraso(db, chamado, hoje) {
        VALUES (?, NULL, ?, ?, 0)`,
       dep.id,
       hoje,
-      `Prazo ajustado de ${dep.prazo} para ${novoPrazo} devido a atraso de ${diasAtraso} dia(s) no chamado #${chamado.id}.`
+      `Prazo reajustado em dias úteis de ${dep.prazo} para ${novoPrazo} devido a atraso de ${diasAtraso} dia(s) no chamado #${chamado.id}.`
     );
   }
 }

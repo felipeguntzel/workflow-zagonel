@@ -166,28 +166,30 @@ async function iniciar() {
           let inputHtml = "";
           const reqAttr = c.obrigatorio ? "required" : "";
           const obrigatorioMark = c.obrigatorio ? ' <span class="campo-obrigatorio">*</span>' : "";
+          const tipoNorm = String(c.tipo || "texto").toLowerCase();
 
-          if (c.tipo === "texto_longo") {
-            inputHtml = `<textarea name="campo_${c.nome}" ${reqAttr} rows="3" class="textarea-padrao"></textarea>`;
-          } else if (c.tipo === "numero") {
-            inputHtml = `<input type="number" step="any" name="campo_${c.nome}" ${reqAttr} class="input-padrao" style="max-width: 240px;">`;
-          } else if (c.tipo === "data") {
-            inputHtml = `<input type="date" name="campo_${c.nome}" ${reqAttr} class="input-padrao" style="max-width: 240px;">`;
-          } else if (c.tipo === "selecao") {
-            let opcoes = [];
-            try {
-              opcoes = c.opcoes_json ? JSON.parse(c.opcoes_json) : [];
-            } catch (e) {
-              opcoes = [];
+          if (tipoNorm === "texto_longo" || tipoNorm === "textarea") {
+            inputHtml = `<textarea name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} rows="3" class="textarea-padrao"></textarea>`;
+          } else if (tipoNorm === "numero" || tipoNorm === "number") {
+            inputHtml = `<input type="number" step="any" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao" style="max-width: 240px;">`;
+          } else if (tipoNorm === "data" || tipoNorm === "date") {
+            inputHtml = `<input type="date" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao" style="max-width: 240px;">`;
+          } else if (tipoNorm === "selecao" || tipoNorm === "select") {
+            let opcoes = Array.isArray(c.opcoes_parsed) && c.opcoes_parsed.length > 0 ? c.opcoes_parsed : [];
+            if (opcoes.length === 0 && (c.opcoes_json || c.opcoes)) {
+              try {
+                const parsed = JSON.parse(c.opcoes_json || c.opcoes);
+                if (Array.isArray(parsed)) opcoes = parsed;
+              } catch (_) {}
             }
             inputHtml = `
-              <select name="campo_${c.nome}" ${reqAttr} class="select-padrao" style="max-width: 340px;">
+              <select name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="select-padrao" style="max-width: 340px;">
                 <option value="">Selecione...</option>
                 ${opcoes.map((op) => `<option value="${escaparHtml(op)}">${escaparHtml(op)}</option>`).join("")}
               </select>
             `;
           } else {
-            inputHtml = `<input type="text" name="campo_${c.nome}" ${reqAttr} class="input-padrao">`;
+            inputHtml = `<input type="text" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao">`;
           }
 
           return `
