@@ -1,3 +1,5 @@
+PRAGMA defer_foreign_keys = ON;
+
 -- Criação da tabela de vínculo N:N setor_empresas
 CREATE TABLE IF NOT EXISTS setor_empresas (
   setor_id INTEGER NOT NULL REFERENCES setores(id) ON DELETE CASCADE,

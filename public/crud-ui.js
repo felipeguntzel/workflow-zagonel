@@ -81,6 +81,12 @@ export function mostrarAvisoModal(titulo, mensagem, acoes = []) {
   });
 }
 
+export function formatarRotuloFK(o) {
+  if (!o) return "";
+  if (o.codigo && o.nome) return `${o.codigo} - ${o.nome}`;
+  return o.nome ?? "";
+}
+
 function valorExibicao(linha, campo, opcoesFK) {
   if (campo.tipo === "checkbox") {
     return linha[campo.nome] ? "Sim" : "Não";
@@ -93,14 +99,17 @@ function valorExibicao(linha, campo, opcoesFK) {
       ? [linha[campo.nome]]
       : [];
     const nomes = selecionados
-      .map((id) => opcoes.find((o) => o.id === id)?.nome)
+      .map((id) => {
+        const item = opcoes.find((o) => o.id === id);
+        return item ? formatarRotuloFK(item) : "";
+      })
       .filter(Boolean);
     return nomes.length > 0 ? nomes.join(", ") : "";
   }
   if (campo.opcoesEndpoint) {
     const opcoes = opcoesFK[campo.nome] ?? [];
     const alvo = opcoes.find((o) => o.id === linha[campo.nome]);
-    return alvo ? alvo.nome : linha[campo.nome] ?? "";
+    return alvo ? formatarRotuloFK(alvo) : linha[campo.nome] ?? "";
   }
   return linha[campo.nome] ?? "";
 }
@@ -537,7 +546,7 @@ export async function renderCrud(container, config) {
                       (o) => `
               <label class="multiselect-item">
                 <input type="checkbox" name="${campo.nome}[]" value="${o.id}" ${selecionados.includes(o.id) ? "checked" : ""}>
-                <span>${escaparHtml(o.nome)}</span>
+                <span>${escaparHtml(formatarRotuloFK(o))}</span>
               </label>
             `
                     )
@@ -556,7 +565,7 @@ export async function renderCrud(container, config) {
           <label>${rotuloHtml}
             <select name="${campo.nome}" ${campo.obrigatorio ? "required" : ""}>
               <option value="">Selecione…</option>
-              ${opcoes.map((o) => `<option value="${o.id}" ${valorAtual === o.id ? "selected" : ""}>${escaparHtml(o.nome)}</option>`).join("")}
+              ${opcoes.map((o) => `<option value="${o.id}" ${valorAtual === o.id ? "selected" : ""}>${escaparHtml(formatarRotuloFK(o))}</option>`).join("")}
             </select>
           </label>
         </div>
@@ -658,7 +667,7 @@ export async function renderCrud(container, config) {
         selectFilho.innerHTML =
           `<option value="">Selecione…</option>` +
           opcoes
-            .map((o) => `<option value="${o.id}" ${valorAtual === o.id ? "selected" : ""}>${escaparHtml(o.nome)}</option>`)
+            .map((o) => `<option value="${o.id}" ${valorAtual === o.id ? "selected" : ""}>${escaparHtml(formatarRotuloFK(o))}</option>`)
             .join("");
       };
 

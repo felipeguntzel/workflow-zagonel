@@ -18,8 +18,10 @@ export function inicializar() {
     estilo: "simples",
     endpoint: "/empresas",
     tela: "empresas",
-    larguraColuna1: 18,
-    campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
+    campos: [
+      { nome: "codigo", label: "Código", obrigatorio: true },
+      { nome: "nome", label: "Nome", obrigatorio: true },
+    ],
   }).catch((e) => mostrarErro(mensagemErro, e));
 }
 

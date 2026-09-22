@@ -14,8 +14,10 @@ if (usuario) {
     estilo: "simples",
     endpoint: "/empresas",
     tela: "empresas",
-    larguraColuna1: 18,
-    campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
+    campos: [
+      { nome: "codigo", label: "Código", obrigatorio: true },
+      { nome: "nome", label: "Nome", obrigatorio: true },
+    ],
   }).catch((e) => mostrarErro(mensagemErro, e));
 
   renderCrud(document.getElementById("secao-setores"), {
@@ -61,7 +63,7 @@ if (usuario) {
         obrigatorio: true,
         opcoesEndpoint: "/empresas",
         apenasFiltro: true,
-        dica: "Filtra a lista de Setor abaixo. Não é salva diretamente: o setor escolhido já indica a empresa.",
+        dica: "Filtra a lista de Setor abaixo. O setor escolhido já vincula a empresa.",
       },
       {
         nome: "setor_id",
@@ -69,7 +71,7 @@ if (usuario) {
         obrigatorio: true,
         opcoesEndpoint: "/setores",
         dependeDe: "empresa_id",
-        filtrarPor: "empresa_id",
+        filtrarPor: "empresas",
       },
       {
         nome: "login",
@@ -79,23 +81,37 @@ if (usuario) {
         dica: "Usado para entrar no sistema. Só letras e números, sem espaços, pontos ou caracteres especiais.",
       },
       {
+        nome: "email",
+        label: "E-mail",
+        tipo: "email",
+        obrigatorio: false,
+        dica: "E-mail corporativo ou pessoal.\nUsado para envio de notificações e redefinição de senha por e-mail.\nExemplo: usuario@zagonel.com.br",
+      },
+      {
+        nome: "telefone",
+        label: "WhatsApp / Telefone",
+        tipo: "text",
+        obrigatorio: false,
+        dica: "Número de telefone com DDD para contato direto via WhatsApp no navegador.\nExemplo: (49) 99999-9999",
+      },
+      {
         nome: "senha",
         label: "Senha",
         tipo: "password",
-        dica: "Obrigatória ao criar um novo usuário: o próprio usuário troca no primeiro login. Ao editar, deixe em branco para manter a senha atual; preencher define uma nova senha e exige troca no próximo login.",
+        dica: "Requisitos da política de senha forte:\n- Mínimo de 8 caracteres\n- Pelo menos uma letra maiúscula e uma minúscula\n- Pelo menos um número\n- Pelo menos um caractere especial ou símbolo (@, #, $, etc.)\nObrigatória na criação. Ao editar, deixe em branco para manter a senha existente.",
       },
       {
         nome: "admin",
         label: "Administrador",
         tipo: "checkbox",
-        dica: "Ignora todos os grupos de permissão e libera acesso total a todas as telas e ações.",
+        dica: "Acesso administrativo completo:\nLibera todas as telas, relatórios e permissões do sistema.",
       },
       {
         nome: "grupos",
         label: "Grupos de permissão",
         tipo: "multiselect",
         opcoesEndpoint: "/grupos",
-        dica: "Define o que este usuário pode visualizar, inserir, editar ou excluir em cada tela. Administradores não precisam de grupo.",
+        dica: "Define as permissões de acesso do usuário:\nVisualizar, inserir, editar ou excluir em cada tela.\n(Administradores não necessitam de grupos vinculados).",
       },
     ],
   }).catch((e) => mostrarErro(mensagemErro, e));

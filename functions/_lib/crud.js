@@ -26,6 +26,13 @@ export async function assegurarEsquemaTabela(db, table) {
       // Ignora se coluna já existir ou falhar
     }
   }
+  if (table === "empresas") {
+    try {
+      await run(db, "ALTER TABLE empresas ADD COLUMN codigo TEXT");
+    } catch (_) {
+      // Ignora se coluna já existir ou falhar
+    }
+  }
   schemaVerificadoPorTabela.add(table);
 }
 
