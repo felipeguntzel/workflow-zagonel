@@ -38,3 +38,19 @@ test("assegurarEsquemaTabela executa ALTER TABLE para fluxo_templates de forma s
   assert.ok(comandoSql.includes("ALTER TABLE fluxo_templates ADD COLUMN descricao TEXT"));
 });
 
+test("assegurarEsquemaTabela executa ALTER TABLE para empresas codigo de forma segura", async () => {
+  const { assegurarEsquemaTabela } = await import("./crud.js");
+  let comandoSql = "";
+  const mockDb = {
+    prepare(sql) {
+      comandoSql = sql;
+      return {
+        bind() { return this; },
+        async run() { return { meta: {} }; }
+      };
+    }
+  };
+  await assegurarEsquemaTabela(mockDb, "empresas");
+  assert.ok(comandoSql.includes("ALTER TABLE empresas ADD COLUMN codigo TEXT"));
+});
+

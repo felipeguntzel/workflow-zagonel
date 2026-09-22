@@ -947,6 +947,11 @@ form.formulario[hidden] { display: none; }
 .modal-cadastro input[type="number"],
 .modal-cadastro input[type="password"],
 .modal-cadastro input[type="date"],
+.modal-cadastro input[type="email"],
+.modal-cadastro input[type="tel"],
+.modal-cadastro input[type="url"],
+.modal-cadastro input[type="search"],
+.modal-cadastro textarea,
 .modal-cadastro select {
   width: 100%;
   box-sizing: border-box;
@@ -959,7 +964,12 @@ form.formulario[hidden] { display: none; }
   color: var(--cor-texto);
   outline: none;
 }
+.modal-cadastro textarea {
+  resize: vertical;
+  min-height: 80px;
+}
 .modal-cadastro input:focus,
+.modal-cadastro textarea:focus,
 .modal-cadastro select:focus {
   border-color: var(--cor-primaria);
   box-shadow: 0 0 0 3px rgba(47, 111, 79, 0.15);

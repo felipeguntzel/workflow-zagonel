@@ -100,5 +100,12 @@ test("gerarConteudoCsv cria CSV com BOM UTF-8, delimitador correto e escape de a
   assert.ok(csv.includes('2;"Torneira ""Eletrônica""";Sem observações'));
 });
 
+test("formatarRotuloFK formata com código e nome quando código está presente", async () => {
+  const { formatarRotuloFK } = await import("./crud-ui.js");
+  assert.equal(formatarRotuloFK({ id: 1, codigo: "001", nome: "Zagonel S.A" }), "001 - Zagonel S.A");
+  assert.equal(formatarRotuloFK({ id: 2, nome: "Setor Geral" }), "Setor Geral");
+  assert.equal(formatarRotuloFK(null), "");
+});
+
 
 
