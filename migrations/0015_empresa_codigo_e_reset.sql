@@ -50,7 +50,7 @@ INSERT INTO setor_empresas (setor_id, empresa_id) VALUES (1, 2);
 INSERT INTO setor_empresas (setor_id, empresa_id) VALUES (1, 3);
 
 -- 5. Inserir o primeiro usuário: Felipe Guntzel (login: felipe, admin)
--- Senha inicial '1234felipe' (SHA-256 legado aceito e convertido no 1º login)
+-- Senha '1234felipe' (PBKDF2 com 100k iterações)
 -- Telefone: 49 999151894
 -- Email: engenharia18@zagonel.com.br
 INSERT INTO usuarios (id, nome, setor_id, login, email, telefone, senha_hash, admin, deve_trocar_senha)
@@ -61,7 +61,7 @@ VALUES (
   'felipe',
   'engenharia18@zagonel.com.br',
   '49 999151894',
-  '0c60f131d742c3aa3da17c0d065ad49121a9f00c4eeeaf87e48598d85f20e846',
+  'pbkdf2$100000$abf3999251972deb4162fa38d716473b$31eb3487865fa242b128f55b06b9c3dc32546a63e71f822c1318008633ba29bc',
   1,
   0
 );
