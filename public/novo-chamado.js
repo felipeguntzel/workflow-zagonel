@@ -110,18 +110,34 @@ async function iniciar(usuarioLogado) {
             <span id="rotulo-etapa-automatica" style="font-size: 0.8rem; color: var(--cor-texto-secundario); font-weight: 600; background: var(--cor-fundo-elevado); padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid var(--cor-borda);" hidden></span>
           </div>
 
-          <!-- Linha 1: Fluxo de Processo e Solicitante em 2 colunas -->
-          <div class="formulario-grid-cabecalho" style="margin-bottom: 0.4rem;">
+          <!-- Linha 1: Fluxo de Processo com largura total -->
+          <div class="campo-grupo" style="margin-bottom: 0.45rem;">
+            <label class="campo-rotulo" for="select-fluxo">
+              Fluxo de processo <span class="campo-obrigatorio">*</span>
+            </label>
+            <select id="select-fluxo" name="fluxo_template_id" required class="select-padrao">
+              <option value="">Selecione o fluxo...</option>
+              ${fluxos.map((f) => `<option value="${f.id}">${escaparHtml(f.nome)}</option>`).join("")}
+            </select>
+            <input type="hidden" id="input-etapa-inicial-id" name="etapa_inicial_id">
+            <p id="aviso-etapas-vazias" class="campo-ajuda" style="color: var(--cor-alerta); margin-top: 0.25rem;" hidden></p>
+          </div>
+
+          <!-- Linha 2: Título do chamado e Solicitante alinhados lado a lado -->
+          <div class="formulario-grid-cabecalho" style="margin-top: 0.45rem; margin-bottom: 0.45rem;">
             <div class="campo-grupo" style="margin-bottom: 0;">
-              <label class="campo-rotulo" for="select-fluxo">
-                Fluxo de processo <span class="campo-obrigatorio">*</span>
+              <label class="campo-rotulo" for="campo-titulo">
+                Título do chamado <span class="campo-obrigatorio">*</span>
               </label>
-              <select id="select-fluxo" name="fluxo_template_id" required class="select-padrao">
-                <option value="">Selecione o fluxo...</option>
-                ${fluxos.map((f) => `<option value="${f.id}">${escaparHtml(f.nome)}</option>`).join("")}
-              </select>
-              <input type="hidden" id="input-etapa-inicial-id" name="etapa_inicial_id">
-              <p id="aviso-etapas-vazias" class="campo-ajuda" style="color: var(--cor-alerta); margin-top: 0.25rem;" hidden></p>
+              <input 
+                type="text" 
+                id="campo-titulo" 
+                name="titulo" 
+                required 
+                class="input-padrao" 
+                placeholder="Informe um título objetivo e claro para a solicitação..."
+                style="font-size: 0.95rem; font-weight: 600;"
+              >
             </div>
 
             <div class="campo-grupo" style="margin-bottom: 0;">
@@ -133,22 +149,6 @@ async function iniciar(usuarioLogado) {
                 <span class="tag-automatico">Automático</span>
               </div>
             </div>
-          </div>
-
-          <!-- Linha 2: Título do chamado com largura total -->
-          <div class="campo-grupo" style="margin-top: 0.4rem; margin-bottom: 0.4rem;">
-            <label class="campo-rotulo" for="campo-titulo">
-              Título do chamado <span class="campo-obrigatorio">*</span>
-            </label>
-            <input 
-              type="text" 
-              id="campo-titulo" 
-              name="titulo" 
-              required 
-              class="input-padrao" 
-              placeholder="Informe um título objetivo e claro para a solicitação..."
-              style="font-size: 0.95rem; font-weight: 600;"
-            >
           </div>
 
           <!-- Linha 3: Prioridade, Setor e Empresa em 3 colunas -->
