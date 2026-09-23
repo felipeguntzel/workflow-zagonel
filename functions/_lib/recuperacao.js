@@ -71,43 +71,53 @@ export async function gerarSolicitacaoRecuperacao(db, identificador, baseUrl, en
   let erroEnvio = null;
 
   // Se houver chave do Resend configurada nas variáveis de ambiente
-  if (env && env.RESEND_API_KEY) {
-    try {
-      const remetente = env.EMAIL_REMETENTE || "WorkFlow Zagonel <onboarding@resend.dev>";
-      const resp = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: remetente,
-          to: [usuario.email],
-          subject: "Redefinição de Senha - WorkFlow Zagonel",
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 20px; color: #1f2937;">
-              <h2 style="color: #2f6f4f;">Recuperação de Senha</h2>
-              <p>Olá, <strong>${usuario.nome}</strong>,</p>
-              <p>Recebemos uma solicitação para redefinir a senha do seu usuário <code>${usuario.login}</code> no sistema WorkFlow Zagonel.</p>
-              <p>Clique no botão abaixo para criar sua nova senha (link válido por 30 minutos):</p>
-              <p style="margin: 25px 0;">
-                <a href="${linkRedefinicao}" style="background-color: #2f6f4f; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                  Redefinir Minha Senha
-                </a>
-              </p>
-              <p style="font-size: 0.85rem; color: #6b7280;">Se você não solicitou a troca de senha, pode ignorar este e-mail com segurança.</p>
-            </div>
-          `,
-        }),
-      });
-      emailEnviado = resp.ok;
-      if (!resp.ok) {
-        const txt = await resp.text();
-        erroEnvio = `Resend retornou status ${resp.status}: ${txt}`;
-      }
-    } catch (e) {
-      erroEnvio = e.message;
+  if (!env || !env.RESEND_API_KEY) {
+    throw new Error(
+      "O serviço de envio de e-mails (RESEND_API_KEY) não está configurado neste ambiente. Solicite a um administrador para redefinir sua senha diretamente no painel de Usuários."
+    );
+  }
+
+  try {
+    const remetente = env.EMAIL_REMETENTE || "WorkFlow Zagonel <onboarding@resend.dev>";
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: remetente,
+        to: [usuario.email],
+        subject: "Redefinição de Senha - WorkFlow Zagonel",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 20px; color: #1f2937;">
+            <h2 style="color: #2f6f4f;">Recuperação de Senha</h2>
+            <p>Olá, <strong>${usuario.nome}</strong>,</p>
+            <p>Recebemos uma solicitação para redefinir a senha do seu usuário <code>${usuario.login}</code> no sistema WorkFlow Zagonel.</p>
+            <p>Clique no botão abaixo para criar sua nova senha (link válido por 30 minutos):</p>
+            <p style="margin: 25px 0;">
+              <a href="${linkRedefinicao}" style="background-color: #2f6f4f; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                Redefinir Minha Senha
+              </a>
+            </p>
+            <p style="font-size: 0.85rem; color: #6b7280;">Se você não solicitou a troca de senha, pode ignorar este e-mail com segurança.</p>
+          </div>
+        `,
+      }),
+    });
+    emailEnviado = resp.ok;
+    if (!resp.ok) {
+      const txt = await resp.text();
+      erroEnvio = `Resend status ${resp.status}: ${txt}`;
     }
+  } catch (e) {
+    erroEnvio = e.message;
+  }
+
+  if (!emailEnviado) {
+    throw new Error(
+      `Falha no envio do e-mail de recuperação (${erroEnvio || "serviço indisponível"}). Solicite a um administrador para redefinir sua senha diretamente no painel de Usuários.`
+    );
   }
 
   // Mascarar e-mail para exibição segura (ex: f***@zagonel.com.br)
@@ -120,7 +130,6 @@ export async function gerarSolicitacaoRecuperacao(db, identificador, baseUrl, en
     sucesso: true,
     email_mascarado: usuarioMascarado,
     email_enviado: emailEnviado,
-    erro_envio: erroEnvio,
   };
 }
 

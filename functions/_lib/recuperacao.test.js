@@ -61,7 +61,26 @@ test("gerarSolicitacaoRecuperacao lança erro se usuário não tiver e-mail", as
   );
 });
 
-test("gerarSolicitacaoRecuperacao gera token e mascara e-mail quando usuário possui e-mail", async () => {
+test("gerarSolicitacaoRecuperacao lança erro claro se RESEND_API_KEY não estiver configurada", async () => {
+  const dbMock = {
+    prepare: () => ({
+      bind: () => ({
+        all: async () => ({ results: [] }),
+        first: async () => ({ id: 2, nome: "Felipe", login: "felipe", email: "felipe@zagonel.com.br" }),
+        run: async () => ({ meta: {} }),
+      }),
+    }),
+  };
+
+  await assert.rejects(
+    async () => {
+      await gerarSolicitacaoRecuperacao(dbMock, "felipe", "https://app.zagonel.com.br", {});
+    },
+    (err) => err.message.includes("RESEND_API_KEY")
+  );
+});
+
+test("gerarSolicitacaoRecuperacao gera token e dispara e-mail com sucesso quando serviço configurado", async () => {
   const queries = [];
   const dbMock = {
     prepare: (sql) => ({
@@ -76,10 +95,23 @@ test("gerarSolicitacaoRecuperacao gera token e mascara e-mail quando usuário po
     }),
   };
 
-  const res = await gerarSolicitacaoRecuperacao(dbMock, "felipe", "https://app.zagonel.com.br");
-  assert.equal(res.sucesso, true);
-  assert.match(res.email_mascarado, /f\*\*\*e@zagonel\.com\.br/);
-  assert.equal(res.link_recuperacao, undefined);
+  const fetchOriginal = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true });
+
+  try {
+    const res = await gerarSolicitacaoRecuperacao(
+      dbMock,
+      "felipe",
+      "https://app.zagonel.com.br",
+      { RESEND_API_KEY: "re_test_123" }
+    );
+    assert.equal(res.sucesso, true);
+    assert.match(res.email_mascarado, /f\*\*\*e@zagonel\.com\.br/);
+    assert.equal(res.link_recuperacao, undefined);
+    assert.equal(res.email_enviado, true);
+  } finally {
+    globalThis.fetch = fetchOriginal;
+  }
 });
 
 test("redefinirSenhaComToken rejeita senha que nao cumpre politica de complexidade", async () => {
