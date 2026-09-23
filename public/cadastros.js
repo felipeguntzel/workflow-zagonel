@@ -98,7 +98,7 @@ if (usuario) {
         nome: "senha",
         label: "Senha",
         tipo: "password",
-        dica: "Requisitos da política de senha forte:\n- Mínimo de 8 caracteres\n- Pelo menos uma letra maiúscula e uma minúscula\n- Pelo menos um número\n- Pelo menos um caractere especial ou símbolo (@, #, $, etc.)\nObrigatória na criação. Ao editar, deixe em branco para manter a senha existente.",
+        dica: "Regras de senha:\n- Mínimo de 6 e máximo de 10 caracteres\n- Pode conter letras maiúsculas, minúsculas, números e caracteres especiais\n- Senhas exclusivamente numéricas não podem ser números repetidos (ex: 111111) nem sequências de 1 em 1 (ex: 123456)\nObrigatória na criação. Ao editar, deixe em branco para manter a senha existente.",
       },
       {
         nome: "admin",

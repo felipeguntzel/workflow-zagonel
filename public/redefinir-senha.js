@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { mostrarErro } from "./ui.js";
-import { gerarSenhaAleatoria, validarComplexidadeSenhaCliente } from "./crud-ui.js";
+import { gerarSenhaAleatoria, validarComplexidadeSenhaCliente, calcularSha256 } from "./crud-ui.js";
 
 const params = new URLSearchParams(window.location.search);
 const token = params.get("token");
@@ -20,6 +20,7 @@ const btnCopiar = document.getElementById("btn-copiar-senha-gerada");
 const avisoCaps = document.getElementById("aviso-capslock-redefinir");
 
 let senhaGeradaAtual = "";
+let usuarioLoginIdentificado = "";
 
 // Gerar senha aleatória
 btnGerar?.addEventListener("click", () => {
@@ -45,6 +46,23 @@ btnCopiar?.addEventListener("click", () => {
       if (btnCopiar) btnCopiar.textContent = "Copiar";
     }, 3000);
   }
+});
+
+// Botões para copiar senha diretamente do campo
+document.querySelectorAll(".btn-copiar-campo").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const alvoId = btn.dataset.alvo;
+    const input = document.getElementById(alvoId);
+    if (!input || !input.value) return;
+    navigator.clipboard?.writeText(input.value).catch(() => {});
+    const textoOriginal = btn.textContent;
+    btn.textContent = "✓";
+    btn.title = "Senha copiada!";
+    setTimeout(() => {
+      btn.textContent = textoOriginal;
+      btn.title = "Copiar senha";
+    }, 2500);
+  });
 });
 
 // Botões de alternar visualização de senha
@@ -97,6 +115,7 @@ async function validarToken() {
       method: "POST",
       body: { acao: "validar", token },
     });
+    usuarioLoginIdentificado = res.usuario_login || "";
     subtitulo.innerHTML = `Olá, <strong>${res.usuario_nome || res.usuario_login}</strong>. Digite e confirme sua nova senha abaixo:`;
   } catch (err) {
     exibirTokenInvalido(err.message || "Link de recuperação inválido ou expirado.");
@@ -141,21 +160,26 @@ form.addEventListener("submit", async (e) => {
   btnSalvar.textContent = "Salvando nova senha...";
 
   try {
+    const senhaHash = await calcularSha256(novaSenha);
     await api("/recuperar-senha", {
       method: "POST",
       body: {
         acao: "redefinir",
         token,
-        nova_senha: novaSenha,
+        nova_senha: senhaHash,
       },
     });
+
+    const infoUsuario = usuarioLoginIdentificado
+      ? `Utilize seu usuário <strong>${usuarioLoginIdentificado}</strong> para acessar o sistema com sua nova senha.`
+      : "Você já pode acessar o sistema com suas novas credenciais.";
 
     painel.innerHTML = `
       <div style="text-align: center; padding: 1.5rem 0.5rem;">
         <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">✅</div>
         <h2 style="margin-bottom: 0.5rem; color: #15803d;">Senha Redefinida!</h2>
         <p style="color: var(--cor-texto-secundario); font-size: 0.92rem; margin-bottom: 1.5rem; line-height: 1.5;">
-          Sua senha foi atualizada com sucesso. Você já pode acessar o sistema com suas novas credenciais.
+          Sua senha foi atualizada com sucesso. ${infoUsuario}
         </p>
         <a href="/" class="btn-link" style="display: inline-block; font-size: 0.95rem; font-weight: 700;">
           Fazer login agora &rarr;

@@ -64,6 +64,22 @@ function voltarParaLogin() {
   formLogin.elements.login?.focus();
 }
 
+// Alternar visualização da senha no login
+document.querySelectorAll(".btn-toggle-senha").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const alvoId = btn.dataset.alvo;
+    const input = document.getElementById(alvoId);
+    if (!input) return;
+    if (input.type === "password") {
+      input.type = "text";
+      btn.textContent = "🙈";
+    } else {
+      input.type = "password";
+      btn.textContent = "👁️";
+    }
+  });
+});
+
 btnEsqueciSenha?.addEventListener("click", abrirRecuperacao);
 btnCancelarRecuperacao?.addEventListener("click", voltarParaLogin);
 
@@ -71,19 +87,20 @@ formLogin?.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   mensagemErro.hidden = true;
   mensagemErro.innerHTML = "";
+  const loginDigitado = formLogin.elements.login.value.trim();
   try {
     const senhaHash = await calcularSha256(formLogin.elements.senha.value);
     const usuario = await api("/login", {
       method: "POST",
       body: {
-        login: formLogin.elements.login.value.trim(),
+        login: loginDigitado,
         senha: senhaHash,
       },
     });
     setUsuarioLogado(usuario);
     window.location.href = usuario.deve_trocar_senha ? "/trocar-senha" : "/chamados";
   } catch (e) {
-    const msg = e && e.message ? e.message : String(e || "");
+    let msg = e && e.message ? e.message : String(e || "");
     if (msg.includes("bloqueado") || msg.includes("Redefina sua senha")) {
       mensagemErro.innerHTML = `
         <div>${escaparHtml(msg)}</div>
@@ -97,7 +114,10 @@ formLogin?.addEventListener("submit", async (ev) => {
       mensagemErro.hidden = false;
       document.getElementById("btn-atalho-redefinir")?.addEventListener("click", abrirRecuperacao);
     } else {
-      mostrarErro(mensagemErro, e);
+      if (msg.includes("Login ou senha inválidos") && !loginDigitado.includes(".") && !loginDigitado.includes("@")) {
+        msg += " (Dica: o login utiliza o formato nome.sobrenome, ex: felipe.guntzel, ou seu e-mail corporativo).";
+      }
+      mostrarErro(mensagemErro, new Error(msg));
     }
   }
 });
@@ -124,7 +144,10 @@ formRecuperar?.addEventListener("submit", async (ev) => {
         <span style="font-size: 1.25rem; line-height: 1;">✉️</span>
         <div>
           <strong style="display: block; margin-bottom: 0.25rem;">Solicitação registrada com sucesso!</strong>
-          Enviamos as instruções e o link seguro para o e-mail cadastrado <strong>(${escaparHtml(res.email_mascarado)})</strong>. O link expira em 30 minutos.
+          <p style="margin: 0 0 0.5rem;">Enviamos as instruções e o link seguro para o e-mail cadastrado <strong>(${escaparHtml(res.email_mascarado)})</strong>. O link expira em 30 minutos.</p>
+          <div style="background: rgba(234, 179, 8, 0.16); border: 1px solid rgba(202, 138, 4, 0.4); border-radius: 4px; padding: 0.45rem 0.6rem; font-size: 0.8rem; color: #713f12; margin-top: 0.5rem;">
+            📬 <strong>Importante:</strong> Se não localizar na Caixa de Entrada em instantes, consulte sua pasta de <strong>Lixo Eletrônico</strong> ou <strong>Spam</strong>.
+          </div>
         </div>
       </div>
     `;

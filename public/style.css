@@ -205,7 +205,9 @@ body {
 }
 
 .login-split__form .btn-toggle-senha,
-.login-card .btn-toggle-senha {
+.login-card .btn-toggle-senha,
+.login-split__form .btn-copiar-campo,
+.login-card .btn-copiar-campo {
   background: var(--cor-fundo-elevado, #f3f4f6) !important;
   color: var(--cor-texto, #1f2937) !important;
   border: 1px solid var(--cor-borda, #d6d9dc) !important;
@@ -215,9 +217,12 @@ body {
   width: auto !important;
   box-shadow: none !important;
   border-radius: 0.4rem !important;
+  cursor: pointer;
 }
 .login-split__form .btn-toggle-senha:hover,
-.login-card .btn-toggle-senha:hover {
+.login-card .btn-toggle-senha:hover,
+.login-split__form .btn-copiar-campo:hover,
+.login-card .btn-copiar-campo:hover {
   background: #e5e7eb !important;
 }
 

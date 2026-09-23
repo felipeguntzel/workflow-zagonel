@@ -22,7 +22,10 @@
         <input type="text" name="login" required autocomplete="username" placeholder="Ex: felipe.guntzel ou e-mail">
       </label>
       <label>Senha
-        <input type="password" name="senha" required autocomplete="current-password" placeholder="Sua senha de acesso">
+        <div style="display: flex; gap: 0.4rem; align-items: center;">
+          <input type="password" name="senha" id="input-senha-login" required autocomplete="current-password" placeholder="Sua senha de acesso" style="flex: 1;">
+          <button type="button" class="btn-toggle-senha" id="btn-toggle-senha-login" data-alvo="input-senha-login" title="Visualizar ou ocultar senha">👁️</button>
+        </div>
         <div id="aviso-capslock-login" hidden style="display: none; align-items: center; gap: 0.35rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; margin-top: 0.4rem;">
           <span>⚠️ Caps Lock ativado</span>
         </div>
@@ -40,6 +43,12 @@
       <p style="color: var(--cor-texto-secundario); font-size: 0.88rem; margin: -0.25rem 0 0.5rem; line-height: 1.5;">
         Informe seu <strong>usuário</strong> ou <strong>e-mail</strong> cadastrado. Enviaremos as instruções para você redefinir sua senha com segurança.
       </p>
+
+      <div style="background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(202, 138, 4, 0.3); border-radius: 6px; padding: 0.55rem 0.75rem; font-size: 0.82rem; color: #854d0e; line-height: 1.4; display: flex; gap: 0.45rem; align-items: flex-start;">
+        <span style="font-size: 1rem; line-height: 1;">📬</span>
+        <span><strong>Lembrete:</strong> O e-mail de redefinição pode ser direcionado para sua pasta de <strong>Lixo Eletrônico</strong> ou <strong>Spam</strong>.</span>
+      </div>
+
       <label>Usuário ou E-mail
         <input type="text" id="recuperar-identificador" required placeholder="Ex: felipe.guntzel ou nome@zagonel.com.br" autocomplete="username">
       </label>
@@ -54,6 +63,6 @@
     </form>
   </div>
 </div>
-<script type="module" src="index.js"></script>
+<script type="module" src="index.js?v=20260923-2"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 import { all, first, run } from "./db.js";
 import { hashSenha, validarComplexidadeSenha } from "./auth.js";
-import { desbloquearUsuario } from "./rate-limit.js";
+import { desbloquearUsuario, limparTentativasLogin } from "./rate-limit.js";
 
 let tabelaGarantida = false;
 
@@ -227,7 +227,19 @@ export async function redefinirSenhaComToken(db, token, novaSenha) {
     throw new Error(checagem.mensagem);
   }
 
-  const senhaHash = await hashSenha(novaSenha);
+  // Normalização: o login envia SHA-256 da senha digitada (64 caracteres hexadecimais).
+  // Se novaSenha vier em texto puro, convertemos para SHA-256 antes de calcular o hash PBKDF2
+  // para garantir consistência total com a autenticação no login.
+  let hashParaArmazenar = novaSenha;
+  if (!/^[a-f0-9]{64}$/i.test(hashParaArmazenar)) {
+    const dados = new TextEncoder().encode(hashParaArmazenar);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", dados);
+    hashParaArmazenar = Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  const senhaHash = await hashSenha(hashParaArmazenar);
   const agora = Date.now();
 
   // Atualiza senha, desmarca flag de troca obrigatoria e invalida sessoes antigas
@@ -242,8 +254,9 @@ export async function redefinirSenhaComToken(db, token, novaSenha) {
   // Marca token como usado
   await run(db, "UPDATE recuperacao_senha SET usado = 1 WHERE id = ?", registro.id);
 
-  // Desbloqueia eventuais tentativas de login bloqueadas
+  // Desbloqueia eventuais tentativas de login bloqueadas e limpa contador de falhas
   await desbloquearUsuario(db, registro.usuario_login);
+  await limparTentativasLogin(db, registro.usuario_login.toLowerCase());
 
   return { sucesso: true, usuario_nome: registro.usuario_nome, usuario_login: registro.usuario_login };
 }

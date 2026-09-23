@@ -169,3 +169,42 @@ test("redefinirSenhaComToken aceita senha forte valida", async () => {
   assert.ok(updates.length >= 2);
   assert.match(updates[0].sql, /token_valido_apos/);
 });
+
+test("redefinirSenhaComToken gera hash compativel com o fluxo de login em SHA-256", async () => {
+  const updates = [];
+  const dbMock = {
+    prepare: (sql) => ({
+      bind: (...args) => ({
+        all: async () => ({ results: [] }),
+        first: async () => ({
+          id: 1,
+          usuario_id: 10,
+          token: "tokenteste",
+          expira_em: new Date(Date.now() + 60000).toISOString(),
+          usado: 0,
+          usuario_nome: "Felipe",
+          usuario_login: "felipe.guntzel",
+        }),
+        run: async () => {
+          updates.push({ sql, args });
+          return { meta: {} };
+        },
+      }),
+    }),
+  };
+
+  // 1. Redefine passando texto puro (ex: "849201")
+  await redefinirSenhaComToken(dbMock, "tokenteste", "849201");
+  const hashGravado = updates[0].args[0];
+
+  // No login, o cliente calcula SHA-256 da senha digitada:
+  const dados = new TextEncoder().encode("849201");
+  const hashBuffer = await crypto.subtle.digest("SHA-256", dados);
+  const sha256Cliente = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  const { verificarSenha } = await import("./auth.js");
+  const loginSucesso = await verificarSenha(sha256Cliente, hashGravado);
+  assert.equal(loginSucesso, true);
+});
