@@ -107,8 +107,17 @@ export async function gerarSolicitacaoRecuperacao(db, identificador, baseUrl, en
     });
     emailEnviado = resp.ok;
     if (!resp.ok) {
-      const txt = await resp.text();
-      erroEnvio = `Resend status ${resp.status}: ${txt}`;
+      let txt = await resp.text();
+      try {
+        const jsonErro = JSON.parse(txt);
+        if (jsonErro.message) txt = jsonErro.message;
+      } catch (_) {}
+
+      if (resp.status === 403) {
+        erroEnvio = `Resend rejeitou o envio (403): ${txt}. No plano gratuito do Resend, e-mails só podem ser enviados para o mesmo endereço da sua conta Resend, ou após validar o domínio corporativo em resend.com/domains`;
+      } else {
+        erroEnvio = `Resend status ${resp.status}: ${txt}`;
+      }
     }
   } catch (e) {
     erroEnvio = e.message;
@@ -116,7 +125,7 @@ export async function gerarSolicitacaoRecuperacao(db, identificador, baseUrl, en
 
   if (!emailEnviado) {
     throw new Error(
-      `Falha no envio do e-mail de recuperação (${erroEnvio || "serviço indisponível"}). Solicite a um administrador para redefinir sua senha diretamente no painel de Usuários.`
+      `Falha no envio do e-mail de recuperação: ${erroEnvio || "serviço indisponível"}. Solicite a um administrador para redefinir sua senha diretamente no painel de Usuários.`
     );
   }
 
