@@ -116,7 +116,8 @@ body {
   justify-content: center;
   padding: 2rem;
 }
-.login-split__form form {
+.login-split__form form,
+.login-card {
   width: 100%;
   max-width: 380px;
   background: white;
@@ -125,32 +126,46 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
   padding: 2.5rem 2rem;
   gap: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
-.login-split__form h2 {
+.login-split__form form[hidden],
+.login-card[hidden] {
+  display: none !important;
+}
+.login-split__form h2,
+.login-card h2 {
   margin: 0 0 0.25rem;
   font-size: 1.5rem;
   font-weight: 700;
   color: #1f2933;
 }
-.login-split__form label {
+.login-split__form label,
+.login-card label {
   font-size: 0.85rem;
   font-weight: 600;
   color: #1f2933;
   gap: 0.35rem;
 }
-.login-split__form input {
+.login-split__form input,
+.login-card input {
   padding: 0.65rem 0.8rem;
   border: 1px solid #d6d9dc;
   border-radius: 0.4rem;
   font-size: 1rem;
   font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
 }
-.login-split__form input:focus {
+.login-split__form input:focus,
+.login-card input:focus {
   outline: none;
   border-color: #2f6f4f;
   box-shadow: 0 0 0 3px rgba(47, 111, 79, 0.15);
 }
-.login-split__form button {
+.login-split__form button,
+.login-card button {
   margin-top: 0.4rem;
   padding: 0.75rem;
   background: #2f6f4f;
@@ -160,13 +175,58 @@ body {
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
 }
-.login-split__form button:hover { background: #24593f; }
+.login-split__form button:hover,
+.login-card button:hover { background: #24593f; }
+
+.login-split__form .btn-link,
+.login-card .btn-link {
+  background: transparent !important;
+  color: var(--cor-primaria, #2f6f4f) !important;
+  border: none !important;
+  padding: 0.3rem 0.5rem !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  text-decoration: underline !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  width: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.login-split__form .btn-link:hover,
+.login-card .btn-link:hover {
+  color: var(--cor-primaria-escura, #24593f) !important;
+  background: transparent !important;
+}
+
+.login-split__form .btn-toggle-senha,
+.login-card .btn-toggle-senha {
+  background: var(--cor-fundo-elevado, #f3f4f6) !important;
+  color: var(--cor-texto, #1f2937) !important;
+  border: 1px solid var(--cor-borda, #d6d9dc) !important;
+  padding: 0.55rem 0.65rem !important;
+  font-size: 0.9rem !important;
+  margin: 0 !important;
+  width: auto !important;
+  box-shadow: none !important;
+  border-radius: 0.4rem !important;
+}
+.login-split__form .btn-toggle-senha:hover,
+.login-card .btn-toggle-senha:hover {
+  background: #e5e7eb !important;
+}
+
 @media (max-width: 720px) {
   .login-split { flex-direction: column; }
   .login-split__destaque { flex: 0 0 auto; padding: 2rem 1.5rem; }
   .login-split__destaque h1 { font-size: 2.25rem; }
-  .login-split__form form { box-shadow: none; border: none; padding: 2rem 0.5rem; }
+  .login-split__form form,
+  .login-card { box-shadow: none; border: none; padding: 2rem 0.5rem; }
 }
 
 table { width: 100%; border-collapse: collapse; margin-top: 1rem; }

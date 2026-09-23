@@ -1,5 +1,6 @@
 import { api } from "./api.js";
 import { mostrarErro } from "./ui.js";
+import { gerarSenhaAleatoria, validarComplexidadeSenhaCliente } from "./crud-ui.js";
 
 const params = new URLSearchParams(window.location.search);
 const token = params.get("token");
@@ -10,6 +11,79 @@ const subtitulo = document.getElementById("subtitulo-usuario");
 const msgErro = document.getElementById("mensagem-erro");
 const msgSucesso = document.getElementById("mensagem-sucesso");
 const btnSalvar = document.getElementById("btn-salvar");
+const inputNova = document.getElementById("input-nova-senha");
+const inputConfirmar = document.getElementById("input-confirmar-senha");
+const btnGerar = document.getElementById("btn-gerar-senha-redefinir");
+const painelGerada = document.getElementById("painel-senha-gerada");
+const textoGerada = document.getElementById("texto-senha-gerada");
+const btnCopiar = document.getElementById("btn-copiar-senha-gerada");
+const avisoCaps = document.getElementById("aviso-capslock-redefinir");
+
+let senhaGeradaAtual = "";
+
+// Gerar senha aleatória
+btnGerar?.addEventListener("click", () => {
+  const nova = gerarSenhaAleatoria(6);
+  senhaGeradaAtual = nova;
+  inputNova.value = nova;
+  inputConfirmar.value = nova;
+  textoGerada.textContent = nova;
+  painelGerada.hidden = false;
+
+  navigator.clipboard?.writeText(nova).catch(() => {});
+  btnCopiar.textContent = "✓ Copiada!";
+  setTimeout(() => {
+    if (btnCopiar) btnCopiar.textContent = "Copiar";
+  }, 3000);
+});
+
+btnCopiar?.addEventListener("click", () => {
+  if (senhaGeradaAtual) {
+    navigator.clipboard?.writeText(senhaGeradaAtual).catch(() => {});
+    btnCopiar.textContent = "✓ Copiada!";
+    setTimeout(() => {
+      if (btnCopiar) btnCopiar.textContent = "Copiar";
+    }, 3000);
+  }
+});
+
+// Botões de alternar visualização de senha
+document.querySelectorAll(".btn-toggle-senha").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const alvoId = btn.dataset.alvo;
+    const input = document.getElementById(alvoId);
+    if (!input) return;
+    if (input.type === "password") {
+      input.type = "text";
+      btn.textContent = "🙈";
+    } else {
+      input.type = "password";
+      btn.textContent = "👁️";
+    }
+  });
+});
+
+// Detecção de Caps Lock
+const checarCaps = (ev) => {
+  if (!avisoCaps) return;
+  if (ev.getModifierState && ev.getModifierState("CapsLock")) {
+    avisoCaps.hidden = false;
+    avisoCaps.style.display = "flex";
+  } else {
+    avisoCaps.hidden = true;
+    avisoCaps.style.display = "none";
+  }
+};
+[inputNova, inputConfirmar].forEach((inp) => {
+  inp?.addEventListener("keydown", checarCaps);
+  inp?.addEventListener("keyup", checarCaps);
+  inp?.addEventListener("blur", () => {
+    if (avisoCaps) {
+      avisoCaps.hidden = true;
+      avisoCaps.style.display = "none";
+    }
+  });
+});
 
 if (!token) {
   exibirTokenInvalido("Nenhum código de recuperação foi informado.");
@@ -31,14 +105,14 @@ async function validarToken() {
 
 function exibirTokenInvalido(mensagem) {
   painel.innerHTML = `
-    <div style="text-align: center; padding: 2rem 1rem;">
+    <div style="text-align: center; padding: 1.5rem 0.5rem;">
       <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">⚠️</div>
       <h2 style="margin-bottom: 0.5rem;">Link Inválido ou Expirado</h2>
-      <p style="color: var(--cor-texto-secundario); font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;">
+      <p style="color: var(--cor-texto-secundario); font-size: 0.92rem; margin-bottom: 1.5rem; line-height: 1.5;">
         ${mensagem}
       </p>
-      <a href="/" class="btn btn-primario" style="text-decoration: none; display: inline-block; padding: 0.6rem 1.25rem;">
-        Ir para tela de login
+      <a href="/" class="btn-link" style="display: inline-block; font-size: 0.95rem; font-weight: 700;">
+        &larr; Voltar para o login
       </a>
     </div>
   `;
@@ -57,29 +131,14 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  if (novaSenha.length < 8) {
-    mostrarErro(msgErro, new Error("A senha deve ter pelo menos 8 caracteres."));
-    return;
-  }
-  if (!/[A-Z]/.test(novaSenha)) {
-    mostrarErro(msgErro, new Error("A senha deve conter pelo menos uma letra maiúscula."));
-    return;
-  }
-  if (!/[a-z]/.test(novaSenha)) {
-    mostrarErro(msgErro, new Error("A senha deve conter pelo menos uma letra minúscula."));
-    return;
-  }
-  if (!/[0-9]/.test(novaSenha)) {
-    mostrarErro(msgErro, new Error("A senha deve conter pelo menos um número."));
-    return;
-  }
-  if (!/[^A-Za-z0-9]/.test(novaSenha)) {
-    mostrarErro(msgErro, new Error("A senha deve conter pelo menos um caractere especial ou símbolo (@, #, $, etc.)."));
+  const checagem = validarComplexidadeSenhaCliente(novaSenha);
+  if (!checagem.valido) {
+    mostrarErro(msgErro, new Error(checagem.mensagem));
     return;
   }
 
   btnSalvar.disabled = true;
-  btnSalvar.textContent = "Salvando nova senha…";
+  btnSalvar.textContent = "Salvando nova senha...";
 
   try {
     await api("/recuperar-senha", {
@@ -92,14 +151,14 @@ form.addEventListener("submit", async (e) => {
     });
 
     painel.innerHTML = `
-      <div style="text-align: center; padding: 2rem 1rem;">
+      <div style="text-align: center; padding: 1.5rem 0.5rem;">
         <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">✅</div>
         <h2 style="margin-bottom: 0.5rem; color: #15803d;">Senha Redefinida!</h2>
-        <p style="color: var(--cor-texto-secundario); font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;">
+        <p style="color: var(--cor-texto-secundario); font-size: 0.92rem; margin-bottom: 1.5rem; line-height: 1.5;">
           Sua senha foi atualizada com sucesso. Você já pode acessar o sistema com suas novas credenciais.
         </p>
-        <a href="/" class="btn btn-primario" style="text-decoration: none; display: inline-block; padding: 0.6rem 1.5rem;">
-          Fazer login agora
+        <a href="/" class="btn-link" style="display: inline-block; font-size: 0.95rem; font-weight: 700;">
+          Fazer login agora &rarr;
         </a>
       </div>
     `;
