@@ -1007,7 +1007,10 @@ async function iniciar(container, mensagemErro) {
                                     checkbox: "Caixa de seleção",
                                     sim_nao: "Sim ou Não",
                                   };
-                                  const tipoRotulo = tiposLegiveis[c.tipo] || c.tipo;
+                                  let tipoRotulo = tiposLegiveis[c.tipo] || c.tipo;
+                                  if (c.tipo === "data") {
+                                    tipoRotulo = c.dias_minimos ? `Data (mín. ${c.dias_minimos}d)` : "Data";
+                                  }
                                   const opcoesRaw = c.opcoes_json || c.opcoes;
                                   let opcoesFormatadas = "-";
                                   if (opcoesRaw) {
@@ -1113,6 +1116,18 @@ async function iniciar(container, mensagemErro) {
                       <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Opções da lista suspensa (separadas por vírgula)</label>
                       <input type="text" name="opcoes_texto" placeholder="ex: Opção 1, Opção 2, Opção 3" style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
                     </div>
+
+                    <div class="wrap-dias-minimos" style="display: none; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 6px; padding: 0.6rem 0.75rem;">
+                      <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.25rem;">
+                        📅 Antecedência mínima para seleção (dias futuros a partir de hoje)
+                      </label>
+                      <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                        <input type="number" name="dias_minimos" min="0" max="365" placeholder="ex: 1 para amanhã, 7 para 7 dias..." style="width: 140px; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
+                        <span style="font-size: 0.78rem; color: var(--cor-texto-secundario); line-height: 1.4;">
+                          <strong>0</strong> = permite hoje; <strong>1</strong> = a partir de amanhã; <strong>7</strong> = no mínimo 7 dias à frente (evita datas no passado ou urgências imediatas).
+                        </span>
+                      </div>
+                    </div>
                   </form>
                 </div>
               `
@@ -1141,8 +1156,11 @@ async function iniciar(container, mensagemErro) {
       if (formCampo) {
         const selectTipo = formCampo.elements.tipo;
         const wrapOpcoes = formCampo.querySelector(".wrap-opcoes-selecao");
+        const wrapDiasMinimos = formCampo.querySelector(".wrap-dias-minimos");
+
         selectTipo.addEventListener("change", () => {
           wrapOpcoes.style.display = selectTipo.value === "selecao" ? "block" : "none";
+          wrapDiasMinimos.style.display = selectTipo.value === "data" ? "block" : "none";
         });
 
         formCampo.addEventListener("submit", async (e) => {
@@ -1160,6 +1178,11 @@ async function iniciar(container, mensagemErro) {
             opcoesJson = JSON.stringify(lista);
           }
 
+          let diasMinVal = 0;
+          if (tipo === "data" && formCampo.elements.dias_minimos && formCampo.elements.dias_minimos.value !== "") {
+            diasMinVal = Math.max(0, parseInt(formCampo.elements.dias_minimos.value, 10) || 0);
+          }
+
           const corpo = {
             ordem: Number(formCampo.elements.ordem.value) || 1,
             posicao: formCampo.elements.posicao ? formCampo.elements.posicao.value : "esquerda",
@@ -1168,6 +1191,7 @@ async function iniciar(container, mensagemErro) {
             rotulo: formCampo.elements.rotulo.value.trim(),
             tipo: tipo,
             obrigatorio: formCampo.elements.obrigatorio.checked,
+            dias_minimos: diasMinVal,
             opcoes: opcoesJson,
             opcoes_json: opcoesJson,
           };

@@ -73,6 +73,9 @@ export async function obterTabelaCampos(db) {
     if (!nomes.has("orientacao")) {
       await run(db, `ALTER TABLE ${tabela} ADD COLUMN orientacao TEXT`).catch(() => {});
     }
+    if (!nomes.has("dias_minimos")) {
+      await run(db, `ALTER TABLE ${tabela} ADD COLUMN dias_minimos INTEGER DEFAULT 0`).catch(() => {});
+    }
     if (db && typeof db === "object" && colunasTabelaCache.has(db)) {
       colunasTabelaCache.get(db).delete(tabela);
     }
@@ -155,6 +158,7 @@ export async function salvarCampoEtapa(db, etapaId, dados) {
     orientacao = null,
     somente_leitura = 0,
     bloqueio_regra = null,
+    dias_minimos = 0,
   } = dados;
 
   const rawOpcoes = opcoes ?? opcoes_json;
@@ -181,6 +185,7 @@ export async function salvarCampoEtapa(db, etapaId, dados) {
     orientacao: orientacao ? String(orientacao).trim() : null,
     somente_leitura: somente_leitura ? 1 : 0,
     bloqueio_regra: bloqueio_regra ?? null,
+    dias_minimos: dias_minimos != null ? Math.max(0, parseInt(dias_minimos, 10) || 0) : 0,
   };
 
   if (colunas.size === 0 || colunas.has("opcoes")) {
@@ -188,6 +193,9 @@ export async function salvarCampoEtapa(db, etapaId, dados) {
   }
   if (colunas.has("opcoes_json")) {
     registro.opcoes_json = opcoesTexto;
+  }
+  if (colunas.has("dias_minimos")) {
+    registro.dias_minimos = registro.dias_minimos;
   }
 
   const colunasParaGravar = colunas.size > 0
@@ -248,17 +256,42 @@ export function validarCamposObrigatorios(campos, valoresObjeto) {
     }
   }
 
-  for (const c of campos) {
-    if (c.obrigatorio) {
-      const valPorId = mapaValores.get(String(c.id));
-      const valPorNome = mapaValores.get(String(c.nome).toLowerCase().trim());
-      const valor = valPorId !== undefined ? valPorId : valPorNome;
+  const hoje = new Date();
+  const hojeZero = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
 
+  for (const c of campos) {
+    const valPorId = mapaValores.get(String(c.id));
+    const valPorNome = mapaValores.get(String(c.nome).toLowerCase().trim());
+    const valor = valPorId !== undefined ? valPorId : valPorNome;
+
+    if (c.obrigatorio) {
       if (valor === undefined || valor === null || String(valor).trim() === "") {
         return {
           valido: false,
           erro: `O campo "${c.rotulo}" é de preenchimento obrigatório.`,
         };
+      }
+    }
+
+    // Validação de regra de data mínima para campos do tipo data
+    const tipoNorm = normalizarTipoCampo(c.tipo);
+    if (tipoNorm === "data" && valor && typeof valor === "string" && valor.trim()) {
+      const diasMin = c.dias_minimos != null ? Math.max(0, parseInt(c.dias_minimos, 10) || 0) : 0;
+      const ehFaturamento = /faturamento|entrega|previs[aã]o/i.test(c.rotulo || c.nome);
+      const diasEfetivos = diasMin > 0 ? diasMin : (ehFaturamento ? 1 : 0);
+
+      if (diasEfetivos > 0 || diasMin === 0) {
+        const dataMin = new Date(hojeZero.getFullYear(), hojeZero.getMonth(), hojeZero.getDate() + diasEfetivos);
+        const dataMinISO = dataMin.toISOString().slice(0, 10);
+        const valorDataISO = String(valor).trim().slice(0, 10);
+
+        if (valorDataISO < dataMinISO) {
+          const [ano, mes, dia] = dataMinISO.split("-");
+          return {
+            valido: false,
+            erro: `A data informada no campo "${c.rotulo}" não pode ser anterior a ${dia}/${mes}/${ano} (antecedência mínima de ${diasEfetivos} dia(s)).`,
+          };
+        }
       }
     }
   }

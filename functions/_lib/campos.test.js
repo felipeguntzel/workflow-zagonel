@@ -211,3 +211,28 @@ test("carregarCamposEValoresDoChamado combina campos e valores com parsing de op
   assert.equal(resultado[0].valor, "Preto");
   assert.deepEqual(resultado[0].opcoes_parsed, ["Branco", "Preto"]);
 });
+
+test("validarCamposObrigatorios valida regra de dias_minimos para campos do tipo data", () => {
+  const campos = [
+    { id: 10, nome: "data_faturamento", rotulo: "Data de Faturamento", tipo: "data", obrigatorio: 1, dias_minimos: 7 }
+  ];
+
+  const hoje = new Date();
+  const ontem = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - 1).toISOString().slice(0, 10);
+  const daqui3Dias = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 3).toISOString().slice(0, 10);
+  const daqui8Dias = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 8).toISOString().slice(0, 10);
+
+  // Caso 1: Data de ontem (passado) deve ser rejeitada
+  const rPassado = validarCamposObrigatorios(campos, { data_faturamento: ontem });
+  assert.equal(rPassado.valido, false);
+  assert.match(rPassado.erro, /não pode ser anterior a/);
+
+  // Caso 2: Data de daqui a 3 dias (menor que o mínimo de 7) deve ser rejeitada
+  const rInsuficiente = validarCamposObrigatorios(campos, { data_faturamento: daqui3Dias });
+  assert.equal(rInsuficiente.valido, false);
+  assert.match(rInsuficiente.erro, /antecedência mínima de 7 dia\(s\)/);
+
+  // Caso 3: Data de daqui a 8 dias deve ser aceita com sucesso
+  const rValido = validarCamposObrigatorios(campos, { data_faturamento: daqui8Dias });
+  assert.equal(rValido.valido, true);
+});

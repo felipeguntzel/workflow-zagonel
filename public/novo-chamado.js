@@ -101,51 +101,30 @@ async function iniciar(usuarioLogado) {
       <p id="mensagem-erro" class="erro" hidden></p>
 
       <form class="formulario" id="form-novo-chamado" style="gap: 0.85rem;">
-        <!-- Card 1: Bloco de Fluxo Enxuto e Compacto -->
-        <section class="formulario-secao-card formulario-secao-card--enxuto">
-          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.35rem;">
-            <h3 class="formulario-secao-titulo" style="font-size: 0.95rem;">
-              <span class="formulario-secao-icone">🔄</span> Fluxo de Processo
-            </h3>
-            <span id="rotulo-etapa-automatica" style="font-size: 0.78rem; color: var(--cor-texto-secundario); font-weight: 600;" hidden></span>
-          </div>
-          <div class="campo-grupo" style="margin-bottom: 0;">
-            <label class="campo-rotulo" for="select-fluxo">
-              Fluxo de processo <span class="campo-obrigatorio">*</span>
-            </label>
-            <select id="select-fluxo" name="fluxo_template_id" required class="select-padrao" style="max-width: 480px;">
-              <option value="">Selecione o fluxo...</option>
-              ${fluxos.map((f) => `<option value="${f.id}">${escaparHtml(f.nome)}</option>`).join("")}
-            </select>
-            <input type="hidden" id="input-etapa-inicial-id" name="etapa_inicial_id">
-            <p id="aviso-etapas-vazias" class="campo-ajuda" style="color: var(--cor-alerta); margin-top: 0.25rem;" hidden></p>
-          </div>
-        </section>
-
-        <!-- Card 2: Dados Principais da Solicitação -->
+        <!-- Card: Dados Principais da Solicitação (incluindo Seleção do Fluxo) -->
         <section class="formulario-secao-card">
-          <h3 class="formulario-secao-titulo" style="margin-bottom: 0.75rem;">
-            <span class="formulario-secao-icone">📝</span> Dados Principais da Solicitação
-          </h3>
-          
-          <!-- Linha 1: Título amplo com Solicitante no canto direito -->
-          <div class="formulario-grid-cabecalho">
-            <div class="campo-grupo" style="margin-bottom: 0.5rem;">
-              <label class="campo-rotulo" for="campo-titulo">
-                Título do chamado <span class="campo-obrigatorio">*</span>
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <h3 class="formulario-secao-titulo" style="margin-bottom: 0;">
+              <span class="formulario-secao-icone">📝</span> Dados Principais da Solicitação
+            </h3>
+            <span id="rotulo-etapa-automatica" style="font-size: 0.8rem; color: var(--cor-texto-secundario); font-weight: 600; background: var(--cor-fundo-elevado); padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid var(--cor-borda);" hidden></span>
+          </div>
+
+          <!-- Linha 1: Fluxo de Processo e Solicitante em 2 colunas -->
+          <div class="formulario-grid-cabecalho" style="margin-bottom: 0.4rem;">
+            <div class="campo-grupo" style="margin-bottom: 0;">
+              <label class="campo-rotulo" for="select-fluxo">
+                Fluxo de processo <span class="campo-obrigatorio">*</span>
               </label>
-              <input 
-                type="text" 
-                id="campo-titulo" 
-                name="titulo" 
-                required 
-                class="input-padrao" 
-                placeholder="Informe um título objetivo e claro para a solicitação..."
-                style="font-size: 0.95rem; font-weight: 600;"
-              >
+              <select id="select-fluxo" name="fluxo_template_id" required class="select-padrao">
+                <option value="">Selecione o fluxo...</option>
+                ${fluxos.map((f) => `<option value="${f.id}">${escaparHtml(f.nome)}</option>`).join("")}
+              </select>
+              <input type="hidden" id="input-etapa-inicial-id" name="etapa_inicial_id">
+              <p id="aviso-etapas-vazias" class="campo-ajuda" style="color: var(--cor-alerta); margin-top: 0.25rem;" hidden></p>
             </div>
 
-            <div class="campo-grupo" style="margin-bottom: 0.5rem;">
+            <div class="campo-grupo" style="margin-bottom: 0;">
               <label class="campo-rotulo">
                 Solicitante
               </label>
@@ -156,8 +135,24 @@ async function iniciar(usuarioLogado) {
             </div>
           </div>
 
-          <!-- Linha 2: Prioridade, Setor e Empresa em 3 colunas -->
-          <div class="formulario-grid-3col" style="margin-top: 0.35rem;">
+          <!-- Linha 2: Título do chamado com largura total -->
+          <div class="campo-grupo" style="margin-top: 0.4rem; margin-bottom: 0.4rem;">
+            <label class="campo-rotulo" for="campo-titulo">
+              Título do chamado <span class="campo-obrigatorio">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="campo-titulo" 
+              name="titulo" 
+              required 
+              class="input-padrao" 
+              placeholder="Informe um título objetivo e claro para a solicitação..."
+              style="font-size: 0.95rem; font-weight: 600;"
+            >
+          </div>
+
+          <!-- Linha 3: Prioridade, Setor e Empresa em 3 colunas -->
+          <div class="formulario-grid-3col" style="margin-top: 0.4rem;">
             <div class="campo-grupo">
               <label class="campo-rotulo" for="select-prioridade">
                 Prioridade
@@ -205,8 +200,8 @@ async function iniciar(usuarioLogado) {
             </div>
           </div>
 
-          <!-- Linha 3: Observação livre -->
-          <div class="campo-grupo" style="margin-top: 0.35rem; margin-bottom: 0;">
+          <!-- Linha 4: Observação livre -->
+          <div class="campo-grupo" style="margin-top: 0.4rem; margin-bottom: 0;">
             <label class="campo-rotulo" for="campo-observacao">
               Observação (opcional)
             </label>
@@ -352,13 +347,40 @@ async function iniciar(usuarioLogado) {
               </div>
             `;
           } else if (tipoNorm === "data" || tipoNorm === "date") {
+            const diasMin = c.dias_minimos != null ? Math.max(0, parseInt(c.dias_minimos, 10) || 0) : 0;
+            // Se for campo de faturamento, entrega ou previsão, exige no mínimo 1 dia se não configurado
+            const ehFaturamentoOuEntrega = /faturamento|entrega|previs[aã]o/i.test(c.rotulo || c.nome);
+            const diasEfetivos = diasMin > 0 ? diasMin : (ehFaturamentoOuEntrega ? 1 : 0);
+
+            const hoje = new Date();
+            const dataMin = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + diasEfetivos);
+            const dataMinISO = dataMin.toISOString().slice(0, 10);
+
+            const [ano, mes, dia] = dataMinISO.split("-");
+            const dataMinFormatada = `${dia}/${mes}/${ano}`;
+
+            const infoDica = diasEfetivos > 0
+              ? `<div style="font-size: 0.78rem; color: #15803d; margin-top: 0.25rem; font-weight: 600;">📅 Seleção permitida a partir de: <strong>${dataMinFormatada}</strong> (mínimo de ${diasEfetivos} dia(s) a partir de hoje)</div>`
+              : `<div style="font-size: 0.78rem; color: var(--cor-texto-secundario); margin-top: 0.25rem;">📅 Data mínima permitida: hoje (${dataMinFormatada})</div>`;
+
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
                   <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
                 </label>
                 ${orientacaoBox}
-                <input type="date" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao">
+                <input 
+                  type="date" 
+                  name="campo_${c.nome}" 
+                  id="campo_din_${c.nome}" 
+                  data-campo-id="${c.id}" 
+                  data-min-iso="${dataMinISO}" 
+                  data-min-dias="${diasEfetivos}"
+                  min="${dataMinISO}" 
+                  ${reqAttr} 
+                  class="input-padrao"
+                >
+                ${infoDica}
               </div>
             `;
           } else if (tipoNorm === "selecao" || tipoNorm === "select") {
@@ -482,6 +504,22 @@ async function iniciar(usuarioLogado) {
           valoresCampos[c.nome] = el.checked ? "sim" : "nao";
         } else {
           valoresCampos[c.nome] = el.value;
+        }
+
+        // Validação de data mínima no submit
+        const tipoNorm = String(c.tipo || "texto").toLowerCase();
+        if ((tipoNorm === "data" || tipoNorm === "date") && el.value) {
+          const minIso = el.getAttribute("data-min-iso");
+          const diasMin = Number(el.getAttribute("data-min-dias") || 0);
+          if (minIso && el.value < minIso) {
+            const [ano, mes, dia] = minIso.split("-");
+            mostrarErro(
+              msgErro,
+              `A data informada no campo "${c.rotulo}" não pode ser anterior a ${dia}/${mes}/${ano} (antecedência mínima de ${diasMin} dia(s)).`
+            );
+            el.focus();
+            return;
+          }
         }
       }
     }

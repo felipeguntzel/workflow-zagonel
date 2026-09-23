@@ -12,9 +12,11 @@ export function hojeISO() {
 }
 
 async function statusIdPorNome(db, nome) {
-  const row = await first(db, "SELECT id FROM status WHERE nome = ?", nome);
-  if (!row) throw new Error(`Status não encontrado: ${nome}`);
-  return row.id;
+  const row = await first(db, "SELECT id FROM status WHERE LOWER(nome) = LOWER(?)", nome);
+  if (row) return row.id;
+  const fallback = await first(db, "SELECT id FROM status ORDER BY id ASC LIMIT 1");
+  if (fallback) return fallback.id;
+  throw new Error(`Status não encontrado no sistema: ${nome}`);
 }
 
 async function resolverSetorEPrazoPadrao(db, { etapa_id, acao_origem_id }) {
@@ -22,22 +24,35 @@ async function resolverSetorEPrazoPadrao(db, { etapa_id, acao_origem_id }) {
     const row = await first(
       db,
       `SELECT s.id AS setor_id, s.prazo_padrao_dias
-       FROM etapas e JOIN setores s ON s.id = e.setor_id
+       FROM etapas e LEFT JOIN setores s ON s.id = e.setor_id
        WHERE e.id = ?`,
       etapa_id
     );
-    if (!row) throw new Error(`Etapa não encontrada ou sem setor: ${etapa_id}`);
-    return row;
+    if (!row) {
+      return { setor_id: null, prazo_padrao_dias: 5 };
+    }
+    return {
+      setor_id: row.setor_id || null,
+      prazo_padrao_dias: row.prazo_padrao_dias != null ? Number(row.prazo_padrao_dias) : 5,
+    };
   }
-  const row = await first(
-    db,
-    `SELECT s.id AS setor_id, s.prazo_padrao_dias
-     FROM acoes a JOIN setores s ON s.id = a.setor_destino_id
-     WHERE a.id = ?`,
-    acao_origem_id
-  );
-  if (!row) throw new Error(`Ação não encontrada ou sem setor destino: ${acao_origem_id}`);
-  return row;
+  if (acao_origem_id) {
+    const row = await first(
+      db,
+      `SELECT s.id AS setor_id, s.prazo_padrao_dias
+       FROM acoes a LEFT JOIN setores s ON s.id = a.setor_destino_id
+       WHERE a.id = ?`,
+      acao_origem_id
+    );
+    if (!row) {
+      return { setor_id: null, prazo_padrao_dias: 5 };
+    }
+    return {
+      setor_id: row.setor_id || null,
+      prazo_padrao_dias: row.prazo_padrao_dias != null ? Number(row.prazo_padrao_dias) : 5,
+    };
+  }
+  return { setor_id: null, prazo_padrao_dias: 5 };
 }
 
 let colunasChamadosGarantidas = false;

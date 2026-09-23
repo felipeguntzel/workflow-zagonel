@@ -39,92 +39,103 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  const { usuario, erro } = await exigirPermissao(context, "chamados", "inserir");
-  if (erro) return erro;
+  try {
+    const { usuario, erro } = await exigirPermissao(context, "chamados", "inserir");
+    if (erro) return erro;
 
-  await garantirColunasChamados(context.env.DB);
+    await garantirColunasChamados(context.env.DB);
 
-  const body = await context.request.json();
-  if (!body.fluxo_template_id || !body.etapa_inicial_id) {
-    return error("Campos obrigatórios: fluxo_template_id, etapa_inicial_id");
-  }
-  const etapa = await carregarEtapaComAcoes(context.env.DB, body.etapa_inicial_id);
-  if (!etapa || Number(etapa.fluxo_template_id) !== Number(body.fluxo_template_id)) {
-    return error("etapa_inicial_id inválido para este fluxo_template_id");
-  }
-  const solicitante = await first(
-    context.env.DB,
-    "SELECT u.id, s.empresa_id FROM usuarios u JOIN setores s ON s.id = u.setor_id WHERE u.id = ?",
-    usuario.id
-  );
-  if (!solicitante) return error("solicitante inválido");
+    const body = await context.request.json();
+    if (!body.fluxo_template_id || !body.etapa_inicial_id) {
+      return error("Campos obrigatórios: fluxo_template_id, etapa_inicial_id", 400);
+    }
+    const etapa = await carregarEtapaComAcoes(context.env.DB, body.etapa_inicial_id);
+    if (!etapa || Number(etapa.fluxo_template_id) !== Number(body.fluxo_template_id)) {
+      return error("etapa_inicial_id inválido para este fluxo_template_id", 400);
+    }
 
-  const titulo = body.titulo ? String(body.titulo).trim() : "";
-  if (!titulo) {
-    return error("O campo Título é obrigatório.", 400);
-  }
+    const solicitante = await first(
+      context.env.DB,
+      "SELECT u.id, u.setor_id, s.empresa_id FROM usuarios u LEFT JOIN setores s ON s.id = u.setor_id WHERE u.id = ?",
+      usuario.id
+    );
 
-  const empresaId = body.empresa_id ? Number(body.empresa_id) : solicitante.empresa_id;
-  const prioridade = body.prioridade ? String(body.prioridade).trim().toLowerCase() : "normal";
-  const observacao = body.observacao ? String(body.observacao).trim() : null;
+    const titulo = body.titulo ? String(body.titulo).trim() : "";
+    if (!titulo) {
+      return error("O campo Título é obrigatório.", 400);
+    }
 
-  // Validação de campos personalizados obrigatórios
-  const camposDef = await listarCamposDaEtapa(context.env.DB, etapa.id);
-  const validacao = validarCamposObrigatorios(camposDef, body.campos || {});
-  if (!validacao.valido) {
-    return error(validacao.erro, 400);
-  }
+    // Se a empresa não foi especificada, usa a empresa do setor do solicitante ou a primeira empresa ativa cadastrada
+    let empresaId = body.empresa_id ? Number(body.empresa_id) : (solicitante?.empresa_id || null);
+    if (!empresaId) {
+      const primeiraEmpresa = await first(context.env.DB, "SELECT id FROM empresas ORDER BY id ASC LIMIT 1");
+      empresaId = primeiraEmpresa?.id || 1;
+    }
 
-  const mae = await criarChamado(context.env.DB, {
-    fluxo_template_id: body.fluxo_template_id,
-    etapa_id: etapa.id,
-    chamado_mae_id: null,
-    chamado_pai_id: null,
-    empresa_id: empresaId,
-    solicitante_id: usuario.id,
-    prazo: body.prazo ?? null,
-    titulo: titulo,
-    prioridade: prioridade,
-    observacao: observacao,
-  });
+    const prioridade = body.prioridade ? String(body.prioridade).trim().toLowerCase() : "normal";
+    const observacao = body.observacao ? String(body.observacao).trim() : null;
 
-  // Salva campos personalizados se enviados
-  if (body.campos && typeof body.campos === "object") {
-    await salvarValoresCamposChamado(context.env.DB, mae.id, body.campos, etapa.id);
-  }
+    // Validação de campos personalizados obrigatórios e regras de formato
+    const camposDef = await listarCamposDaEtapa(context.env.DB, etapa.id);
+    const validacao = validarCamposObrigatorios(camposDef, body.campos || {});
+    if (!validacao.valido) {
+      return error(validacao.erro, 400);
+    }
 
-  // Registrar auditoria de criação do chamado mãe
-  await registrarAuditoria(context.env.DB, {
-    chamado_mae_id: mae.id,
-    chamado_id: mae.id,
-    usuario_id: usuario.id,
-    usuario_nome: usuario.nome,
-    acao: "criacao",
-    detalhes: `Chamado mãe criado por ${usuario.nome} com base no fluxo "${etapa.nome}".`
-  });
+    const mae = await criarChamado(context.env.DB, {
+      fluxo_template_id: body.fluxo_template_id,
+      etapa_id: etapa.id,
+      chamado_mae_id: null,
+      chamado_pai_id: null,
+      empresa_id: empresaId,
+      solicitante_id: usuario.id,
+      prazo: body.prazo ?? null,
+      titulo: titulo,
+      prioridade: prioridade,
+      observacao: observacao,
+    });
 
-  const hoje = hojeISO();
-  await run(
-    context.env.DB,
-    "UPDATE chamados SET status_id = (SELECT id FROM status WHERE nome = 'finalizado'), data_finalizacao = ? WHERE id = ?",
-    hoje,
-    mae.id
-  );
-  const maeFinalizada = { ...mae, data_finalizacao: hoje };
+    // Salva campos personalizados se enviados
+    if (body.campos && typeof body.campos === "object") {
+      await salvarValoresCamposChamado(context.env.DB, mae.id, body.campos, etapa.id);
+    }
 
-  const criados = await avancarFluxo(context.env.DB, maeFinalizada, etapa, {});
-
-  // Registrar auditoria para as etapas filhas criadas
-  for (const filho of criados) {
+    // Registrar auditoria de criação do chamado mãe
     await registrarAuditoria(context.env.DB, {
       chamado_mae_id: mae.id,
-      chamado_id: filho.id,
-      usuario_id: null,
-      usuario_nome: "Sistema",
-      acao: "criacao_subchamado",
-      detalhes: `Subchamado #${filho.id} gerado automaticamente pelo fluxo.`
+      chamado_id: mae.id,
+      usuario_id: usuario.id,
+      usuario_nome: usuario.nome,
+      acao: "criacao",
+      detalhes: `Chamado mãe criado por ${usuario.nome} com base no fluxo "${etapa.nome}".`
     });
-  }
 
-  return json({ chamado: maeFinalizada, criados }, 201);
+    const hoje = hojeISO();
+    await run(
+      context.env.DB,
+      "UPDATE chamados SET status_id = (SELECT id FROM status WHERE LOWER(nome) = 'finalizado' LIMIT 1), data_finalizacao = ? WHERE id = ?",
+      hoje,
+      mae.id
+    );
+    const maeFinalizada = { ...mae, data_finalizacao: hoje };
+
+    const criados = await avancarFluxo(context.env.DB, maeFinalizada, etapa, {});
+
+    // Registrar auditoria para as etapas filhas criadas
+    for (const filho of criados) {
+      await registrarAuditoria(context.env.DB, {
+        chamado_mae_id: mae.id,
+        chamado_id: filho.id,
+        usuario_id: null,
+        usuario_nome: "Sistema",
+        acao: "criacao_subchamado",
+        detalhes: `Subchamado #${filho.id} gerado automaticamente pelo fluxo.`
+      });
+    }
+
+    return json({ chamado: maeFinalizada, criados }, 201);
+  } catch (err) {
+    console.error("[POST /api/chamados] Falha:", err);
+    return error(err.message || "Erro ao processar criação de chamado.", 500);
+  }
 }
