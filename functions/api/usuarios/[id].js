@@ -5,6 +5,7 @@ import { exigirPermissao } from "../../_lib/permissoes.js";
 import { validarDependenciasExclusao, atualizarContadorId } from "../../_lib/dependencias.js";
 import { ensureColunasUsuario } from "../../_lib/usuarios.js";
 import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
+import { desbloquearUsuario } from "../../_lib/rate-limit.js";
 
 async function carregarGruposDoUsuario(db, usuarioId) {
   const linhas = await all(db, "SELECT grupo_id FROM usuario_grupos WHERE usuario_id = ?", usuarioId);
@@ -24,7 +25,7 @@ export async function onRequestGet(context) {
   await ensureColunasUsuario(context.env.DB);
   const usuario = await first(
     context.env.DB,
-    "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
+    "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha, ativo FROM usuarios WHERE id = ?",
     context.params.id
   );
   if (!usuario) return error("Não encontrado", 404);
@@ -51,13 +52,36 @@ export async function onRequestPut(context) {
   const valores = colunas.map((c) => body[c]);
 
   if (body.email !== undefined) {
+    const emailNormalizado = body.email ? String(body.email).trim().toLowerCase() : null;
+    if (emailNormalizado) {
+      const existente = await first(
+        context.env.DB,
+        "SELECT id FROM usuarios WHERE LOWER(email) = ? AND id != ?",
+        emailNormalizado,
+        context.params.id
+      );
+      if (existente) return error("Já existe um usuário cadastrado com este e-mail.");
+    }
     colunas.push("email");
-    valores.push(body.email ? String(body.email).trim().toLowerCase() : null);
+    valores.push(emailNormalizado);
   }
 
   if (body.telefone !== undefined) {
+    const telNormalizado = body.telefone ? String(body.telefone).trim() : null;
+    if (telNormalizado) {
+      const digitos = telNormalizado.replace(/\D/g, "");
+      if (digitos.length > 0) {
+        const outros = await all(
+          context.env.DB,
+          "SELECT id, telefone FROM usuarios WHERE telefone IS NOT NULL AND id != ?",
+          context.params.id
+        );
+        const duplicado = outros.find((u) => u.telefone && u.telefone.replace(/\D/g, "") === digitos);
+        if (duplicado) return error("Já existe um usuário cadastrado com este número de telefone.");
+      }
+    }
     colunas.push("telefone");
-    valores.push(body.telefone ? String(body.telefone).trim() : null);
+    valores.push(telNormalizado);
   }
 
   let login = null;
@@ -85,8 +109,40 @@ export async function onRequestPut(context) {
       return error(checagemSenha.mensagem);
     }
     const senhaHash = await hashSenha(body.senha);
-    colunas.push("senha_hash", "deve_trocar_senha", "token_valido_apos");
-    valores.push(senhaHash, 1, Date.now());
+    colunas.push("senha_hash", "token_valido_apos");
+    valores.push(senhaHash, Date.now());
+
+    const alvo = await first(context.env.DB, "SELECT login FROM usuarios WHERE id = ?", context.params.id);
+    if (alvo?.login) {
+      await desbloquearUsuario(context.env.DB, alvo.login);
+    }
+  }
+
+  if (body.deve_trocar_senha !== undefined) {
+    colunas.push("deve_trocar_senha");
+    valores.push(body.deve_trocar_senha ? 1 : 0);
+  }
+
+  if (body.ativo !== undefined) {
+    const novoAtivo = body.ativo ? 1 : 0;
+    if (novoAtivo === 0 && Number(context.params.id) === usuario.id) {
+      const adminsAtivos = await all(
+        context.env.DB,
+        "SELECT id FROM usuarios WHERE admin = 1 AND ativo = 1"
+      );
+      if (adminsAtivos.length <= 1) {
+        return error("Você não pode inativar sua própria conta pois é o único administrador ativo do sistema.", 400);
+      }
+    }
+    colunas.push("ativo");
+    valores.push(novoAtivo);
+
+    if (novoAtivo === 1) {
+      const alvo = await first(context.env.DB, "SELECT login FROM usuarios WHERE id = ?", context.params.id);
+      if (alvo?.login) {
+        await desbloquearUsuario(context.env.DB, alvo.login);
+      }
+    }
   }
 
   if (body.admin !== undefined) {
@@ -109,7 +165,7 @@ export async function onRequestPut(context) {
 
   const antes = await first(
     context.env.DB,
-    "SELECT id, nome, setor_id, login, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
+    "SELECT id, nome, setor_id, login, admin, deve_trocar_senha, ativo FROM usuarios WHERE id = ?",
     context.params.id
   );
   if (!antes) return error("Não encontrado", 404);
@@ -137,7 +193,7 @@ export async function onRequestPut(context) {
 
   const atualizado = await first(
     context.env.DB,
-    "SELECT id, nome, setor_id, login, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
+    "SELECT id, nome, setor_id, login, admin, deve_trocar_senha, ativo FROM usuarios WHERE id = ?",
     context.params.id
   );
   if (!atualizado) return error("Não encontrado", 404);

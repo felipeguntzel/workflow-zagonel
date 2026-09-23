@@ -13,15 +13,45 @@ const btnEnviarRecuperacao = document.getElementById("btn-enviar-recuperacao");
 const msgRecuperacaoErro = document.getElementById("msg-recuperacao-erro");
 const msgRecuperacaoSucesso = document.getElementById("msg-recuperacao-sucesso");
 
+const inputSenha = formLogin.elements.senha;
+const avisoCapsLogin = document.getElementById("aviso-capslock-login");
+
+async function calcularSha256(texto) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+const checarCapsLogin = (ev) => {
+  if (!avisoCapsLogin) return;
+  if (ev.getModifierState && ev.getModifierState("CapsLock")) {
+    avisoCapsLogin.hidden = false;
+    avisoCapsLogin.style.display = "flex";
+  } else {
+    avisoCapsLogin.hidden = true;
+    avisoCapsLogin.style.display = "none";
+  }
+};
+inputSenha?.addEventListener("keydown", checarCapsLogin);
+inputSenha?.addEventListener("keyup", checarCapsLogin);
+inputSenha?.addEventListener("blur", () => {
+  if (avisoCapsLogin) {
+    avisoCapsLogin.hidden = true;
+    avisoCapsLogin.style.display = "none";
+  }
+});
+
 formLogin.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   mensagemErro.hidden = true;
   try {
+    const senhaHash = await calcularSha256(formLogin.elements.senha.value);
     const usuario = await api("/login", {
       method: "POST",
       body: {
-        login: formLogin.elements.login.value,
-        senha: formLogin.elements.senha.value,
+        login: formLogin.elements.login.value.trim(),
+        senha: senhaHash,
       },
     });
     setUsuarioLogado(usuario);

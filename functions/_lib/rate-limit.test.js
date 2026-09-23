@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   MAX_TENTATIVAS_LOGIN,
-  JANELA_BLOQUEIO_MS,
   verificarRateLimit,
   registrarFalhaLogin,
   limparTentativasLogin,
+  desbloquearUsuario,
 } from "./rate-limit.js";
 
 function criarDbMock(dadosIniciais = {}) {
@@ -55,14 +55,16 @@ test("verificarRateLimit retorna nao bloqueado quando nao ha historico de falha"
 
 test("registrarFalhaLogin incrementa tentativas sem bloquear antes do limite maximo", async () => {
   const db = criarDbMock();
+  assert.equal(MAX_TENTATIVAS_LOGIN, 3);
   const res1 = await registrarFalhaLogin(db, "usuario_teste");
   assert.equal(res1.tentativas, 1);
   assert.equal(res1.bloqueado, false);
-  assert.equal(res1.tentativasRestantes, MAX_TENTATIVAS_LOGIN - 1);
+  assert.equal(res1.tentativasRestantes, 2);
 
   const res2 = await registrarFalhaLogin(db, "usuario_teste");
   assert.equal(res2.tentativas, 2);
   assert.equal(res2.bloqueado, false);
+  assert.equal(res2.tentativasRestantes, 1);
 });
 
 test("registrarFalhaLogin bloqueia o acesso quando atinge o limite maximo de tentativas", async () => {
@@ -80,10 +82,10 @@ test("registrarFalhaLogin bloqueia o acesso quando atinge o limite maximo de ten
 
   const checagem = await verificarRateLimit(db, "usuario_alvo", agora + 1000);
   assert.equal(checagem.bloqueado, true);
-  assert.match(checagem.mensagem, /Acesso temporariamente bloqueado/);
+  assert.match(checagem.mensagem, /Acesso bloqueado por 3 tentativas incorretas/);
 });
 
-test("verificarRateLimit libera o acesso apos o fim da janela de bloqueio", async () => {
+test("desbloquearUsuario libera o acesso bloqueado permanentemente", async () => {
   const db = criarDbMock();
   const agora = 1000000;
 
@@ -91,9 +93,12 @@ test("verificarRateLimit libera o acesso apos o fim da janela de bloqueio", asyn
     await registrarFalhaLogin(db, "usuario_alvo", agora);
   }
 
-  const depoisDaJanela = agora + JANELA_BLOQUEIO_MS + 1000;
-  const checagem = await verificarRateLimit(db, "usuario_alvo", depoisDaJanela);
-  assert.equal(checagem.bloqueado, false);
+  const checagemBloqueado = await verificarRateLimit(db, "usuario_alvo", agora + 99999999);
+  assert.equal(checagemBloqueado.bloqueado, true);
+
+  await desbloquearUsuario(db, "usuario_alvo");
+  const checagemLiberado = await verificarRateLimit(db, "usuario_alvo", agora + 99999999);
+  assert.equal(checagemLiberado.bloqueado, false);
 });
 
 test("limparTentativasLogin remove o historico da chave", async () => {

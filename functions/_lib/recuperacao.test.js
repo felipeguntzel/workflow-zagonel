@@ -103,9 +103,9 @@ test("redefinirSenhaComToken rejeita senha que nao cumpre politica de complexida
 
   await assert.rejects(
     async () => {
-      await redefinirSenhaComToken(dbMock, "tokenteste", "fraca123");
+      await redefinirSenhaComToken(dbMock, "tokenteste", "12345");
     },
-    (err) => /maiúscula|especial/.test(err.message)
+    (err) => /mínimo 6|sequência de 1 em 1|repetidos/.test(err.message)
   );
 });
 
@@ -132,8 +132,8 @@ test("redefinirSenhaComToken aceita senha forte valida", async () => {
     }),
   };
 
-  const res = await redefinirSenhaComToken(dbMock, "tokenteste", "SenhaForte@2026");
+  const res = await redefinirSenhaComToken(dbMock, "tokenteste", "Nova@2026");
   assert.equal(res.sucesso, true);
-  assert.equal(updates.length, 2);
+  assert.ok(updates.length >= 2);
   assert.match(updates[0].sql, /token_valido_apos/);
 });

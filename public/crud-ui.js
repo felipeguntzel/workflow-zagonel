@@ -3,6 +3,61 @@ import { info, mostrarErro, escaparAtributo, escaparHtml, botaoIconeEditar, bota
 import { permissaoDaTela } from "./auth.js";
 import { confirmarAcao } from "./modal.js";
 
+export function gerarSenhaAleatoria(tamanho = 6) {
+  const letras = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ";
+  const numeros = "23456789";
+  const todos = letras + numeros;
+  const bytes = crypto.getRandomValues(new Uint8Array(tamanho));
+  let senha = "";
+  senha += letras[bytes[0] % letras.length];
+  senha += numeros[bytes[1] % numeros.length];
+  for (let i = 2; i < tamanho; i++) {
+    senha += todos[bytes[i] % todos.length];
+  }
+  return senha.split("").sort(() => Math.random() - 0.5).join("");
+}
+
+export function ehSequenciaNumerica(str) {
+  if (typeof str !== "string" || str.length < 2) return false;
+  let crescente = true;
+  let decrescente = true;
+  for (let i = 1; i < str.length; i++) {
+    const prev = Number(str[i - 1]);
+    const curr = Number(str[i]);
+    if (curr !== prev + 1) crescente = false;
+    if (curr !== prev - 1) decrescente = false;
+  }
+  return crescente || decrescente;
+}
+
+export function validarComplexidadeSenhaCliente(senha) {
+  if (typeof senha !== "string") {
+    return { valido: false, mensagem: "Senha inválida." };
+  }
+  if (senha.length < 6) {
+    return { valido: false, mensagem: "A senha deve ter no mínimo 6 caracteres." };
+  }
+  if (senha.length > 10) {
+    return { valido: false, mensagem: "A senha deve ter no máximo 10 caracteres." };
+  }
+  if (/^\d+$/.test(senha)) {
+    if (new Set(senha).size === 1) {
+      return { valido: false, mensagem: "A senha numérica não pode conter números repetidos (ex: 111111)." };
+    }
+    if (ehSequenciaNumerica(senha)) {
+      return { valido: false, mensagem: "A senha numérica não pode ser uma sequência de 1 em 1 (ex: 123456)." };
+    }
+  }
+  return { valido: true };
+}
+
+export async function calcularSha256(texto) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export function mostrarAvisoModal(titulo, mensagem, acoes = []) {
   const modalWrap = document.createElement("div");
   modalWrap.className = "modal-fundo modal-fundo--aviso";
@@ -89,6 +144,9 @@ export function formatarRotuloFK(o) {
 
 function valorExibicao(linha, campo, opcoesFK) {
   if (campo.tipo === "checkbox") {
+    if (campo.nome === "ativo") {
+      return linha[campo.nome] !== 0 ? "Ativo" : "Inativo";
+    }
     return linha[campo.nome] ? "Sim" : "Não";
   }
   if (campo.tipo === "multiselect") {
@@ -516,7 +574,7 @@ export async function renderCrud(container, config) {
     const colClasse = campo.tipo === "multiselect" || campo.colFull ? "col-full" : "";
 
     if (campo.tipo === "checkbox") {
-      const marcado = linhaEdicao ? !!linhaEdicao[campo.nome] : false;
+      const marcado = linhaEdicao ? !!linhaEdicao[campo.nome] : (campo.padrao !== undefined ? !!campo.padrao : false);
       return `
         <div class="campo-wrap ${colClasse}">
           <label class="campo-checkbox">
@@ -572,15 +630,30 @@ export async function renderCrud(container, config) {
       `;
     }
 
+    if (campo.tipo === "password") {
+      const placeholder =
+        linhaEdicao
+          ? "(Deixe em branco para manter a atual)"
+          : "6 a 10 dígitos (números/letras/símbolos)";
+
+      return `
+        <div class="campo-wrap ${colClasse}">
+          <label>${rotuloHtml}
+            <div class="campo-senha-container" style="display: flex; gap: 0.4rem; align-items: center;">
+              <input type="password" name="${campo.nome}" autocomplete="new-password" ${campo.obrigatorio && !linhaEdicao ? "required" : ""} placeholder="${escaparAtributo(placeholder)}" style="flex: 1;">
+              <button type="button" class="btn btn-secundario btn-gerar-senha" data-campo="${campo.nome}" style="white-space: nowrap; font-size: 0.8rem; padding: 0.45rem 0.65rem;" title="Gerar senha aleatória de 6 dígitos misturando letras e números">⚡ Gerar senha</button>
+              <button type="button" class="btn btn-secundario btn-toggle-senha" data-campo="${campo.nome}" style="font-size: 0.95rem; padding: 0.4rem 0.55rem;" title="Visualizar ou ocultar senha">👁️</button>
+            </div>
+            <div class="aviso-capslock aviso-capslock-${campo.nome}" hidden style="display: none; align-items: center; gap: 0.35rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.78rem; font-weight: 600; margin-top: 0.35rem;">⚠️ Caps Lock ativado</div>
+          </label>
+        </div>
+      `;
+    }
+
     const tipo = campo.tipo ?? "text";
-    const valorAtual = linhaEdicao && campo.tipo !== "password" ? linhaEdicao[campo.nome] ?? "" : "";
+    const valorAtual = linhaEdicao ? linhaEdicao[campo.nome] ?? "" : "";
     const disabled = linhaEdicao && campo.desabilitadoNaEdicao ? "disabled" : "";
-    const placeholder =
-      linhaEdicao && campo.tipo === "password"
-        ? "(Deixe em branco para manter a atual)"
-        : campo.obrigatorio
-        ? "Preenchimento obrigatório"
-        : "";
+    const placeholder = campo.obrigatorio ? "Preenchimento obrigatório" : "";
 
     return `
       <div class="campo-wrap ${colClasse}">
@@ -627,22 +700,194 @@ export async function renderCrud(container, config) {
     const erroModal = containerModal.querySelector(".erro-modal");
 
     function fecharModal() {
+      window.removeEventListener("keydown", escHandler);
       containerModal.innerHTML = "";
     }
 
-    modalFundo.querySelector(".modal-fechar").addEventListener("click", fecharModal);
-    modalFundo.querySelector(".btn-cancelar-modal").addEventListener("click", fecharModal);
+    // Captura valores atuais do formulário para verificar alterações
+    function capturarValoresFormulario() {
+      const valores = {};
+      for (const campo of config.campos) {
+        if (campo.apenasFiltro) continue;
+        if (campo.tipo === "checkbox") {
+          valores[campo.nome] = formModal.elements[campo.nome]?.checked ? 1 : 0;
+        } else if (campo.tipo === "multiselect") {
+          valores[campo.nome] = Array.from(
+            formModal.querySelectorAll(`input[name="${campo.nome}[]"]:checked`)
+          ).map((el) => String(el.value)).sort().join(",");
+        } else {
+          valores[campo.nome] = formModal.elements[campo.nome]?.value ?? "";
+        }
+      }
+      return valores;
+    }
+
+    const valoresIniciais = capturarValoresFormulario();
+
+    function houveAlteracao() {
+      const atuais = capturarValoresFormulario();
+      for (const k of Object.keys(valoresIniciais)) {
+        if (atuais[k] !== valoresIniciais[k]) return true;
+      }
+      return false;
+    }
+
+    // Destaca campos obrigatórios vazios com foco e borda vermelha
+    function destacarCamposObrigatorios() {
+      let primeiroInvalido = null;
+      formModal.querySelectorAll(".campo-destaque-obrigatorio").forEach((el) => {
+        el.classList.remove("campo-destaque-obrigatorio");
+      });
+
+      for (const campo of config.campos) {
+        if (!campo.obrigatorio || campo.apenasFiltro) continue;
+        if (isEdicao && campo.tipo === "password") continue;
+
+        let valido = true;
+        let elementoDestaque = null;
+
+        if (campo.tipo === "multiselect") {
+          const selecionados = formModal.querySelectorAll(`input[name="${campo.nome}[]"]:checked`);
+          if (selecionados.length === 0) {
+            valido = false;
+            elementoDestaque = formModal.querySelector(`.multiselect-caixa[data-campo="${campo.nome}"]`);
+          }
+        } else {
+          const inputEl = formModal.elements[campo.nome];
+          if (!inputEl || !inputEl.value.trim()) {
+            valido = false;
+            elementoDestaque = inputEl;
+          }
+        }
+
+        if (!valido && elementoDestaque) {
+          elementoDestaque.classList.add("campo-destaque-obrigatorio");
+          if (!primeiroInvalido) primeiroInvalido = elementoDestaque;
+        }
+      }
+
+      if (primeiroInvalido) {
+        primeiroInvalido.focus?.();
+        mostrarErro(erroModal, new Error("Preencha todos os campos obrigatórios em destaque para continuar."));
+      }
+    }
+
+    async function tentarFecharModal() {
+      if (!houveAlteracao()) {
+        fecharModal();
+        return;
+      }
+
+      const desejaSair = await confirmarAcao(
+        "Deseja sair sem salvar?",
+        "Os dados informados foram alterados e ainda não foram salvos. Deseja realmente sair e descartar as alterações?",
+        {
+          textoCancelar: "Não, continuar editando",
+          textoConfirmar: "Sim, descartar e sair",
+          tipo: "aviso",
+          focoPadrao: "cancelar",
+        }
+      );
+
+      if (desejaSair) {
+        fecharModal();
+      } else {
+        destacarCamposObrigatorios();
+      }
+    }
+
+    // Fechamento somente por intenção explícita (botão Cancelar, botão X ou tecla ESC)
+    modalFundo.querySelector(".modal-fechar").addEventListener("click", tentarFecharModal);
+    modalFundo.querySelector(".btn-cancelar-modal").addEventListener("click", tentarFecharModal);
+
+    // IMPORTANTE: Clique fora da janela NÃO fecha a tela suspensa
     modalFundo.addEventListener("click", (ev) => {
-      if (ev.target === modalFundo) fecharModal();
+      if (ev.target === modalFundo) {
+        // Ignora clique acidental no fundo escurecido
+      }
     });
 
     const escHandler = (ev) => {
       if (ev.key === "Escape") {
-        fecharModal();
-        window.removeEventListener("keydown", escHandler);
+        if (!document.body.contains(formModal)) {
+          window.removeEventListener("keydown", escHandler);
+          return;
+        }
+        const modalAvisoAberto = document.querySelector(".modal-fundo--aviso");
+        if (modalAvisoAberto) return;
+        tentarFecharModal();
       }
     };
     window.addEventListener("keydown", escHandler);
+
+    // Botão Gerar Senha Aleatória
+    formModal.querySelectorAll(".btn-gerar-senha").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const nomeCampo = btn.dataset.campo;
+        const input = formModal.elements[nomeCampo];
+        if (!input) return;
+        const novaSenha = gerarSenhaAleatoria(6);
+        input.value = novaSenha;
+        input.type = "text";
+        input.classList.remove("campo-destaque-obrigatorio");
+        const btnToggle = formModal.querySelector(`.btn-toggle-senha[data-campo="${nomeCampo}"]`);
+        if (btnToggle) btnToggle.textContent = "🙈";
+
+        navigator.clipboard?.writeText(novaSenha).catch(() => {});
+        const feedback = document.createElement("span");
+        feedback.style.cssText = "font-size:0.75rem; color:#15803d; font-weight:bold; margin-left:0.35rem;";
+        feedback.textContent = "✓ Gerada e copiada!";
+        btn.parentElement.appendChild(feedback);
+        setTimeout(() => feedback.remove(), 3500);
+      });
+    });
+
+    // Botão Visualizar / Ocultar Senha
+    formModal.querySelectorAll(".btn-toggle-senha").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const nomeCampo = btn.dataset.campo;
+        const input = formModal.elements[nomeCampo];
+        if (!input) return;
+        if (input.type === "password") {
+          input.type = "text";
+          btn.textContent = "🙈";
+        } else {
+          input.type = "password";
+          btn.textContent = "👁️";
+        }
+      });
+    });
+
+    // Indicador visual de Caps Lock ativado
+    formModal.querySelectorAll('input[type="password"], input[name="senha"]').forEach((input) => {
+      const avisoCaps = formModal.querySelector(`.aviso-capslock-${input.name}`);
+      const checarCaps = (ev) => {
+        if (!avisoCaps) return;
+        if (ev.getModifierState && ev.getModifierState("CapsLock")) {
+          avisoCaps.hidden = false;
+          avisoCaps.style.display = "flex";
+        } else {
+          avisoCaps.hidden = true;
+          avisoCaps.style.display = "none";
+        }
+      };
+      input.addEventListener("keydown", checarCaps);
+      input.addEventListener("keyup", checarCaps);
+      input.addEventListener("blur", () => {
+        if (avisoCaps) {
+          avisoCaps.hidden = true;
+          avisoCaps.style.display = "none";
+        }
+      });
+    });
+
+    // Limpar destaque de campo obrigatório ao digitar/alterar
+    formModal.addEventListener("input", (ev) => {
+      ev.target.classList.remove("campo-destaque-obrigatorio");
+    });
+    formModal.addEventListener("change", (ev) => {
+      ev.target.classList.remove("campo-destaque-obrigatorio");
+    });
 
     // Configurar selects dependentes (ex: Empresa -> Setores)
     for (const campo of config.campos) {
@@ -700,6 +945,9 @@ export async function renderCrud(container, config) {
     formModal.addEventListener("submit", async (ev) => {
       ev.preventDefault();
       erroModal.hidden = true;
+      formModal.querySelectorAll(".campo-destaque-obrigatorio").forEach((el) => {
+        el.classList.remove("campo-destaque-obrigatorio");
+      });
 
       const corpo = {};
       let erroValidacao = null;
@@ -719,6 +967,8 @@ export async function renderCrud(container, config) {
 
           if (campo.obrigatorio && selecionados.length === 0) {
             erroValidacao = `Selecione pelo menos uma opção para o campo "${campo.label}".`;
+            const caixa = formModal.querySelector(`.multiselect-caixa[data-campo="${campo.nome}"]`);
+            caixa?.classList.add("campo-destaque-obrigatorio");
             break;
           }
           corpo[campo.nome] = selecionados;
@@ -730,17 +980,30 @@ export async function renderCrud(container, config) {
 
         if (campo.obrigatorio && !valor && !(isEdicao && campo.tipo === "password")) {
           erroValidacao = `O campo "${campo.label}" é obrigatório.`;
+          inputEl?.classList.add("campo-destaque-obrigatorio");
           inputEl?.focus();
           break;
         }
 
         if (campo.nome === "login" && !/^[a-zA-Z0-9_]+$/.test(valor)) {
           erroValidacao = `O Login deve conter apenas letras e números, sem espaços ou símbolos.`;
+          inputEl?.classList.add("campo-destaque-obrigatorio");
           inputEl?.focus();
           break;
         }
 
-        if (isEdicao && campo.tipo === "password" && !valor) {
+        if (campo.tipo === "password") {
+          if (isEdicao && !valor) {
+            continue;
+          }
+          const checagemSenha = validarComplexidadeSenhaCliente(valor);
+          if (!checagemSenha.valido) {
+            erroValidacao = checagemSenha.mensagem;
+            inputEl?.classList.add("campo-destaque-obrigatorio");
+            inputEl?.focus();
+            break;
+          }
+          corpo[campo.nome] = await calcularSha256(valor);
           continue;
         }
 

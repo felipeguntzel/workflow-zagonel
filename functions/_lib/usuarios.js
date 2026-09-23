@@ -22,5 +22,10 @@ export async function ensureColunasUsuario(db) {
   } catch (_) {
     // Já existe
   }
+  try {
+    await run(db, "ALTER TABLE usuarios ADD COLUMN ativo INTEGER NOT NULL DEFAULT 1");
+  } catch (_) {
+    // Já existe
+  }
   colunasGarantidas = true;
 }

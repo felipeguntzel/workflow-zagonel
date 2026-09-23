@@ -23,7 +23,7 @@ export async function onRequestGet(context) {
   await ensureColunasUsuario(context.env.DB);
   const usuarios = await all(
     context.env.DB,
-    "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha FROM usuarios ORDER BY id"
+    "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha, ativo FROM usuarios ORDER BY id"
   );
   for (const usuario of usuarios) {
     usuario.grupos = await carregarGruposDoUsuario(context.env.DB, usuario.id);
@@ -53,7 +53,25 @@ export async function onRequestPost(context) {
     return error("Já existe um usuário com esse login");
   }
   const email = body.email ? String(body.email).trim().toLowerCase() : null;
+  if (email) {
+    const emailExistente = await first(context.env.DB, "SELECT id FROM usuarios WHERE LOWER(email) = ?", email);
+    if (emailExistente) {
+      return error("Já existe um usuário cadastrado com este e-mail.");
+    }
+  }
+
   const telefone = body.telefone ? String(body.telefone).trim() : null;
+  if (telefone) {
+    const digitosTelefone = telefone.replace(/\D/g, "");
+    if (digitosTelefone.length > 0) {
+      const todos = await all(context.env.DB, "SELECT id, telefone FROM usuarios WHERE telefone IS NOT NULL");
+      const duplicado = todos.find((u) => u.telefone && u.telefone.replace(/\D/g, "") === digitosTelefone);
+      if (duplicado) {
+        return error("Já existe um usuário cadastrado com este número de telefone.");
+      }
+    }
+  }
+
   const grupos = Array.isArray(body.grupos) ? body.grupos : [];
   if (!(await validarGruposExistem(context.env.DB, grupos))) {
     return error("Um ou mais grupos informados não existem.");
@@ -67,10 +85,12 @@ export async function onRequestPost(context) {
   }
   const senhaHash = await hashSenha(body.senha);
   const admin = body.admin ? 1 : 0;
+  const ativo = body.ativo !== undefined ? (body.ativo ? 1 : 0) : 1;
+  const deveTrocarSenha = body.deve_trocar_senha !== undefined ? (body.deve_trocar_senha ? 1 : 0) : 1;
   const agora = Date.now();
   const resultado = await run(
     context.env.DB,
-    "INSERT INTO usuarios (nome, setor_id, login, email, telefone, senha_hash, admin, deve_trocar_senha, token_valido_apos) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)",
+    "INSERT INTO usuarios (nome, setor_id, login, email, telefone, senha_hash, admin, deve_trocar_senha, ativo, token_valido_apos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     body.nome,
     body.setor_id,
     login,
@@ -78,6 +98,8 @@ export async function onRequestPost(context) {
     telefone,
     senhaHash,
     admin,
+    deveTrocarSenha,
+    ativo,
     agora
   );
   const novoId = resultado.meta.last_row_id;
@@ -91,7 +113,7 @@ export async function onRequestPost(context) {
   }
   const novo = await first(
     context.env.DB,
-    "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha FROM usuarios WHERE id = ?",
+    "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha, ativo FROM usuarios WHERE id = ?",
     novoId
   );
   novo.grupos = grupos;

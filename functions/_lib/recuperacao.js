@@ -1,5 +1,6 @@
 import { all, first, run } from "./db.js";
 import { hashSenha, validarComplexidadeSenha } from "./auth.js";
+import { desbloquearUsuario } from "./rate-limit.js";
 
 let tabelaGarantida = false;
 
@@ -174,6 +175,9 @@ export async function redefinirSenhaComToken(db, token, novaSenha) {
 
   // Marca token como usado
   await run(db, "UPDATE recuperacao_senha SET usado = 1 WHERE id = ?", registro.id);
+
+  // Desbloqueia eventuais tentativas de login bloqueadas
+  await desbloquearUsuario(db, registro.usuario_login);
 
   return { sucesso: true, usuario_nome: registro.usuario_nome, usuario_login: registro.usuario_login };
 }

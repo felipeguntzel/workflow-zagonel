@@ -65,21 +65,40 @@ export function validarFormatoLogin(login) {
   return /^[a-z0-9]+$/.test(login);
 }
 
+export function ehSequenciaNumerica(str) {
+  if (typeof str !== "string" || str.length < 2) return false;
+  let crescente = true;
+  let decrescente = true;
+  for (let i = 1; i < str.length; i++) {
+    const prev = Number(str[i - 1]);
+    const curr = Number(str[i]);
+    if (curr !== prev + 1) crescente = false;
+    if (curr !== prev - 1) decrescente = false;
+  }
+  return crescente || decrescente;
+}
+
 export function validarComplexidadeSenha(senha) {
-  if (typeof senha !== "string" || senha.length < 8) {
-    return { valido: false, mensagem: "A senha deve ter pelo menos 8 caracteres." };
+  if (typeof senha !== "string") {
+    return { valido: false, mensagem: "Senha inválida." };
   }
-  if (!/[A-Z]/.test(senha)) {
-    return { valido: false, mensagem: "A senha deve conter pelo menos uma letra maiúscula." };
+  // Se for hash criptográfico SHA-256 de 64 caracteres hex vindo do cliente
+  if (/^[a-f0-9]{64}$/i.test(senha)) {
+    return { valido: true };
   }
-  if (!/[a-z]/.test(senha)) {
-    return { valido: false, mensagem: "A senha deve conter pelo menos uma letra minúscula." };
+  if (senha.length < 6) {
+    return { valido: false, mensagem: "A senha deve ter no mínimo 6 caracteres." };
   }
-  if (!/[0-9]/.test(senha)) {
-    return { valido: false, mensagem: "A senha deve conter pelo menos um número." };
+  if (senha.length > 10) {
+    return { valido: false, mensagem: "A senha deve ter no máximo 10 caracteres." };
   }
-  if (!/[^A-Za-z0-9]/.test(senha)) {
-    return { valido: false, mensagem: "A senha deve conter pelo menos um caractere especial ou símbolo." };
+  if (/^\d+$/.test(senha)) {
+    if (new Set(senha).size === 1) {
+      return { valido: false, mensagem: "A senha numérica não pode conter números repetidos (ex: 111111)." };
+    }
+    if (ehSequenciaNumerica(senha)) {
+      return { valido: false, mensagem: "A senha numérica não pode ser uma sequência de 1 em 1 (ex: 123456)." };
+    }
   }
   return { valido: true };
 }

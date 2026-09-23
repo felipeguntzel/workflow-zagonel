@@ -371,19 +371,69 @@ async function iniciar(container, mensagemErro) {
     });
 
     function fechar() {
+      window.removeEventListener("keydown", escHandler);
       containerModal.innerHTML = "";
     }
 
-    modalFundo.querySelector(".modal-fechar").addEventListener("click", fechar);
-    modalFundo.querySelector(".btn-cancelar-modal").addEventListener("click", fechar);
+    const nomeInicial = grupoEdicao ? (grupoEdicao.nome || "") : "";
+    const descInicial = grupoEdicao ? (grupoEdicao.descricao || "") : "";
+    const chksIniciais = Array.from(form.querySelectorAll('.tabela-permissoes-matriz input[type="checkbox"]')).map((c) => c.checked);
+
+    function houveAlteracao() {
+      if (form.elements.nome.value.trim() !== nomeInicial.trim()) return true;
+      if ((form.elements.descricao?.value || "").trim() !== descInicial.trim()) return true;
+      const chksAtuais = Array.from(form.querySelectorAll('.tabela-permissoes-matriz input[type="checkbox"]')).map((c) => c.checked);
+      for (let i = 0; i < chksIniciais.length; i++) {
+        if (chksIniciais[i] !== chksAtuais[i]) return true;
+      }
+      return false;
+    }
+
+    async function tentarFechar() {
+      if (!houveAlteracao()) {
+        fechar();
+        return;
+      }
+      const sair = await confirmarAcao(
+        "Deseja sair sem salvar?",
+        "Os dados informados foram alterados e ainda não foram salvos. Deseja realmente sair e descartar as alterações?",
+        {
+          textoCancelar: "Não, continuar editando",
+          textoConfirmar: "Sim, descartar e sair",
+          tipo: "aviso",
+          focoPadrao: "cancelar",
+        }
+      );
+      if (sair) {
+        fechar();
+      } else {
+        if (!form.elements.nome.value.trim()) {
+          form.elements.nome.classList.add("campo-destaque-obrigatorio");
+          form.elements.nome.focus();
+          mostrarErro(erroModal, new Error("Informe o nome do grupo em destaque para continuar."));
+        }
+      }
+    }
+
+    modalFundo.querySelector(".modal-fechar").addEventListener("click", tentarFechar);
+    modalFundo.querySelector(".btn-cancelar-modal").addEventListener("click", tentarFechar);
+
+    // Evita fechamento acidental ao clicar fora do modal
     modalFundo.addEventListener("click", (e) => {
-      if (e.target === modalFundo) fechar();
+      if (e.target === modalFundo) {
+        // Ignora clique no fundo
+      }
     });
 
     const escHandler = (e) => {
       if (e.key === "Escape") {
-        fechar();
-        window.removeEventListener("keydown", escHandler);
+        if (!document.body.contains(form)) {
+          window.removeEventListener("keydown", escHandler);
+          return;
+        }
+        const avisoAberto = document.querySelector(".modal-fundo--aviso");
+        if (avisoAberto) return;
+        tentarFechar();
       }
     };
     window.addEventListener("keydown", escHandler);

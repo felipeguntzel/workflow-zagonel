@@ -175,11 +175,12 @@ async function iniciarEditor(container) {
 
   // Botões de modelos rápidos por tabela
   container.querySelectorAll(".btn-modelo-sql").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const acao = btn.getAttribute("data-acao");
       const nomeTab = selectTabelaModelo.value;
       if (!nomeTab) {
-        alert("Por favor, selecione uma tabela de referência primeiro.");
+        const { mostrarAviso } = await import("./modal.js");
+        await mostrarAviso("Por favor, selecione uma tabela de referência primeiro.", "Tabela obrigatória", "aviso");
         selectTabelaModelo.focus();
         return;
       }
@@ -219,7 +220,8 @@ async function iniciarEditor(container) {
     }
 
     if (!sql) {
-      alert("Digite uma instrução SQL para executar.");
+      const { mostrarAviso } = await import("./modal.js");
+      await mostrarAviso("Digite uma instrução SQL para executar.", "Instrução SQL", "aviso");
       editor.focus();
       return;
     }
