@@ -70,19 +70,19 @@ export async function gerarSolicitacaoRecuperacao(db, identificador, baseUrl, en
   let emailEnviado = false;
   let erroEnvio = null;
 
-  // Se houver chave do Resend configurada nas variáveis de ambiente
-  if (!env || !env.RESEND_API_KEY) {
+  const resendKey = env && (env.RESEND_API_KEY || env.resend_api_key || env.Resend_Api_Key || env.RESEND_KEY);
+  if (!resendKey || typeof resendKey !== "string" || !resendKey.trim()) {
     throw new Error(
       "O serviço de envio de e-mails (RESEND_API_KEY) não está configurado neste ambiente. Solicite a um administrador para redefinir sua senha diretamente no painel de Usuários."
     );
   }
 
   try {
-    const remetente = env.EMAIL_REMETENTE || "WorkFlow Zagonel <onboarding@resend.dev>";
+    const remetente = (env && (env.EMAIL_REMETENTE || env.email_remetente)) || "WorkFlow Zagonel <onboarding@resend.dev>";
     const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${resendKey.trim()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
