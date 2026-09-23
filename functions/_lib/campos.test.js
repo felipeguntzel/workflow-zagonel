@@ -236,3 +236,42 @@ test("validarCamposObrigatorios valida regra de dias_minimos para campos do tipo
   const rValido = validarCamposObrigatorios(campos, { data_faturamento: daqui8Dias });
   assert.equal(rValido.valido, true);
 });
+
+test("garantirTabelaValores adiciona coluna campo_id e cria indice caso faltem", async () => {
+  const comandosExecutados = [];
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind() { return this; },
+        async run() {
+          comandosExecutados.push(sql);
+          return { meta: {} };
+        },
+        async all() {
+          if (sql.includes("PRAGMA table_info(chamado_campos_valores)")) {
+            // Simula tabela existente que só tinha id, chamado_id e valor (sem campo_id)
+            return {
+              results: [
+                { name: "id" },
+                { name: "chamado_id" },
+                { name: "valor" }
+              ]
+            };
+          }
+          return { results: [] };
+        },
+        async first() { return null; }
+      };
+    }
+  };
+
+  const { garantirTabelaValores } = await import("./campos.js");
+  await garantirTabelaValores(mockDb);
+
+  const alterAddCampoId = comandosExecutados.find((cmd) => cmd.includes("ALTER TABLE chamado_campos_valores ADD COLUMN campo_id"));
+  assert.ok(alterAddCampoId, "Deveria ter executado ALTER TABLE para adicionar campo_id");
+
+  const createIndex = comandosExecutados.find((cmd) => cmd.includes("CREATE UNIQUE INDEX IF NOT EXISTS"));
+  assert.ok(createIndex, "Deveria ter criado índice único para chamado_id e campo_id");
+});
+

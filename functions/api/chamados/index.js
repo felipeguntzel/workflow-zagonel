@@ -3,7 +3,7 @@ import { json, error } from "../../_lib/http.js";
 import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
 import { criarChamado, avancarFluxo, hojeISO, garantirColunasChamados } from "../../_lib/chamados.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
-import { salvarValoresCamposChamado, listarCamposDaEtapa, validarCamposObrigatorios } from "../../_lib/campos.js";
+import { salvarValoresCamposChamado, listarCamposDaEtapa, validarCamposObrigatorios, garantirTabelaValores } from "../../_lib/campos.js";
 import { registrarAuditoria } from "../../_lib/auditoria.js";
 
 export async function onRequestGet(context) {
@@ -44,6 +44,7 @@ export async function onRequestPost(context) {
     if (erro) return erro;
 
     await garantirColunasChamados(context.env.DB);
+    await garantirTabelaValores(context.env.DB);
 
     const body = await context.request.json();
     if (!body.fluxo_template_id || !body.etapa_inicial_id) {

@@ -102,7 +102,7 @@ async function obterColunasTabela(db, tabela) {
   }
 }
 
-async function garantirTabelaValores(db) {
+export async function garantirTabelaValores(db) {
   try {
     await run(
       db,
@@ -115,6 +115,41 @@ async function garantirTabelaValores(db) {
       )`
     );
   } catch (_) {}
+
+  try {
+    const cols = await all(db, "PRAGMA table_info(chamado_campos_valores)");
+    const nomes = new Set(cols.map((c) => c.name.toLowerCase()));
+
+    if (!nomes.has("campo_id")) {
+      await run(db, "ALTER TABLE chamado_campos_valores ADD COLUMN campo_id INTEGER").catch(() => {});
+    }
+    if (!nomes.has("valor")) {
+      await run(db, "ALTER TABLE chamado_campos_valores ADD COLUMN valor TEXT").catch(() => {});
+    }
+    if (!nomes.has("chamado_id")) {
+      await run(db, "ALTER TABLE chamado_campos_valores ADD COLUMN chamado_id INTEGER").catch(() => {});
+    }
+
+    if (nomes.has("etapa_campo_id")) {
+      await run(
+        db,
+        "UPDATE chamado_campos_valores SET campo_id = etapa_campo_id WHERE campo_id IS NULL AND etapa_campo_id IS NOT NULL"
+      ).catch(() => {});
+    }
+    if (nomes.has("campo_etapa_id")) {
+      await run(
+        db,
+        "UPDATE chamado_campos_valores SET campo_id = campo_etapa_id WHERE campo_id IS NULL AND campo_etapa_id IS NOT NULL"
+      ).catch(() => {});
+    }
+
+    await run(
+      db,
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_chamado_campos_valores_chamado_campo ON chamado_campos_valores(chamado_id, campo_id)"
+    ).catch(() => {});
+  } catch (err) {
+    console.error("Falha ao sincronizar esquema de chamado_campos_valores:", err);
+  }
 }
 
 /**
@@ -387,14 +422,34 @@ export async function salvarValoresCamposChamado(db, chamadoId, valoresObjeto, e
 
   for (const item of entradas) {
     if (!item.campo_id) continue;
-    await run(
-      db,
-      `INSERT INTO chamado_campos_valores (chamado_id, campo_id, valor)
-       VALUES (?, ?, ?)
-       ON CONFLICT(chamado_id, campo_id) DO UPDATE SET valor = excluded.valor`,
-      chamadoId,
-      item.campo_id,
-      item.valor != null ? String(item.valor) : null
-    );
+    try {
+      await run(
+        db,
+        `INSERT INTO chamado_campos_valores (chamado_id, campo_id, valor)
+         VALUES (?, ?, ?)
+         ON CONFLICT(chamado_id, campo_id) DO UPDATE SET valor = excluded.valor`,
+        chamadoId,
+        item.campo_id,
+        item.valor != null ? String(item.valor) : null
+      );
+    } catch (_) {
+      try {
+        await run(
+          db,
+          "DELETE FROM chamado_campos_valores WHERE chamado_id = ? AND campo_id = ?",
+          chamadoId,
+          item.campo_id
+        );
+        await run(
+          db,
+          `INSERT INTO chamado_campos_valores (chamado_id, campo_id, valor) VALUES (?, ?, ?)`,
+          chamadoId,
+          item.campo_id,
+          item.valor != null ? String(item.valor) : null
+        );
+      } catch (err) {
+        console.error("Falha ao gravar campo personalizado:", err);
+      }
+    }
   }
 }
