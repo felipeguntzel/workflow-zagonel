@@ -47,17 +47,20 @@ export async function garantirColunasChamados(db) {
     const cols = await all(db, "PRAGMA table_info(chamados)");
     const nomes = new Set(cols.map((c) => c.name.toLowerCase()));
     if (!nomes.has("titulo")) {
-      await run(db, "ALTER TABLE chamados ADD COLUMN titulo TEXT");
+      await run(db, "ALTER TABLE chamados ADD COLUMN titulo TEXT").catch(() => {});
     }
     if (!nomes.has("prioridade")) {
-      await run(db, "ALTER TABLE chamados ADD COLUMN prioridade TEXT NOT NULL DEFAULT 'normal'");
+      await run(db, "ALTER TABLE chamados ADD COLUMN prioridade TEXT NOT NULL DEFAULT 'normal'").catch(() => {});
     }
     if (!nomes.has("observacao")) {
-      await run(db, "ALTER TABLE chamados ADD COLUMN observacao TEXT");
+      await run(db, "ALTER TABLE chamados ADD COLUMN observacao TEXT").catch(() => {});
+    }
+    if (!nomes.has("empresa_id")) {
+      await run(db, "ALTER TABLE chamados ADD COLUMN empresa_id INTEGER REFERENCES empresas(id)").catch(() => {});
     }
     colunasChamadosGarantidas = true;
-  } catch (_) {
-    colunasChamadosGarantidas = true;
+  } catch (err) {
+    console.error("Aviso ao garantir colunas de chamados:", err);
   }
 }
 

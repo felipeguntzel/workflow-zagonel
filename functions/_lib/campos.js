@@ -59,6 +59,25 @@ export async function obterTabelaCampos(db) {
   if (db && typeof db === "object") {
     tabelaCamposCache.set(db, tabela);
   }
+
+  // Garantir colunas adicionais para ordem, posicao e orientacao
+  try {
+    const cols = await all(db, `PRAGMA table_info(${tabela})`);
+    const nomes = new Set(cols.map((c) => c.name.toLowerCase()));
+    if (!nomes.has("ordem")) {
+      await run(db, `ALTER TABLE ${tabela} ADD COLUMN ordem INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+    }
+    if (!nomes.has("posicao")) {
+      await run(db, `ALTER TABLE ${tabela} ADD COLUMN posicao TEXT NOT NULL DEFAULT 'esquerda'`).catch(() => {});
+    }
+    if (!nomes.has("orientacao")) {
+      await run(db, `ALTER TABLE ${tabela} ADD COLUMN orientacao TEXT`).catch(() => {});
+    }
+    if (db && typeof db === "object" && colunasTabelaCache.has(db)) {
+      colunasTabelaCache.get(db).delete(tabela);
+    }
+  } catch (_) {}
+
   return tabela;
 }
 
@@ -132,6 +151,8 @@ export async function salvarCampoEtapa(db, etapaId, dados) {
     opcoes = null,
     opcoes_json = null,
     ordem = 0,
+    posicao = "esquerda",
+    orientacao = null,
     somente_leitura = 0,
     bloqueio_regra = null,
   } = dados;
@@ -145,6 +166,10 @@ export async function salvarCampoEtapa(db, etapaId, dados) {
 
   const tipoSalvo = normalizarTipoCampo(tipo);
 
+  const posicaoValida = ["esquerda", "direita", "inteira"].includes(String(posicao || "").toLowerCase())
+    ? String(posicao).toLowerCase()
+    : "esquerda";
+
   const registro = {
     etapa_id: Number(etapaId),
     nome: String(nome).trim().toLowerCase().replace(/[^a-z0-9_]/g, "_"),
@@ -152,6 +177,8 @@ export async function salvarCampoEtapa(db, etapaId, dados) {
     tipo: tipoSalvo,
     obrigatorio: obrigatorio ? 1 : 0,
     ordem: Number(ordem) || 0,
+    posicao: posicaoValida,
+    orientacao: orientacao ? String(orientacao).trim() : null,
     somente_leitura: somente_leitura ? 1 : 0,
     bloqueio_regra: bloqueio_regra ?? null,
   };

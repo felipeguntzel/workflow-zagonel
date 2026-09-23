@@ -1,7 +1,7 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
 import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
-import { criarChamado, avancarFluxo, hojeISO } from "../../_lib/chamados.js";
+import { criarChamado, avancarFluxo, hojeISO, garantirColunasChamados } from "../../_lib/chamados.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
 import { salvarValoresCamposChamado, listarCamposDaEtapa, validarCamposObrigatorios } from "../../_lib/campos.js";
 import { registrarAuditoria } from "../../_lib/auditoria.js";
@@ -9,6 +9,8 @@ import { registrarAuditoria } from "../../_lib/auditoria.js";
 export async function onRequestGet(context) {
   const { usuario, permissoes, erro } = await exigirPermissao(context, "chamados", "visualizar");
   if (erro) return erro;
+
+  await garantirColunasChamados(context.env.DB);
 
   const verTodos = usuario.admin === 1 || permissoes.chamados.ver_todos_setores;
   const condicaoSetor = verTodos ? "1 = 1" : "COALESCE(e.setor_id, a.setor_destino_id) = ?";
@@ -39,12 +41,15 @@ export async function onRequestGet(context) {
 export async function onRequestPost(context) {
   const { usuario, erro } = await exigirPermissao(context, "chamados", "inserir");
   if (erro) return erro;
+
+  await garantirColunasChamados(context.env.DB);
+
   const body = await context.request.json();
   if (!body.fluxo_template_id || !body.etapa_inicial_id) {
     return error("Campos obrigatórios: fluxo_template_id, etapa_inicial_id");
   }
   const etapa = await carregarEtapaComAcoes(context.env.DB, body.etapa_inicial_id);
-  if (!etapa || !etapa.eh_inicial || Number(etapa.fluxo_template_id) !== Number(body.fluxo_template_id)) {
+  if (!etapa || Number(etapa.fluxo_template_id) !== Number(body.fluxo_template_id)) {
     return error("etapa_inicial_id inválido para este fluxo_template_id");
   }
   const solicitante = await first(

@@ -1162,77 +1162,185 @@ a.btn {
 .formulario-secao-card {
   background: var(--cor-fundo-elevado);
   border: var(--cor-borda-largura) solid var(--cor-borda);
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-  padding: 1.5rem 1.75rem;
-  margin-bottom: 1.5rem;
+  border-radius: 0.6rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 0.9rem 1.2rem;
+  margin-bottom: 0.9rem;
   box-sizing: border-box;
   width: 100%;
+}
+
+.formulario-secao-card--enxuto {
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .formulario-secao-cabecalho {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.25rem;
-  padding-bottom: 0.65rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.45rem;
   border-bottom: 1px solid var(--cor-borda);
 }
 
-.formulario-secao-cabecalho h3 {
+.formulario-secao-cabecalho h3,
+.formulario-secao-titulo {
   margin: 0;
-  font-size: 1.12rem;
-  font-weight: 800;
+  font-size: 0.98rem;
+  font-weight: 700;
   color: var(--cor-primaria);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
+}
+
+/* Rótulos sempre alinhados à esquerda e horizontais */
+.campo-rotulo,
+form.formulario label.campo-rotulo,
+.campo-grupo > label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  gap: 0.35rem;
+  width: 100%;
+  margin-bottom: 0.3rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--cor-texto);
+  box-sizing: border-box;
+}
+
+.campo-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
 }
 
 .formulario-grid-2col {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1.25rem 1.5rem;
+  gap: 0.75rem 1rem;
   width: 100%;
   box-sizing: border-box;
 }
 
-@media (max-width: 768px) {
-  .formulario-grid-2col {
+.formulario-grid-3col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.formulario-grid-cabecalho {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 0.75rem 1rem;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 860px) {
+  .formulario-grid-3col {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: 0.6rem;
   }
 }
 
-.col-span-2 {
+@media (max-width: 768px) {
+  .formulario-grid-2col,
+  .formulario-grid-cabecalho {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+}
+
+.col-span-2,
+.col-pos-inteira {
   grid-column: 1 / -1;
+}
+
+.col-pos-esquerda {
+  grid-column: 1;
+}
+
+.col-pos-direita {
+  grid-column: 2;
+}
+
+@media (max-width: 768px) {
+  .col-pos-esquerda,
+  .col-pos-direita {
+    grid-column: 1 / -1;
+  }
 }
 
 .campo-fixo-exibicao {
   background: var(--cor-fundo);
   border: var(--cor-borda-largura) solid var(--cor-borda);
   border-radius: 0.35rem;
-  padding: 0.6rem 0.85rem;
-  font-size: 0.92rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--cor-texto);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 42px;
+  min-height: 38px;
   box-sizing: border-box;
 }
 
 .tag-automatico {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   background: rgba(47, 111, 79, 0.12);
   color: var(--cor-primaria);
-  padding: 0.15rem 0.45rem;
+  padding: 0.12rem 0.4rem;
   border-radius: 999px;
   border: 1px solid rgba(47, 111, 79, 0.25);
   letter-spacing: 0.03em;
+}
+
+/* Tooltip e botão de orientação para campos */
+.campo-orientacao-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: rgba(47, 111, 79, 0.12);
+  color: var(--cor-primaria);
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid rgba(47, 111, 79, 0.3);
+  margin-left: 0.3rem;
+  transition: all 0.15s ease;
+  user-select: none;
+  line-height: 1;
+}
+.campo-orientacao-btn:hover {
+  background: var(--cor-primaria);
+  color: #fff;
+  transform: scale(1.08);
+}
+.campo-orientacao-texto {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--cor-texto-secundario);
+  background: var(--cor-fundo);
+  border-left: 3px solid var(--cor-primaria);
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.25rem;
+  margin-top: 0.25rem;
+  line-height: 1.35;
 }
 
 /* Botoes de atalho para lancamento rapido de horas */

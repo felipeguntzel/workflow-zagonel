@@ -974,13 +974,15 @@ async function iniciar(container, mensagemErro) {
 
               <div style="margin-bottom: 1.25rem;">
                 <h4 style="margin: 0 0 0.5rem; font-size: 0.95rem;">Campos configurados</h4>
-                <div class="tabela-wrap" style="max-height: 240px; overflow-y: auto;">
+                <div class="tabela-wrap" style="max-height: 280px; overflow-y: auto;">
                   <table style="margin: 0;">
                     <thead>
                       <tr>
                         <th style="width: 50px; text-align: center;">Ordem</th>
+                        <th style="width: 90px; text-align: center;">Posição</th>
                         <th>Identificador</th>
                         <th>Rótulo (Label)</th>
+                        <th>Orientação (Dica)</th>
                         <th>Tipo</th>
                         <th>Obrigatório?</th>
                         <th>Opções (Seleção)</th>
@@ -990,7 +992,7 @@ async function iniciar(container, mensagemErro) {
                     <tbody>
                       ${
                         campos.length === 0
-                          ? `<tr><td colspan="7" style="text-align: center; padding: 1.25rem; color: var(--cor-texto-secundario);">Nenhum campo personalizado configurado para esta etapa.</td></tr>`
+                          ? `<tr><td colspan="9" style="text-align: center; padding: 1.25rem; color: var(--cor-texto-secundario);">Nenhum campo personalizado configurado para esta etapa.</td></tr>`
                           : campos
                               .map(
                                 (c) => {
@@ -1017,11 +1019,23 @@ async function iniciar(container, mensagemErro) {
                                     }
                                   }
 
+                                  const posRotulo = c.posicao === "direita" ? "Direita" : c.posicao === "inteira" ? "Inteira" : "Esquerda";
+                                  const posCor = c.posicao === "direita" ? "#0369a1" : c.posicao === "inteira" ? "#7c3aed" : "#1d4a35";
+                                  const posBg = c.posicao === "direita" ? "#e0f2fe" : c.posicao === "inteira" ? "#ede9fe" : "#eaf3ee";
+
                                   return `
                         <tr>
-                          <td style="font-weight: 700; text-align: center;">${c.ordem || 0}</td>
+                          <td style="font-weight: 700; text-align: center;">${c.ordem || 1}</td>
+                          <td style="text-align: center;">
+                            <span class="badge-status" style="background: ${posBg}; color: ${posCor}; font-size: 0.75rem; font-weight: 700;">
+                              ${posRotulo}
+                            </span>
+                          </td>
                           <td style="font-family: monospace; font-size: 0.85rem;">${escaparHtml(c.nome)}</td>
                           <td style="font-weight: 600;">${escaparHtml(c.rotulo)}</td>
+                          <td style="font-size: 0.82rem; color: var(--cor-texto-secundario); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escaparHtml(c.orientacao || '')}">
+                            ${c.orientacao ? `ℹ️ ${escaparHtml(c.orientacao)}` : "-"}
+                          </td>
                           <td><span class="badge-status" style="background: var(--cor-fundo-elevado); border: 1px solid var(--cor-borda); font-size: 0.8rem;">${escaparHtml(tipoRotulo)}</span></td>
                           <td>${c.obrigatorio ? '<strong style="color: var(--cor-alerta);">Sim</strong>' : "Não"}</td>
                           <td style="font-size: 0.85rem; color: var(--cor-texto-secundario);">${escaparHtml(opcoesFormatadas)}</td>
@@ -1044,42 +1058,60 @@ async function iniciar(container, mensagemErro) {
                   ? `
                 <div style="border-top: 1px solid var(--cor-borda); padding-top: 1.25rem;">
                   <h4 style="margin: 0 0 0.75rem; font-size: 0.95rem;">+ Adicionar novo campo personalizado</h4>
-                  <form class="form-novo-campo" style="display: grid; grid-template-columns: 80px 1fr 1.2fr 1.1fr auto; gap: 0.6rem; align-items: end;">
-                    <div>
-                      <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Ordem *</label>
-                      <input type="number" name="ordem" min="1" max="10" value="${campos.length + 1}" required style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
+                  <form class="form-novo-campo" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <div style="display: grid; grid-template-columns: 80px 120px 1.2fr 1.5fr; gap: 0.6rem;">
+                      <div>
+                        <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Ordem *</label>
+                        <input type="number" name="ordem" min="1" max="10" value="${campos.length + 1}" required style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
+                      </div>
+                      <div>
+                        <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Posição *</label>
+                        <select name="posicao" style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
+                          <option value="esquerda">Esquerda</option>
+                          <option value="direita">Direita</option>
+                          <option value="inteira">Largura inteira</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Identificador (código) *</label>
+                        <input type="text" name="nome" placeholder="ex: produto_referencia" required style="width: 100%; padding: 0.4rem 0.5rem; font-family: monospace; font-size: 0.85rem;">
+                      </div>
+                      <div>
+                        <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Rótulo exibido *</label>
+                        <input type="text" name="rotulo" placeholder="ex: Produto de Referência" required style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
+                      </div>
                     </div>
-                    <div>
-                      <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Identificador (código) *</label>
-                      <input type="text" name="nome" placeholder="ex: produto_referencia" required style="width: 100%; padding: 0.4rem 0.5rem; font-family: monospace; font-size: 0.85rem;">
+
+                    <div style="display: grid; grid-template-columns: 1.5fr 1fr auto; gap: 0.6rem; align-items: end;">
+                      <div>
+                        <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">
+                          Orientação / Dica informativa (opcional)
+                        </label>
+                        <input type="text" name="orientacao" placeholder="Texto de ajuda que aparece ao clicar no ícone 'i'..." style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
+                      </div>
+                      <div>
+                        <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Tipo do campo *</label>
+                        <select name="tipo" required style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
+                          <option value="texto">Texto curto</option>
+                          <option value="texto_longo">Texto longo (Detalhamento)</option>
+                          <option value="numero">Número</option>
+                          <option value="data">Data</option>
+                          <option value="selecao">Lista suspensa (Seleção)</option>
+                          <option value="checkbox">Caixa de seleção (Checkbox)</option>
+                          <option value="sim_nao">Sim ou Não</option>
+                        </select>
+                      </div>
+                      <div style="display: flex; gap: 0.75rem; align-items: center; padding-bottom: 0.35rem;">
+                        <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">
+                          <input type="checkbox" name="obrigatorio"> Obrigatório
+                        </label>
+                        <button type="submit" class="btn btn-primario btn-pequeno" style="padding: 0.45rem 1rem;">+ Adicionar</button>
+                      </div>
                     </div>
-                    <div>
-                      <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Rótulo exibido *</label>
-                      <input type="text" name="rotulo" placeholder="ex: Produto de Referência" required style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
-                    </div>
-                    <div>
-                      <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Tipo do campo *</label>
-                      <select name="tipo" required style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
-                        <option value="texto">Texto curto</option>
-                        <option value="texto_longo">Texto longo (Detalhamento)</option>
-                        <option value="numero">Número</option>
-                        <option value="data">Data</option>
-                        <option value="selecao">Lista suspensa (Seleção)</option>
-                        <option value="checkbox">Caixa de seleção (Checkbox)</option>
-                        <option value="sim_nao">Sim ou Não</option>
-                      </select>
-                    </div>
-                    <div style="display: flex; gap: 0.5rem; align-items: center; padding-bottom: 0.3rem;">
-                      <label style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">
-                        <input type="checkbox" name="obrigatorio"> Obrigatório
-                      </label>
-                    </div>
-                    <div class="wrap-opcoes-selecao" style="grid-column: 1 / -2; display: none;">
+
+                    <div class="wrap-opcoes-selecao" style="display: none;">
                       <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Opções da lista suspensa (separadas por vírgula)</label>
                       <input type="text" name="opcoes_texto" placeholder="ex: Opção 1, Opção 2, Opção 3" style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
-                    </div>
-                    <div style="grid-column: -2 / -1; justify-self: end;">
-                      <button type="submit" class="btn btn-primario btn-pequeno" style="padding: 0.45rem 0.9rem;">+ Adicionar</button>
                     </div>
                   </form>
                 </div>
@@ -1129,6 +1161,9 @@ async function iniciar(container, mensagemErro) {
           }
 
           const corpo = {
+            ordem: Number(formCampo.elements.ordem.value) || 1,
+            posicao: formCampo.elements.posicao ? formCampo.elements.posicao.value : "esquerda",
+            orientacao: formCampo.elements.orientacao ? formCampo.elements.orientacao.value.trim() : null,
             nome: nomeLimpo,
             rotulo: formCampo.elements.rotulo.value.trim(),
             tipo: tipo,
