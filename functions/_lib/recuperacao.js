@@ -70,57 +70,106 @@ export async function gerarSolicitacaoRecuperacao(db, identificador, baseUrl, en
   let emailEnviado = false;
   let erroEnvio = null;
 
+  const sendgridKey = env && (env.SENDGRID_API_KEY || env.sendgrid_api_key || env.Sendgrid_Api_Key);
   const resendKey = env && (env.RESEND_API_KEY || env.resend_api_key || env.Resend_Api_Key || env.RESEND_KEY);
-  if (!resendKey || typeof resendKey !== "string" || !resendKey.trim()) {
+
+  if ((!sendgridKey || !sendgridKey.trim()) && (!resendKey || !resendKey.trim())) {
     throw new Error(
-      "O serviço de envio de e-mails (RESEND_API_KEY) não está configurado neste ambiente. Solicite a um administrador para redefinir sua senha diretamente no painel de Usuários."
+      "O serviço de envio de e-mails (SENDGRID_API_KEY ou RESEND_API_KEY) não está configurado neste ambiente. Solicite a um administrador para redefinir sua senha diretamente no painel de Usuários."
     );
   }
 
-  try {
-    const remetente = (env && (env.EMAIL_REMETENTE || env.email_remetente)) || "WorkFlow Zagonel <onboarding@resend.dev>";
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendKey.trim()}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: remetente,
-        to: [usuario.email],
-        subject: "Redefinição de Senha - WorkFlow Zagonel",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 20px; color: #1f2937;">
-            <h2 style="color: #2f6f4f;">Recuperação de Senha</h2>
-            <p>Olá, <strong>${usuario.nome}</strong>,</p>
-            <p>Recebemos uma solicitação para redefinir a senha do seu usuário <code>${usuario.login}</code> no sistema WorkFlow Zagonel.</p>
-            <p>Clique no botão abaixo para criar sua nova senha (link válido por 30 minutos):</p>
-            <p style="margin: 25px 0;">
-              <a href="${linkRedefinicao}" style="background-color: #2f6f4f; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                Redefinir Minha Senha
-              </a>
-            </p>
-            <p style="font-size: 0.85rem; color: #6b7280;">Se você não solicitou a troca de senha, pode ignorar este e-mail com segurança.</p>
-          </div>
-        `,
-      }),
-    });
-    emailEnviado = resp.ok;
-    if (!resp.ok) {
-      let txt = await resp.text();
-      try {
-        const jsonErro = JSON.parse(txt);
-        if (jsonErro.message) txt = jsonErro.message;
-      } catch (_) {}
+  const htmlCorpoEmail = `
+    <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 20px; color: #1f2937;">
+      <h2 style="color: #2f6f4f;">Recuperação de Senha</h2>
+      <p>Olá, <strong>${usuario.nome}</strong>,</p>
+      <p>Recebemos uma solicitação para redefinir a senha do seu usuário <code>${usuario.login}</code> no sistema WorkFlow Zagonel.</p>
+      <p>Clique no botão abaixo para criar sua nova senha (link válido por 30 minutos):</p>
+      <p style="margin: 25px 0;">
+        <a href="${linkRedefinicao}" style="background-color: #2f6f4f; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+          Redefinir Minha Senha
+        </a>
+      </p>
+      <p style="font-size: 0.85rem; color: #6b7280;">Se você não solicitou a troca de senha, pode ignorar este e-mail com segurança.</p>
+    </div>
+  `;
 
-      if (resp.status === 403) {
-        erroEnvio = `Resend rejeitou o envio (403): ${txt}. No plano gratuito do Resend, e-mails só podem ser enviados para o mesmo endereço da sua conta Resend, ou após validar o domínio corporativo em resend.com/domains`;
-      } else {
-        erroEnvio = `Resend status ${resp.status}: ${txt}`;
+  if (sendgridKey && sendgridKey.trim()) {
+    try {
+      const remetenteEmail = (env && (env.EMAIL_REMETENTE || env.email_remetente)) || "engenharia18@zagonel.com.br";
+      const resp = await fetch("https://api.sendgrid.com/v3/mail/send", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sendgridKey.trim()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          personalizations: [
+            {
+              to: [{ email: usuario.email, name: usuario.nome || usuario.login }],
+            },
+          ],
+          from: {
+            email: remetenteEmail,
+            name: "WorkFlow Zagonel",
+          },
+          subject: "Redefinição de Senha - WorkFlow Zagonel",
+          content: [
+            {
+              type: "text/html",
+              value: htmlCorpoEmail,
+            },
+          ],
+        }),
+      });
+
+      emailEnviado = resp.status === 202 || resp.ok;
+      if (!emailEnviado) {
+        let txt = await resp.text();
+        try {
+          const jsonErro = JSON.parse(txt);
+          if (jsonErro.errors && jsonErro.errors.length) {
+            txt = jsonErro.errors.map((e) => e.message).join("; ");
+          }
+        } catch (_) {}
+        erroEnvio = `SendGrid status ${resp.status}: ${txt}`;
       }
+    } catch (e) {
+      erroEnvio = e.message;
     }
-  } catch (e) {
-    erroEnvio = e.message;
+  } else if (resendKey && resendKey.trim()) {
+    try {
+      const remetente = (env && (env.EMAIL_REMETENTE || env.email_remetente)) || "WorkFlow Zagonel <onboarding@resend.dev>";
+      const resp = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendKey.trim()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: remetente,
+          to: [usuario.email],
+          subject: "Redefinição de Senha - WorkFlow Zagonel",
+          html: htmlCorpoEmail,
+        }),
+      });
+      emailEnviado = resp.ok;
+      if (!resp.ok) {
+        let txt = await resp.text();
+        try {
+          const jsonErro = JSON.parse(txt);
+          if (jsonErro.message) txt = jsonErro.message;
+        } catch (_) {}
+
+        if (resp.status === 403) {
+          erroEnvio = `Resend rejeitou o envio (403): ${txt}. No plano gratuito do Resend, e-mails só podem ser enviados para o mesmo endereço da sua conta Resend, ou após validar o domínio corporativo em resend.com/domains`;
+        } else {
+          erroEnvio = `Resend status ${resp.status}: ${txt}`;
+        }
+      }
+    } catch (e) {
+      erroEnvio = e.message;
+    }
   }
 
   if (!emailEnviado) {
