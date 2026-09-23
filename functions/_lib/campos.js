@@ -9,6 +9,8 @@ export function normalizarTipoCampo(tipo) {
   if (t === "selecao" || t === "select") return "select";
   if (t === "numero" || t === "number") return "numero";
   if (t === "data" || t === "date") return "data";
+  if (t === "checkbox") return "checkbox";
+  if (t === "sim_nao" || t === "sim-nao" || t === "boolean") return "sim_nao";
   return "texto";
 }
 

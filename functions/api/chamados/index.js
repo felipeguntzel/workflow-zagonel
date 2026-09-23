@@ -19,14 +19,16 @@ export async function onRequestGet(context) {
     `SELECT
        c.*,
        COALESCE(e.setor_id, a.setor_destino_id) AS setor_id,
-       COALESCE(e.nome, a.rotulo) AS titulo,
+       COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
        st.nome AS status_nome,
-       resp.nome AS responsavel_nome
+       resp.nome AS responsavel_nome,
+       emp.nome AS empresa_nome
      FROM chamados c
      LEFT JOIN etapas e ON e.id = c.etapa_id
      LEFT JOIN acoes a ON a.id = c.acao_origem_id
      LEFT JOIN status st ON st.id = c.status_id
      LEFT JOIN usuarios resp ON resp.id = c.responsavel_id
+     LEFT JOIN empresas emp ON emp.id = c.empresa_id
      WHERE ${condicaoSetor}
      ORDER BY c.prazo`,
     ...parametros
@@ -52,6 +54,15 @@ export async function onRequestPost(context) {
   );
   if (!solicitante) return error("solicitante inválido");
 
+  const titulo = body.titulo ? String(body.titulo).trim() : "";
+  if (!titulo) {
+    return error("O campo Título é obrigatório.", 400);
+  }
+
+  const empresaId = body.empresa_id ? Number(body.empresa_id) : solicitante.empresa_id;
+  const prioridade = body.prioridade ? String(body.prioridade).trim().toLowerCase() : "normal";
+  const observacao = body.observacao ? String(body.observacao).trim() : null;
+
   // Validação de campos personalizados obrigatórios
   const camposDef = await listarCamposDaEtapa(context.env.DB, etapa.id);
   const validacao = validarCamposObrigatorios(camposDef, body.campos || {});
@@ -64,9 +75,12 @@ export async function onRequestPost(context) {
     etapa_id: etapa.id,
     chamado_mae_id: null,
     chamado_pai_id: null,
-    empresa_id: solicitante.empresa_id,
+    empresa_id: empresaId,
     solicitante_id: usuario.id,
     prazo: body.prazo ?? null,
+    titulo: titulo,
+    prioridade: prioridade,
+    observacao: observacao,
   });
 
   // Salva campos personalizados se enviados

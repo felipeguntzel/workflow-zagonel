@@ -7,15 +7,18 @@ export function inicializar() {
   const usuario = exigirLogin();
   if (usuario) {
     aplicarLayout(usuario);
-    iniciar().catch((e) => mostrarErro(document.getElementById("mensagem-erro"), e));
+    iniciar(usuario).catch((e) => mostrarErro(document.getElementById("mensagem-erro"), e));
   }
 }
 
 export const inicializarNovoChamado = iniciar;
 
-async function iniciar() {
+async function iniciar(usuarioLogado) {
   const container = document.getElementById("conteudo-novo-chamado");
   if (!container) return;
+
+  const usuario = usuarioLogado || exigirLogin();
+  if (!usuario) return;
 
   const perm = permissaoDaTela("chamados");
   if (!perm.inserir) {
@@ -25,7 +28,7 @@ async function iniciar() {
           <h2>Abrir Novo Chamado</h2>
         </div>
       </div>
-      <div class="painel-formulario" style="max-width: 780px;">
+      <div class="painel-formulario" style="width: 100%; max-width: 100%;">
         <p style="color: var(--cor-texto-secundario); margin: 0;">Você não possui permissão para abrir novos chamados.</p>
       </div>
     `;
@@ -33,13 +36,21 @@ async function iniciar() {
   }
 
   let fluxos = [];
+  let empresas = [];
+
   try {
-    fluxos = await api("/fluxos");
+    const [resFluxos, resEmpresas] = await Promise.all([
+      api("/fluxos").catch(() => []),
+      api("/empresas").catch(() => []),
+    ]);
+    fluxos = Array.isArray(resFluxos) ? resFluxos : [];
+    empresas = Array.isArray(resEmpresas) ? resEmpresas : [];
   } catch (e) {
     fluxos = [];
+    empresas = [];
   }
 
-  if (!Array.isArray(fluxos) || fluxos.length === 0) {
+  if (fluxos.length === 0) {
     container.innerHTML = `
       <div class="pagina-cabecalho">
         <div class="pagina-cabecalho__esquerda">
@@ -51,7 +62,7 @@ async function iniciar() {
           <h2>Abrir Novo Chamado</h2>
         </div>
       </div>
-      <div class="painel-formulario" style="max-width: 780px; border-left: 4px solid var(--cor-alerta);">
+      <div class="formulario-secao-card" style="border-left: 4px solid var(--cor-alerta);">
         <h3 style="display: flex; align-items: center; gap: 0.5rem; color: var(--cor-alerta); margin-top: 0; margin-bottom: 0.5rem;">
           <span style="font-size: 1.3rem;">⚠️</span> Nenhum fluxo cadastrado
         </h3>
@@ -67,66 +78,173 @@ async function iniciar() {
     return;
   }
 
+  const empresaUsuarioId = usuario.empresa_id || (empresas.length > 0 ? empresas[0].id : null);
+  const setorUsuarioNome = usuario.setor_nome || "Geral";
+
   container.innerHTML = `
-    <div class="pagina-cabecalho">
-      <div class="pagina-cabecalho__esquerda">
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
-          <a href="/chamados" style="font-size: 0.85rem; color: var(--cor-primaria); text-decoration: none; font-weight: 600;">← Meus chamados</a>
-          <span style="color: var(--cor-texto-secundario);">/</span>
-          <span style="font-size: 0.85rem; color: var(--cor-texto-secundario);">Novo chamado</span>
+    <div class="pagina-formulario-tela-cheia">
+      <div class="pagina-cabecalho" style="margin-bottom: 1.25rem;">
+        <div class="pagina-cabecalho__esquerda">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+            <a href="/chamados" style="font-size: 0.85rem; color: var(--cor-primaria); text-decoration: none; font-weight: 600;">← Meus chamados</a>
+            <span style="color: var(--cor-texto-secundario);">/</span>
+            <span style="font-size: 0.85rem; color: var(--cor-texto-secundario);">Novo chamado</span>
+          </div>
+          <h2 style="margin: 0; font-size: 1.45rem;">Abrir Novo Chamado</h2>
+          <p style="font-size: 0.9rem; color: var(--cor-texto-secundario); margin: 0.25rem 0 0;">
+            Preencha as informações abaixo para iniciar um processo no fluxo de trabalho.
+          </p>
         </div>
-        <h2>Abrir Novo Chamado</h2>
-        <p style="font-size: 0.9rem; color: var(--cor-texto-secundario); margin: 0.2rem 0 0;">
-          Preencha os dados abaixo para iniciar um novo processo no fluxo de trabalho.
-        </p>
       </div>
-    </div>
-    
-    <p id="mensagem-erro" class="erro" hidden></p>
 
-    <div class="painel-formulario" style="max-width: 780px;">
+      <p id="mensagem-erro" class="erro" hidden></p>
+
       <form class="formulario" id="form-novo-chamado">
-        <div class="campo-grupo">
-          <label class="campo-rotulo" for="select-fluxo">
-            Fluxo de processo <span class="campo-obrigatorio">*</span>
-          </label>
-          <select id="select-fluxo" name="fluxo_template_id" required class="select-padrao">
-            <option value="">Selecione um fluxo...</option>
-            ${fluxos.map((f) => `<option value="${f.id}">${escaparHtml(f.nome)}</option>`).join("")}
-          </select>
-          <p class="campo-ajuda">Selecione o modelo de fluxo de trabalho aplicável a este processo.</p>
-        </div>
+        <!-- Card 1: Fluxo e Etapa Inicial -->
+        <section class="formulario-secao-card">
+          <h3 class="formulario-secao-titulo">
+            <span class="formulario-secao-icone">🔄</span> Fluxo de Processo
+          </h3>
+          <div class="formulario-grid-2col">
+            <div class="campo-grupo">
+              <label class="campo-rotulo" for="select-fluxo">
+                Fluxo de processo <span class="campo-obrigatorio">*</span>
+              </label>
+              <select id="select-fluxo" name="fluxo_template_id" required class="select-padrao">
+                <option value="">Selecione o fluxo...</option>
+                ${fluxos.map((f) => `<option value="${f.id}">${escaparHtml(f.nome)}</option>`).join("")}
+              </select>
+              <p class="campo-ajuda">Selecione o modelo operacional aplicável a esta solicitação.</p>
+            </div>
 
-        <div class="campo-grupo" id="wrap-etapa-inicial">
-          <label class="campo-rotulo" for="select-etapa-inicial">
-            Etapa inicial <span class="campo-obrigatorio">*</span>
-            ${info("Etapa onde o chamado mãe se inicia. Geralmente é a etapa de solicitação ou triagem.")}
-          </label>
-          <select id="select-etapa-inicial" name="etapa_inicial_id" required class="select-padrao">
-            <option value="">Selecione primeiro o fluxo acima...</option>
-          </select>
-          <p id="aviso-etapas-vazias" class="campo-ajuda" style="color: var(--cor-alerta);" hidden></p>
-        </div>
+            <div class="campo-grupo" id="wrap-etapa-inicial">
+              <label class="campo-rotulo" for="select-etapa-inicial">
+                Etapa inicial <span class="campo-obrigatorio">*</span>
+                ${info("Etapa onde a solicitação se inicia. Geralmente é a etapa de abertura, triagem ou solicitação.")}
+              </label>
+              <select id="select-etapa-inicial" name="etapa_inicial_id" required class="select-padrao" disabled>
+                <option value="">Selecione primeiro o fluxo acima...</option>
+              </select>
+              <p id="aviso-etapas-vazias" class="campo-ajuda" style="color: var(--cor-alerta);" hidden></p>
+            </div>
+          </div>
+        </section>
 
-        <!-- Renderização de campos personalizados dinâmicos -->
-        <div id="wrap-campos-dinamicos" style="display: none; border-top: 1px solid var(--cor-borda); padding-top: 1.25rem; margin-top: 1.25rem;">
-          <h4 style="margin: 0 0 1rem; font-size: 1rem; color: var(--cor-primaria); font-weight: 700;">Campos da Solicitação</h4>
-          <div id="container-campos-render" style="display: flex; flex-direction: column; gap: 1rem;"></div>
-        </div>
+        <!-- Card 2: Dados Principais da Solicitação -->
+        <section class="formulario-secao-card">
+          <h3 class="formulario-secao-titulo">
+            <span class="formulario-secao-icone">📝</span> Dados Principais da Solicitação
+          </h3>
+          
+          <div class="formulario-grid-2col">
+            <!-- Título do Chamado (Largura Total) -->
+            <div class="campo-grupo col-span-2">
+              <label class="campo-rotulo" for="campo-titulo">
+                Título do chamado <span class="campo-obrigatorio">*</span>
+              </label>
+              <input 
+                type="text" 
+                id="campo-titulo" 
+                name="titulo" 
+                required 
+                class="input-padrao" 
+                placeholder="Informe um título objetivo e claro para a solicitação..."
+                style="font-size: 1rem; font-weight: 600;"
+              >
+              <p class="campo-ajuda">Identificação principal do chamado para consultas, listas e relatórios.</p>
+            </div>
 
-        <div class="campo-grupo" style="margin-top: 1.25rem; border-top: 1px solid var(--cor-borda); padding-top: 1.25rem;">
-          <label class="campo-rotulo" for="campo-prazo">
-            Prazo limite (opcional)
-            ${info("Se deixado em branco, o sistema calcula o prazo automaticamente com base no prazo padrão em dias do setor da etapa.")}
-          </label>
-          <input type="date" id="campo-prazo" name="prazo" class="input-padrao" style="max-width: 240px;">
-          <p class="campo-ajuda">Deixe em branco para que o prazo seja calculado com base no prazo padrão do setor responsável.</p>
-        </div>
+            <!-- Empresa do Solicitante -->
+            <div class="campo-grupo">
+              <label class="campo-rotulo" for="select-empresa">
+                Empresa
+                ${info("Empresa vinculada ao solicitante. Você pode selecionar outra caso participe de mais de uma empresa.")}
+              </label>
+              <select id="select-empresa" name="empresa_id" class="select-padrao">
+                <option value="">Selecione a empresa...</option>
+                ${empresas
+                  .map(
+                    (emp) =>
+                      `<option value="${emp.id}" ${emp.id === empresaUsuarioId ? "selected" : ""}>${escaparHtml(
+                        emp.codigo ? `[${emp.codigo}] ${emp.nome}` : emp.nome
+                      )}</option>`
+                  )
+                  .join("")}
+              </select>
+              <p class="campo-ajuda">Empresa padrão preenchida automaticamente com base no seu cadastro.</p>
+            </div>
 
-        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; margin-top: 1.5rem; border-top: 1px solid var(--cor-borda); padding-top: 1.25rem;">
-          <a href="/chamados" class="btn btn-secundario">Cancelar</a>
-          <button type="submit" class="btn btn-primario btn-abrir-chamado" id="btn-submit-chamado" style="min-width: 150px;">
-            Abrir chamado
+            <!-- Prioridade -->
+            <div class="campo-grupo">
+              <label class="campo-rotulo" for="select-prioridade">
+                Prioridade da solicitação
+              </label>
+              <select id="select-prioridade" name="prioridade" class="select-padrao">
+                <option value="baixa">Baixa</option>
+                <option value="normal" selected>Normal</option>
+                <option value="alta">Alta</option>
+                <option value="urgente">Urgente</option>
+              </select>
+              <p class="campo-ajuda">Define a criticidade da solicitação para a fila de atendimento.</p>
+            </div>
+
+            <!-- Solicitante Automático (Somente leitura) -->
+            <div class="campo-grupo">
+              <label class="campo-rotulo">
+                Solicitante
+              </label>
+              <div class="campo-fixo-exibicao">
+                <span>👤 ${escaparHtml(usuario.nome)}</span>
+                <span class="tag-automatico">Automático</span>
+              </div>
+              <p class="campo-ajuda">Usuário autenticado responsável pela abertura deste chamado.</p>
+            </div>
+
+            <!-- Setor Automático (Somente leitura) -->
+            <div class="campo-grupo">
+              <label class="campo-rotulo">
+                Setor do solicitante
+              </label>
+              <div class="campo-fixo-exibicao">
+                <span>🏢 ${escaparHtml(setorUsuarioNome)}</span>
+                <span class="tag-automatico">Automático</span>
+              </div>
+              <p class="campo-ajuda">Setor do seu usuário no momento da abertura.</p>
+            </div>
+
+            <!-- Observação Livre (Largura Total) -->
+            <div class="campo-grupo col-span-2">
+              <label class="campo-rotulo" for="campo-observacao">
+                Observação (opcional)
+              </label>
+              <textarea 
+                id="campo-observacao" 
+                name="observacao" 
+                rows="4" 
+                class="textarea-padrao" 
+                placeholder="Espaço livre para detalhamento adicional, orientações preliminares ou contexto da solicitação..."
+              ></textarea>
+              <p class="campo-ajuda">Informações adicionais para contextualizar os responsáveis pelo atendimento.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Card 3: Campos Personalizados da Solicitação -->
+        <section id="wrap-campos-dinamicos" class="formulario-secao-card" style="display: none;">
+          <h3 class="formulario-secao-titulo">
+            <span class="formulario-secao-icone">📋</span> Campos Personalizados do Fluxo
+          </h3>
+          <p style="font-size: 0.88rem; color: var(--cor-texto-secundario); margin: 0 0 1rem;">
+            Preencha os campos específicos configurados para esta etapa do fluxo de trabalho.
+          </p>
+          <div id="container-campos-render" class="formulario-grid-2col"></div>
+        </section>
+
+        <!-- Barra de Ações Inferior -->
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem;">
+          <a href="/chamados" class="btn btn-secundario" style="min-width: 120px; text-align: center;">Cancelar</a>
+          <button type="submit" class="btn btn-primario btn-abrir-chamado" id="btn-submit-chamado" style="min-width: 180px; padding: 0.75rem 1.5rem; font-weight: 700;">
+            🚀 Abrir chamado
           </button>
         </div>
       </form>
@@ -135,6 +253,10 @@ async function iniciar() {
 
   const selectFluxo = container.querySelector("#select-fluxo");
   const selectEtapa = container.querySelector("#select-etapa-inicial");
+  const selectEmpresa = container.querySelector("#select-empresa");
+  const selectPrioridade = container.querySelector("#select-prioridade");
+  const campoTitulo = container.querySelector("#campo-titulo");
+  const campoObservacao = container.querySelector("#campo-observacao");
   const avisoEtapasVazias = container.querySelector("#aviso-etapas-vazias");
   const btnSubmit = container.querySelector("#btn-submit-chamado");
   const formNovoChamado = container.querySelector("#form-novo-chamado");
@@ -153,12 +275,17 @@ async function iniciar() {
     }
 
     try {
-      camposEtapaAtuais = await api(`/etapas/${etapaId}/campos`);
-      if (camposEtapaAtuais.length === 0) {
+      const campos = await api(`/etapas/${etapaId}/campos`);
+      if (!Array.isArray(campos) || campos.length === 0) {
         wrapCampos.style.display = "none";
         containerCampos.innerHTML = "";
+        camposEtapaAtuais = [];
         return;
       }
+
+      // Ordenar por ordem definida (1 a 10) e limitar a até 10 campos personalizados
+      campos.sort((a, b) => (Number(a.ordem) || 0) - (Number(b.ordem) || 0) || a.id - b.id);
+      camposEtapaAtuais = campos.slice(0, 10);
 
       wrapCampos.style.display = "block";
       containerCampos.innerHTML = camposEtapaAtuais
@@ -169,37 +296,94 @@ async function iniciar() {
           const tipoNorm = String(c.tipo || "texto").toLowerCase();
 
           if (tipoNorm === "texto_longo" || tipoNorm === "textarea") {
-            inputHtml = `<textarea name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} rows="3" class="textarea-padrao"></textarea>`;
+            inputHtml = `
+              <div class="campo-grupo col-span-2">
+                <label class="campo-rotulo">
+                  ${escaparHtml(c.rotulo)}${obrigatorioMark}
+                </label>
+                <textarea name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} rows="3" class="textarea-padrao" placeholder="Digite aqui..."></textarea>
+              </div>
+            `;
+          } else if (tipoNorm === "checkbox") {
+            inputHtml = `
+              <div class="campo-grupo">
+                <label class="campo-rotulo">
+                  ${escaparHtml(c.rotulo)}${obrigatorioMark}
+                </label>
+                <div class="campo-fixo-exibicao" style="font-weight: normal; cursor: pointer;" onclick="const cb = this.querySelector('input'); cb.checked = !cb.checked;">
+                  <label style="display: flex; align-items: center; gap: 0.5rem; width: 100%; cursor: pointer; margin: 0;">
+                    <input type="checkbox" name="campo_${c.nome}" data-campo-id="${c.id}" value="sim" ${reqAttr} onclick="event.stopPropagation();">
+                    <span>Marcar para confirmar</span>
+                  </label>
+                </div>
+              </div>
+            `;
+          } else if (tipoNorm === "sim_nao") {
+            inputHtml = `
+              <div class="campo-grupo">
+                <label class="campo-rotulo">
+                  ${escaparHtml(c.rotulo)}${obrigatorioMark}
+                </label>
+                <select name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="select-padrao">
+                  <option value="">Selecione uma opção...</option>
+                  <option value="sim">Sim</option>
+                  <option value="nao">Não</option>
+                </select>
+              </div>
+            `;
           } else if (tipoNorm === "numero" || tipoNorm === "number") {
-            inputHtml = `<input type="number" step="any" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao" style="max-width: 240px;">`;
+            inputHtml = `
+              <div class="campo-grupo">
+                <label class="campo-rotulo">
+                  ${escaparHtml(c.rotulo)}${obrigatorioMark}
+                </label>
+                <input type="number" step="any" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao" placeholder="0">
+              </div>
+            `;
           } else if (tipoNorm === "data" || tipoNorm === "date") {
-            inputHtml = `<input type="date" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao" style="max-width: 240px;">`;
+            inputHtml = `
+              <div class="campo-grupo">
+                <label class="campo-rotulo">
+                  ${escaparHtml(c.rotulo)}${obrigatorioMark}
+                </label>
+                <input type="date" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao">
+              </div>
+            `;
           } else if (tipoNorm === "selecao" || tipoNorm === "select") {
             let opcoes = Array.isArray(c.opcoes_parsed) && c.opcoes_parsed.length > 0 ? c.opcoes_parsed : [];
             if (opcoes.length === 0 && (c.opcoes_json || c.opcoes)) {
               try {
                 const parsed = JSON.parse(c.opcoes_json || c.opcoes);
                 if (Array.isArray(parsed)) opcoes = parsed;
-              } catch (_) {}
+              } catch (_) {
+                if (typeof c.opcoes === "string") {
+                  opcoes = c.opcoes.split(",").map((s) => s.trim()).filter(Boolean);
+                }
+              }
             }
             inputHtml = `
-              <select name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="select-padrao" style="max-width: 340px;">
-                <option value="">Selecione...</option>
-                ${opcoes.map((op) => `<option value="${escaparHtml(op)}">${escaparHtml(op)}</option>`).join("")}
-              </select>
+              <div class="campo-grupo">
+                <label class="campo-rotulo">
+                  ${escaparHtml(c.rotulo)}${obrigatorioMark}
+                </label>
+                <select name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="select-padrao">
+                  <option value="">Selecione...</option>
+                  ${opcoes.map((op) => `<option value="${escaparHtml(op)}">${escaparHtml(op)}</option>`).join("")}
+                </select>
+              </div>
             `;
           } else {
-            inputHtml = `<input type="text" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao">`;
+            inputHtml = `
+              <div class="campo-grupo">
+                <label class="campo-rotulo">
+                  ${escaparHtml(c.rotulo)}${obrigatorioMark}
+                </label>
+                <input type="text" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao" placeholder="Informe o valor...">
+              </div>
+            `;
           }
 
-          return `
-            <div class="campo-grupo">
-              <label class="campo-rotulo">
-                ${escaparHtml(c.rotulo)}${obrigatorioMark}
-              </label>
-              ${inputHtml}
-            </div>
-          `;
+          return inputHtml;
         })
         .join("");
     } catch (err) {
@@ -240,7 +424,7 @@ async function iniciar() {
         selectEtapa.innerHTML =
           `<option value="">Selecione a etapa...</option>` +
           etapas.map((e) => `<option value="${e.id}">${escaparHtml(e.nome)} (${e.tipo === "aprovacao" ? "Aprovação" : "Tarefa"})</option>`).join("");
-        avisoEtapasVazias.textContent = "Dica: Nenhuma etapa está marcada com 'É a etapa inicial?'. Exibindo todas as etapas disponíveis.";
+        avisoEtapasVazias.textContent = "Dica: Nenhuma etapa está marcada como inicial. Exibindo todas as etapas disponíveis.";
         avisoEtapasVazias.hidden = false;
         btnSubmit.disabled = false;
       } else {
@@ -277,10 +461,19 @@ async function iniciar() {
 
     const fluxoId = Number(selectFluxo.value);
     const etapaId = Number(selectEtapa.value);
-    const prazo = formNovoChamado.elements.prazo?.value || null;
+    const titulo = campoTitulo.value.trim();
+    const empresaIdVal = selectEmpresa.value ? Number(selectEmpresa.value) : null;
+    const prioridade = selectPrioridade.value || "normal";
+    const observacao = campoObservacao.value.trim() || null;
 
     if (!fluxoId || !etapaId) {
       mostrarErro(msgErro, "Por favor, selecione um fluxo e uma etapa inicial válidos.");
+      return;
+    }
+
+    if (!titulo) {
+      mostrarErro(msgErro, "O título do chamado é obrigatório.");
+      campoTitulo.focus();
       return;
     }
 
@@ -288,7 +481,11 @@ async function iniciar() {
     for (const c of camposEtapaAtuais) {
       const el = formNovoChamado.elements[`campo_${c.nome}`];
       if (el) {
-        valoresCampos[c.nome] = el.value;
+        if (el.type === "checkbox") {
+          valoresCampos[c.nome] = el.checked ? "sim" : "nao";
+        } else {
+          valoresCampos[c.nome] = el.value;
+        }
       }
     }
 
@@ -301,7 +498,10 @@ async function iniciar() {
         body: {
           fluxo_template_id: fluxoId,
           etapa_inicial_id: etapaId,
-          prazo: prazo,
+          titulo: titulo,
+          empresa_id: empresaIdVal,
+          prioridade: prioridade,
+          observacao: observacao,
           campos: valoresCampos,
         },
       });
@@ -309,10 +509,9 @@ async function iniciar() {
     } catch (e) {
       mostrarErro(msgErro, e);
       btnSubmit.disabled = false;
-      btnSubmit.textContent = "Abrir chamado";
+      btnSubmit.textContent = "🚀 Abrir chamado";
     }
   });
 }
 
-// Inicialização imediata quando executado diretamente
 inicializar();

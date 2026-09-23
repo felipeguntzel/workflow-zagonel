@@ -17,6 +17,8 @@ test("normalizarTipoCampo converte tipos para os nomes aceitos pelo SQLite D1", 
   assert.equal(normalizarTipoCampo("select"), "select");
   assert.equal(normalizarTipoCampo("numero"), "numero");
   assert.equal(normalizarTipoCampo("data"), "data");
+  assert.equal(normalizarTipoCampo("checkbox"), "checkbox");
+  assert.equal(normalizarTipoCampo("sim_nao"), "sim_nao");
 });
 
 test("obterTabelaCampos resolve campos_etapa ou etapa_campos de forma transparente", async () => {

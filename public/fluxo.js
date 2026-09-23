@@ -612,7 +612,9 @@ async function iniciar(container, mensagemErro) {
     fundo.querySelector(".modal-fechar").addEventListener("click", fechar);
     fundo.querySelector(".btn-cancelar-modal").addEventListener("click", fechar);
     fundo.addEventListener("click", (e) => {
-      if (e.target === fundo) fechar();
+      if (e.target === fundo) {
+        // Evita fechamento acidental ao clicar fora
+      }
     });
 
     const inpNome = form.elements.nome;
@@ -748,7 +750,9 @@ async function iniciar(container, mensagemErro) {
     fundo.querySelector(".modal-fechar").addEventListener("click", fechar);
     fundo.querySelector(".btn-cancelar-modal").addEventListener("click", fechar);
     fundo.addEventListener("click", (e) => {
-      if (e.target === fundo) fechar();
+      if (e.target === fundo) {
+        // Evita fechamento acidental ao clicar fora
+      }
     });
 
     const inpNome = form.elements.nome;
@@ -894,7 +898,9 @@ async function iniciar(container, mensagemErro) {
       fundo.querySelector(".modal-fechar").addEventListener("click", fechar);
       fundo.querySelector(".btn-fechar-modal-acao").addEventListener("click", fechar);
       fundo.addEventListener("click", (e) => {
-        if (e.target === fundo) fechar();
+        if (e.target === fundo) {
+          // Evita fechamento acidental ao clicar fora
+        }
       });
 
       // Excluir ação
@@ -972,6 +978,7 @@ async function iniciar(container, mensagemErro) {
                   <table style="margin: 0;">
                     <thead>
                       <tr>
+                        <th style="width: 50px; text-align: center;">Ordem</th>
                         <th>Identificador</th>
                         <th>Rótulo (Label)</th>
                         <th>Tipo</th>
@@ -983,7 +990,7 @@ async function iniciar(container, mensagemErro) {
                     <tbody>
                       ${
                         campos.length === 0
-                          ? `<tr><td colspan="6" style="text-align: center; padding: 1.25rem; color: var(--cor-texto-secundario);">Nenhum campo personalizado configurado para esta etapa.</td></tr>`
+                          ? `<tr><td colspan="7" style="text-align: center; padding: 1.25rem; color: var(--cor-texto-secundario);">Nenhum campo personalizado configurado para esta etapa.</td></tr>`
                           : campos
                               .map(
                                 (c) => {
@@ -993,8 +1000,10 @@ async function iniciar(container, mensagemErro) {
                                     texto_longo: "Texto longo",
                                     numero: "Número",
                                     data: "Data",
-                                    select: "Seleção",
-                                    selecao: "Seleção",
+                                    select: "Lista suspensa",
+                                    selecao: "Lista suspensa",
+                                    checkbox: "Caixa de seleção",
+                                    sim_nao: "Sim ou Não",
                                   };
                                   const tipoRotulo = tiposLegiveis[c.tipo] || c.tipo;
                                   const opcoesRaw = c.opcoes_json || c.opcoes;
@@ -1010,6 +1019,7 @@ async function iniciar(container, mensagemErro) {
 
                                   return `
                         <tr>
+                          <td style="font-weight: 700; text-align: center;">${c.ordem || 0}</td>
                           <td style="font-family: monospace; font-size: 0.85rem;">${escaparHtml(c.nome)}</td>
                           <td style="font-weight: 600;">${escaparHtml(c.rotulo)}</td>
                           <td><span class="badge-status" style="background: var(--cor-fundo-elevado); border: 1px solid var(--cor-borda); font-size: 0.8rem;">${escaparHtml(tipoRotulo)}</span></td>
@@ -1034,7 +1044,11 @@ async function iniciar(container, mensagemErro) {
                   ? `
                 <div style="border-top: 1px solid var(--cor-borda); padding-top: 1.25rem;">
                   <h4 style="margin: 0 0 0.75rem; font-size: 0.95rem;">+ Adicionar novo campo personalizado</h4>
-                  <form class="form-novo-campo" style="display: grid; grid-template-columns: 1fr 1.2fr 1fr auto; gap: 0.6rem; align-items: end;">
+                  <form class="form-novo-campo" style="display: grid; grid-template-columns: 80px 1fr 1.2fr 1.1fr auto; gap: 0.6rem; align-items: end;">
+                    <div>
+                      <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Ordem *</label>
+                      <input type="number" name="ordem" min="1" max="10" value="${campos.length + 1}" required style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
+                    </div>
                     <div>
                       <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Identificador (código) *</label>
                       <input type="text" name="nome" placeholder="ex: produto_referencia" required style="width: 100%; padding: 0.4rem 0.5rem; font-family: monospace; font-size: 0.85rem;">
@@ -1050,7 +1064,9 @@ async function iniciar(container, mensagemErro) {
                         <option value="texto_longo">Texto longo (Detalhamento)</option>
                         <option value="numero">Número</option>
                         <option value="data">Data</option>
-                        <option value="selecao">Seleção (opções)</option>
+                        <option value="selecao">Lista suspensa (Seleção)</option>
+                        <option value="checkbox">Caixa de seleção (Checkbox)</option>
+                        <option value="sim_nao">Sim ou Não</option>
                       </select>
                     </div>
                     <div style="display: flex; gap: 0.5rem; align-items: center; padding-bottom: 0.3rem;">
@@ -1059,8 +1075,8 @@ async function iniciar(container, mensagemErro) {
                       </label>
                     </div>
                     <div class="wrap-opcoes-selecao" style="grid-column: 1 / -2; display: none;">
-                      <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Opções (separadas por vírgula)</label>
-                      <input type="text" name="opcoes_texto" placeholder="ex: Baixa, Normal, Alta, Urgente" style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
+                      <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Opções da lista suspensa (separadas por vírgula)</label>
+                      <input type="text" name="opcoes_texto" placeholder="ex: Opção 1, Opção 2, Opção 3" style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
                     </div>
                     <div style="grid-column: -2 / -1; justify-self: end;">
                       <button type="submit" class="btn btn-primario btn-pequeno" style="padding: 0.45rem 0.9rem;">+ Adicionar</button>
@@ -1084,7 +1100,9 @@ async function iniciar(container, mensagemErro) {
       fundo.querySelector(".modal-fechar").addEventListener("click", fechar);
       fundo.querySelector(".btn-fechar-modal-campos").addEventListener("click", fechar);
       fundo.addEventListener("click", (e) => {
-        if (e.target === fundo) fechar();
+        if (e.target === fundo) {
+          // Evita fechamento acidental ao clicar fora
+        }
       });
 
       const formCampo = fundo.querySelector(".form-novo-campo");
