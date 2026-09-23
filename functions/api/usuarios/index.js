@@ -45,7 +45,7 @@ export async function onRequestPost(context) {
   const login = String(body.login).toLowerCase();
   if (!validarFormatoLogin(login)) {
     return error(
-      "Login inválido: use apenas letras e números, sem espaços, pontos ou caracteres especiais"
+      "Login inválido: use o padrão nome.sobrenome (ex: felipe.guntzel), com letras minúsculas, números e ponto."
     );
   }
   const existente = await first(context.env.DB, "SELECT id FROM usuarios WHERE login = ?", login);

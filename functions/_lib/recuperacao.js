@@ -121,7 +121,6 @@ export async function gerarSolicitacaoRecuperacao(db, identificador, baseUrl, en
     email_mascarado: usuarioMascarado,
     email_enviado: emailEnviado,
     erro_envio: erroEnvio,
-    link_recuperacao: linkRedefinicao, // Disponibilizado para teste / fallback quando não há servidor SMTP configurado
   };
 }
 

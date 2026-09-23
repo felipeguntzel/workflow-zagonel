@@ -653,7 +653,7 @@ export async function renderCrud(container, config) {
     const tipo = campo.tipo ?? "text";
     const valorAtual = linhaEdicao ? linhaEdicao[campo.nome] ?? "" : "";
     const disabled = linhaEdicao && campo.desabilitadoNaEdicao ? "disabled" : "";
-    const placeholder = campo.obrigatorio ? "Preenchimento obrigatório" : "";
+    const placeholder = campo.placeholder || (campo.obrigatorio ? "Preenchimento obrigatório" : "");
 
     return `
       <div class="campo-wrap ${colClasse}">
@@ -888,6 +888,33 @@ export async function renderCrud(container, config) {
     formModal.addEventListener("change", (ev) => {
       ev.target.classList.remove("campo-destaque-obrigatorio");
     });
+
+    // Sugestão automática de login no formato nome.sobrenome ao criar usuário
+    if (!isEdicao && formModal.elements.nome && formModal.elements.login) {
+      let loginEditadoManualmente = false;
+      formModal.elements.login.addEventListener("input", () => {
+        loginEditadoManualmente = true;
+      });
+      formModal.elements.nome.addEventListener("input", () => {
+        if (!loginEditadoManualmente) {
+          const nomeVal = formModal.elements.nome.value;
+          const limpo = nomeVal
+            .trim()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, "");
+          const partes = limpo.split(/\s+/).filter(Boolean);
+          if (partes.length >= 2) {
+            formModal.elements.login.value = `${partes[0]}.${partes[partes.length - 1]}`;
+          } else if (partes.length === 1) {
+            formModal.elements.login.value = partes[0];
+          } else {
+            formModal.elements.login.value = "";
+          }
+        }
+      });
+    }
 
     // Configurar selects dependentes (ex: Empresa -> Setores)
     for (const campo of config.campos) {

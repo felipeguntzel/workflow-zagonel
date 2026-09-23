@@ -123,23 +123,11 @@ formRecuperar?.addEventListener("submit", async (ev) => {
       <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
         <span style="font-size: 1.25rem; line-height: 1;">✉️</span>
         <div>
-          <strong style="display: block; margin-bottom: 0.25rem;">Solicitação registrada!</strong>
-          Enviamos as instruções para o e-mail cadastrado <strong>(${escaparHtml(res.email_mascarado)})</strong>. O link é válido por 30 minutos.
+          <strong style="display: block; margin-bottom: 0.25rem;">Solicitação registrada com sucesso!</strong>
+          Enviamos as instruções e o link seguro para o e-mail cadastrado <strong>(${escaparHtml(res.email_mascarado)})</strong>. O link expira em 30 minutos.
         </div>
       </div>
     `;
-
-    // Se estiver em ambiente sem serviço externo ou de teste, disponibiliza o link de teste
-    if (res.link_recuperacao && !res.email_enviado) {
-      htmlSucesso += `
-        <div style="margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px dashed rgba(21, 128, 61, 0.4); font-size: 0.84rem;">
-          <em>Link de redefinição direta:</em><br>
-          <a href="${res.link_recuperacao}" style="color: #15803d; font-weight: bold; word-break: break-all;">
-            Clique aqui para redefinir sua senha agora
-          </a>
-        </div>
-      `;
-    }
 
     msgRecuperacaoSucesso.innerHTML = htmlSucesso;
     msgRecuperacaoSucesso.hidden = false;

@@ -39,20 +39,23 @@ test("ehHashLegado tells apart the old plain SHA-256 hash from the new pbkdf2$ f
   assert.equal(ehHashLegado("4176647594e2a5ba663e60d7240a308d6562755d22c70d717a704b48448648b3"), true);
 });
 
-test("validarFormatoLogin accepts lowercase letters and digits only", () => {
-  assert.equal(validarFormatoLogin("ana"), true);
-  assert.equal(validarFormatoLogin("bruno123"), true);
+test("validarFormatoLogin accepts nome.sobrenome format with lowercase letters and numbers", () => {
+  assert.equal(validarFormatoLogin("felipe.guntzel"), true);
+  assert.equal(validarFormatoLogin("ana.silva"), true);
+  assert.equal(validarFormatoLogin("bruno.123"), true);
+  assert.equal(validarFormatoLogin("joao.carlos.silva"), true);
 });
 
-test("validarFormatoLogin rejects spaces, dots, and special characters", () => {
+test("validarFormatoLogin rejects single names without dot, spaces, uppercase or symbols", () => {
+  assert.equal(validarFormatoLogin("ana"), false);
+  assert.equal(validarFormatoLogin("felipe"), false);
   assert.equal(validarFormatoLogin("ana silva"), false);
-  assert.equal(validarFormatoLogin("ana.silva"), false);
   assert.equal(validarFormatoLogin("ana@silva"), false);
+  assert.equal(validarFormatoLogin("Ana.silva"), false);
+  assert.equal(validarFormatoLogin(".silva"), false);
+  assert.equal(validarFormatoLogin("ana."), false);
+  assert.equal(validarFormatoLogin("ana..silva"), false);
   assert.equal(validarFormatoLogin(""), false);
-});
-
-test("validarFormatoLogin rejects uppercase (caller must lowercase first)", () => {
-  assert.equal(validarFormatoLogin("Ana"), false);
 });
 
 test("validarComplexidadeSenha aceita senha valida com letras e numeros", () => {

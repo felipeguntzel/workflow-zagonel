@@ -46,7 +46,8 @@ export function inicializar() {
         label: "Login",
         obrigatorio: true,
         desabilitadoNaEdicao: true,
-        dica: "Usado para entrar no sistema. Só letras e números, sem espaços, pontos ou caracteres especiais.",
+        placeholder: "Ex: felipe.guntzel",
+        dica: "Usado para entrar no sistema. Padrão obrigatório: nome.sobrenome (ex: felipe.guntzel).",
       },
       {
         nome: "email",
