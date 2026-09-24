@@ -78,6 +78,21 @@ export async function onRequestPost(context) {
     eh_privado: eh_privado ? 1 : 0
   });
 
+  const hoje = new Date().toISOString().slice(0, 10);
+  const textoComentario = body.texto && String(body.texto).trim()
+    ? `${String(body.texto).trim()}\n\n📎 Anexo: ${nome_arquivo}`
+    : `📎 Anexo: ${nome_arquivo}`;
+  await run(
+    context.env.DB,
+    `INSERT INTO comentarios (chamado_id, usuario_id, data, texto, eh_justificativa, eh_privado)
+     VALUES (?, ?, ?, ?, 0, ?)`,
+    chamado.id,
+    usuario.id,
+    hoje,
+    textoComentario,
+    eh_privado ? 1 : 0
+  ).catch((e) => console.error("Falha ao registrar comentário do anexo:", e));
+
   await registrarAuditoria(context.env.DB, {
     chamado_mae_id: raizId,
     chamado_id: chamado.id,

@@ -1,12 +1,17 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { info, mostrarErro, escaparHtml, linkWhatsApp } from "./ui.js";
+import { info, mostrarErro, escaparHtml, linkWhatsApp, formatarDataBR } from "./ui.js";
 import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
 
 let id = new URLSearchParams(window.location.search).get("id");
 let permissaoChamados = { visualizar: false, inserir: false, editar: false, excluir: false };
 let usuario = null;
+
+let estadoRecolhimento = {
+  detalhe: false,
+  campos: false,
+};
 
 export function inicializar() {
   usuario = exigirLogin();
@@ -83,353 +88,29 @@ function iniciar() {
     botaoExcluir.hidden = true;
   }
 
-  // Lançamento de horas com data de hoje e atalhos rápidos
-  const formHoras = document.getElementById("form-horas");
-  const campoDataHoras = document.getElementById("campo-horas-data");
-  const campoQtdHoras = document.getElementById("campo-horas-qtd");
-
-  if (campoDataHoras && !campoDataHoras.value) {
-    campoDataHoras.value = new Date().toISOString().slice(0, 10);
-  }
-
-  document.querySelectorAll(".btn-tempo-rapido").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const incremento = Number(btn.dataset.horas) || 0;
-      if (campoQtdHoras) {
-        const atual = Number(campoQtdHoras.value) || 0;
-        const total = atual > 0 ? atual + incremento : incremento;
-        campoQtdHoras.value = total % 1 === 0 ? total.toFixed(1) : total.toString();
+  // Evento de recolhimento do card de campos personalizados
+  const btnRecolherCampos = document.getElementById("btn-recolher-campos");
+  const conteudoCampos = document.getElementById("conteudo-campos-dinamicos");
+  const btnSalvarCampos = document.getElementById("btn-salvar-campos-dinamicos");
+  if (btnRecolherCampos) {
+    btnRecolherCampos.addEventListener("click", () => {
+      estadoRecolhimento.campos = !estadoRecolhimento.campos;
+      conteudoCampos.style.display = estadoRecolhimento.campos ? "none" : "";
+      if (btnSalvarCampos) {
+        btnSalvarCampos.style.display = estadoRecolhimento.campos ? "none" : "";
       }
-    });
-  });
-
-  if (permissaoChamados.inserir) {
-    formHoras.addEventListener("submit", async (ev) => {
-      ev.preventDefault();
-      const form = ev.target;
-      try {
-        await api(`/chamados/${id}/horas`, {
-          method: "POST",
-          body: {
-            data: form.elements.data.value,
-            horas: Number(form.elements.horas.value),
-            observacao: form.elements.observacao.value || null,
-          },
-        });
-        form.reset();
-        if (campoDataHoras) {
-          campoDataHoras.value = new Date().toISOString().slice(0, 10);
-        }
-        carregarHoras();
-      } catch (e) {
-        mostrarErro(document.getElementById("mensagem-erro"), e);
-      }
-    });
-  } else {
-    formHoras.hidden = true;
-  }
-
-  // Comentários com suporte a comentário privado e colar print (Ctrl+V)
-  const formComentario = document.getElementById("form-comentario");
-  const textareaComentario = document.getElementById("textarea-comentario");
-  const previewPrintWrap = document.getElementById("preview-print-comentario");
-  const imgPreviewPrint = document.getElementById("img-preview-print");
-  const nomePrintComentario = document.getElementById("nome-print-comentario");
-  const btnRemoverPrint = document.getElementById("btn-remover-print");
-  const btnSubmitComentario = document.getElementById("btn-submit-comentario");
-
-  let printColadoComentario = null;
-
-  function limparPrintComentario() {
-    printColadoComentario = null;
-    if (previewPrintWrap) previewPrintWrap.hidden = true;
-    if (imgPreviewPrint) imgPreviewPrint.src = "";
-    if (nomePrintComentario) nomePrintComentario.textContent = "";
-  }
-
-  if (btnRemoverPrint) {
-    btnRemoverPrint.addEventListener("click", limparPrintComentario);
-  }
-
-  if (textareaComentario) {
-    textareaComentario.addEventListener("paste", (e) => {
-      capturarImagemDoClipboard(e, (blob) => {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-        const nomeArquivo = `print_${timestamp}.png`;
-        printColadoComentario = { file: blob, nome: nomeArquivo };
-
-        if (previewPrintWrap && imgPreviewPrint) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            imgPreviewPrint.src = reader.result;
-            if (nomePrintComentario) nomePrintComentario.textContent = nomeArquivo;
-            previewPrintWrap.hidden = false;
-          };
-          reader.readAsDataURL(blob);
-        }
-      });
+      btnRecolherCampos.textContent = estadoRecolhimento.campos ? "▼ Expandir" : "▲ Recolher";
     });
   }
 
-  formComentario.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const form = ev.target;
-    const ehPrivado = document.getElementById("check-comentario-privado")?.checked || false;
-    const texto = form.elements.texto.value.trim();
-
-    if (!texto && !printColadoComentario) {
-      return;
-    }
-
-    if (btnSubmitComentario) btnSubmitComentario.disabled = true;
-
-    try {
-      if (texto) {
-        await api(`/chamados/${id}/comentarios`, {
-          method: "POST",
-          body: {
-            texto: texto,
-            eh_privado: ehPrivado,
-          },
-        });
-      }
-
-      if (printColadoComentario && printColadoComentario.file) {
-        const leitorPrint = new FileReader();
-        await new Promise((resolve, reject) => {
-          leitorPrint.onload = async () => {
-            try {
-              const base64 = leitorPrint.result.split(",")[1];
-              await api(`/chamados/${id}/anexos`, {
-                method: "POST",
-                body: {
-                  nome_arquivo: printColadoComentario.nome,
-                  mime_type: printColadoComentario.file.type || "image/png",
-                  tamanho_bytes: printColadoComentario.file.size,
-                  conteudo_base64: base64,
-                  eh_privado: ehPrivado,
-                },
-              });
-              resolve();
-            } catch (err) {
-              reject(err);
-            }
-          };
-          leitorPrint.onerror = reject;
-          leitorPrint.readAsDataURL(printColadoComentario.file);
-        });
-      }
-
-      form.reset();
-      limparPrintComentario();
-      if (document.getElementById("check-comentario-privado")) {
-        document.getElementById("check-comentario-privado").checked = false;
-      }
-      carregarComentarios();
-      carregarAnexos();
-      carregarAuditoria();
-    } catch (e) {
-      mostrarErro(document.getElementById("mensagem-erro"), e);
-    } finally {
-      if (btnSubmitComentario) btnSubmitComentario.disabled = false;
-    }
-  });
-
-  // Envio de Anexos com Dropzone interativa e Preview (até 2MB por arquivo)
-  const formAnexo = document.getElementById("form-anexo");
-  const dropzoneAnexo = document.getElementById("dropzone-anexo");
-  const inputArquivo = document.getElementById("input-arquivo-anexo");
-  const previewWrap = document.getElementById("preview-anexo-wrap");
-  const checkPrivado = document.getElementById("check-anexo-privado");
-  const msgErroAnexo = document.getElementById("msg-erro-anexo");
-  const btnEnviarAnexo = document.getElementById("btn-enviar-anexo");
-
-  let arquivoSelecionado = null;
-
-  function obterIconeDocumento(nome, tipo) {
-    const ext = (nome || "").split(".").pop().toLowerCase();
-    if (["xls", "xlsx", "csv"].includes(ext) || (tipo && tipo.includes("sheet"))) return "📊";
-    if (["doc", "docx", "txt", "rtf"].includes(ext) || (tipo && tipo.includes("word"))) return "📑";
-    if (ext === "pdf" || (tipo && tipo.includes("pdf"))) return "📄";
-    return "📁";
+  // Atalho para abrir tela suspensa de horas
+  const btnAbrirModalHoras = document.getElementById("btn-abrir-modal-horas");
+  if (btnAbrirModalHoras) {
+    btnAbrirModalHoras.addEventListener("click", abrirModalHoras);
   }
 
-  function limparArquivo() {
-    arquivoSelecionado = null;
-    if (inputArquivo) inputArquivo.value = "";
-    if (previewWrap) {
-      previewWrap.innerHTML = "";
-      previewWrap.hidden = true;
-    }
-    if (btnEnviarAnexo) btnEnviarAnexo.disabled = true;
-  }
-
-  function selecionarArquivo(arquivo) {
-    if (msgErroAnexo) msgErroAnexo.hidden = true;
-    if (!arquivo) {
-      limparArquivo();
-      return;
-    }
-
-    if (arquivo.size > 2 * 1024 * 1024) {
-      if (msgErroAnexo) {
-        msgErroAnexo.textContent = "O arquivo excede o limite máximo permitido de 2MB.";
-        msgErroAnexo.hidden = false;
-      }
-      limparArquivo();
-      return;
-    }
-
-    arquivoSelecionado = arquivo;
-    if (btnEnviarAnexo) btnEnviarAnexo.disabled = false;
-
-    const ehImagem = arquivo.type && arquivo.type.startsWith("image/");
-    const iconeDoc = obterIconeDocumento(arquivo.name, arquivo.type);
-
-    if (previewWrap) {
-      previewWrap.innerHTML = `
-        <div class="preview-anexo-card">
-          ${
-            ehImagem
-              ? `<img id="preview-img-anexo" class="preview-anexo-miniatura" alt="Prévia do anexo">`
-              : `<div class="preview-anexo-icone-doc">${iconeDoc}</div>`
-          }
-          <div style="flex: 1; min-width: 0;">
-            <div style="font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-              ${escaparHtml(arquivo.name)}
-            </div>
-            <div style="font-size: 0.8rem; color: var(--cor-texto-secundario);">
-              ${formatarTamanho(arquivo.size)} ${arquivo.type ? `• ${escaparHtml(arquivo.type)}` : ""}
-            </div>
-          </div>
-          <button type="button" id="btn-remover-anexo-preview" class="btn-icone btn-icone--excluir" title="Remover arquivo" aria-label="Remover arquivo">✕</button>
-        </div>
-      `;
-      previewWrap.hidden = false;
-
-      if (ehImagem) {
-        const leitorImg = new FileReader();
-        leitorImg.onload = () => {
-          const imgEl = document.getElementById("preview-img-anexo");
-          if (imgEl) imgEl.src = leitorImg.result;
-        };
-        leitorImg.readAsDataURL(arquivo);
-      }
-
-      const btnRemover = document.getElementById("btn-remover-anexo-preview");
-      if (btnRemover) {
-        btnRemover.addEventListener("click", () => limparArquivo());
-      }
-    }
-  }
-
-  if (dropzoneAnexo && inputArquivo) {
-    dropzoneAnexo.addEventListener("click", () => inputArquivo.click());
-    dropzoneAnexo.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        inputArquivo.click();
-      }
-    });
-
-    ["dragenter", "dragover"].forEach((evt) => {
-      dropzoneAnexo.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropzoneAnexo.classList.add("dropzone-anexo--ativa");
-      });
-    });
-
-    ["dragleave", "dragend"].forEach((evt) => {
-      dropzoneAnexo.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropzoneAnexo.classList.remove("dropzone-anexo--ativa");
-      });
-    });
-
-    dropzoneAnexo.addEventListener("drop", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropzoneAnexo.classList.remove("dropzone-anexo--ativa");
-      const files = e.dataTransfer.files;
-      if (files && files.length > 0) {
-        selecionarArquivo(files[0]);
-      }
-    });
-
-    dropzoneAnexo.addEventListener("paste", (e) => {
-      capturarImagemDoClipboard(e, (blob) => {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-        const arquivoPrint = new File([blob], `print_${timestamp}.png`, { type: blob.type || "image/png" });
-        selecionarArquivo(arquivoPrint);
-      });
-    });
-
-    inputArquivo.addEventListener("change", () => {
-      if (inputArquivo.files && inputArquivo.files[0]) {
-        selecionarArquivo(inputArquivo.files[0]);
-      }
-    });
-  }
-
-  formAnexo.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    if (msgErroAnexo) msgErroAnexo.hidden = true;
-
-    const arquivo = arquivoSelecionado || (inputArquivo && inputArquivo.files[0]);
-    if (!arquivo) return;
-
-    if (arquivo.size > 2 * 1024 * 1024) {
-      if (msgErroAnexo) {
-        msgErroAnexo.textContent = "O arquivo excede o limite de 2MB.";
-        msgErroAnexo.hidden = false;
-      }
-      return;
-    }
-
-    btnEnviarAnexo.disabled = true;
-    btnEnviarAnexo.textContent = "Enviando…";
-
-    const leitor = new FileReader();
-    leitor.onload = async () => {
-      try {
-        const base64 = leitor.result.split(",")[1];
-        await api(`/chamados/${id}/anexos`, {
-          method: "POST",
-          body: {
-            nome_arquivo: arquivo.name,
-            mime_type: arquivo.type || "application/octet-stream",
-            tamanho_bytes: arquivo.size,
-            conteudo_base64: base64,
-            eh_privado: checkPrivado.checked,
-          },
-        });
-        formAnexo.reset();
-        checkPrivado.checked = false;
-        limparArquivo();
-        carregarAnexos();
-        carregarAuditoria();
-      } catch (e) {
-        if (msgErroAnexo) {
-          msgErroAnexo.textContent = e.message || "Erro ao enviar anexo.";
-          msgErroAnexo.hidden = false;
-        }
-      } finally {
-        btnEnviarAnexo.disabled = false;
-        btnEnviarAnexo.textContent = "Enviar anexo";
-      }
-    };
-    leitor.onerror = () => {
-      if (msgErroAnexo) {
-        msgErroAnexo.textContent = "Erro ao ler arquivo local.";
-        msgErroAnexo.hidden = false;
-      }
-      btnEnviarAnexo.disabled = false;
-      btnEnviarAnexo.textContent = "Enviar anexo";
-    };
-    leitor.readAsDataURL(arquivo);
-  });
+  // Integração Comentários + Anexos
+  configurarFormularioComentariosEAnexos();
 
   carregarTudo().catch((e) => mostrarErro(document.getElementById("mensagem-erro"), e));
 }
@@ -438,18 +119,16 @@ async function carregarTudo() {
   await Promise.all([
     carregarDetalhe(),
     carregarCamposDinamicos(),
-    carregarAnexos(),
     carregarAuditoria(),
-    carregarHoras(),
-    carregarComentarios(),
+    carregarComentariosEAnexos(),
+    atualizarResumoHoras(),
   ]);
 }
 
 async function carregarDetalhe() {
   const chamado = await api(`/chamados/${id}`);
-  const finalizado = chamado.status_nome === "finalizado";
+  const finalizado = String(chamado.status_nome || "").toLowerCase() === "finalizado";
 
-  // Buscar usuários para seleção de responsável restrito ao setor
   let usuariosDoSetor = [];
   try {
     const todosUsuarios = await api("/usuarios");
@@ -460,8 +139,12 @@ async function carregarDetalhe() {
     usuariosDoSetor = [];
   }
 
-  const ehSolicitante = usuario.id === chamado.solicitante_id;
-  const ehAdmin = usuario.admin === 1;
+  let statusList = [];
+  try {
+    statusList = await api("/status");
+  } catch (e) {
+    statusList = [];
+  }
 
   function badgePrioridade(p) {
     const prioridadeNorm = String(p || "normal").toLowerCase();
@@ -477,84 +160,182 @@ async function carregarDetalhe() {
     return `<span class="badge-status" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0; font-weight: 600;">Normal</span>`;
   }
 
+  const podeEditarStatus = permissaoChamados.editar;
+  const ehEtapaAprovacao = chamado.etapa_id && chamado.etapa_tipo === "aprovacao";
+
   const detalheEl = document.getElementById("detalhe");
   detalheEl.innerHTML = `
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
-      <div style="flex: 1; min-width: 280px;">
-        <h1 style="margin: 0 0 0.5rem; font-size: 1.5rem;">#${chamado.id} - ${escaparHtml(chamado.titulo)}</h1>
-        <p style="margin: 0 0 0.4rem; color: var(--cor-texto-secundario); font-size: 0.95rem;">
-          Fluxo: <strong>${escaparHtml(chamado.fluxo_nome || "-")}</strong> |
-          Empresa: <strong>${escaparHtml(chamado.empresa_nome || "Geral")}</strong> |
-          Setor: <strong>${escaparHtml(chamado.setor_nome || "-")}</strong> ${info("Setor responsável por esta etapa/tarefa.")}
-        </p>
-        <p style="margin: 0 0 0.4rem; font-size: 0.95rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem;">
-          <span>Solicitante: <strong>${escaparHtml(chamado.solicitante_nome || "-")}</strong></span>
-          ${linkWhatsApp(chamado.solicitante_telefone, chamado.id, chamado.titulo)}
-          <span>| Abertura: <strong>${chamado.data_abertura}</strong> | Prazo: <strong>${chamado.prazo}</strong> (${chamado.situacao_prazo})</span>
-        </p>
+    <!-- Topo do Card de Detalhes -->
+    <div class="painel-chamado-cabecalho">
+      <div>
+        <h1 style="margin: 0; font-size: 1.35rem; font-weight: 700; color: var(--cor-texto);">
+          #${chamado.id} - ${escaparHtml(chamado.titulo)}
+        </h1>
       </div>
-      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem;">
-        <span class="badge-status" style="font-size: 0.9rem; padding: 0.35rem 0.75rem; font-weight: 700; background: ${chamado.status_cor ? chamado.status_cor + '18' : 'var(--cor-fundo)'}; color: ${chamado.status_cor || 'var(--cor-texto)'}; border: 1px solid ${chamado.status_cor ? chamado.status_cor + '55' : 'var(--cor-borda)'}; display: inline-flex; align-items: center; gap: 0.4rem;">
-          <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: ${chamado.status_cor || 'var(--cor-primaria)'};"></span>
+
+      <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+        <!-- Badges de Status e Prioridade -->
+        <span class="badge-status" style="font-size: 0.85rem; padding: 0.3rem 0.65rem; font-weight: 700; background: ${chamado.status_cor ? chamado.status_cor + '18' : 'var(--cor-fundo)'}; color: ${chamado.status_cor || 'var(--cor-texto)'}; border: 1px solid ${chamado.status_cor ? chamado.status_cor + '55' : 'var(--cor-borda)'}; display: inline-flex; align-items: center; gap: 0.4rem;">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${chamado.status_cor || 'var(--cor-primaria)'};"></span>
           Status: ${escaparHtml(chamado.status_nome)}
         </span>
         ${badgePrioridade(chamado.prioridade)}
+
+        <!-- Atualizar Status no Topo da Tela -->
+        ${
+          podeEditarStatus && !ehEtapaAprovacao
+            ? `
+          <div style="display: inline-flex; align-items: center; gap: 0.35rem; margin-left: 0.25rem;">
+            <select id="select-status-topo" class="select-padrao" style="padding: 0.25rem 0.55rem; font-size: 0.85rem; height: 32px; min-width: 140px;">
+              ${statusList
+                .map(
+                  (s) =>
+                    `<option value="${s.id}" ${s.id === chamado.status_id ? "selected" : ""}>${escaparHtml(s.nome)}</option>`
+                )
+                .join("")}
+            </select>
+            <button type="button" id="btn-salvar-status-topo" class="btn btn-primario btn-pequeno" style="height: 32px; padding: 0 0.8rem; font-weight: 600;">Salvar status</button>
+          </div>
+        `
+            : ""
+        }
+
+        <!-- Botão Recolher do Card de Dados Obrigatórios -->
+        <button type="button" id="btn-recolher-detalhe" class="btn btn-secundario btn-recolher-card" title="Recolher / Expandir dados obrigatórios">
+          ${estadoRecolhimento.detalhe ? "▼ Expandir" : "▲ Recolher"}
+        </button>
       </div>
     </div>
 
-    ${
-      chamado.observacao
-        ? `
-      <div style="margin-top: 0.9rem; padding: 0.75rem 1rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-left: 4px solid var(--cor-primaria); border-radius: 0.35rem; font-size: 0.92rem;">
-        <strong style="color: var(--cor-primaria); display: block; margin-bottom: 0.35rem; font-size: 0.88rem; text-transform: uppercase; letter-spacing: 0.03em;">
-          📝 Observações da solicitação
-        </strong>
-        <div style="white-space: pre-wrap; line-height: 1.5; color: var(--cor-texto);">${escaparHtml(chamado.observacao)}</div>
-      </div>
-    `
-        : ""
-    }
+    <!-- Mensagem rápida de confirmação de status -->
+    <div id="toast-status-topo" class="toast-status-rapido" style="margin-top: 0.5rem;" hidden>✓ Status alterado.</div>
+    <p id="erro-status-topo" class="erro" style="margin-top: 0.4rem;" hidden></p>
 
-    <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--cor-borda); display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;">
-      <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-        <span style="font-weight: 600; font-size: 0.9rem;">Responsável atual:</span>
-        <span style="font-size: 0.9rem;">${chamado.responsavel_nome ? escaparHtml(chamado.responsavel_nome) : "<em>Ninguém atribuído</em>"}</span>
-        ${chamado.responsavel_nome ? linkWhatsApp(chamado.responsavel_telefone, chamado.id, chamado.titulo) : ""}
-      </div>
+    <!-- Conteúdo Recolhível dos Dados Obrigatórios -->
+    <div id="detalhe-conteudo-recolhivel" style="${estadoRecolhimento.detalhe ? 'display: none;' : ''} margin-top: 0.85rem;">
+      <p style="margin: 0 0 0.35rem; color: var(--cor-texto-secundario); font-size: 0.92rem;">
+        Fluxo: <strong>${escaparHtml(chamado.fluxo_nome || "-")}</strong> |
+        Empresa: <strong>${escaparHtml(chamado.empresa_nome || "Geral")}</strong> |
+        Setor: <strong>${escaparHtml(chamado.setor_nome || "-")}</strong> ${info("Setor responsável por esta etapa/tarefa.")}
+      </p>
+
+      <p style="margin: 0 0 0.45rem; font-size: 0.92rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem;">
+        <span>Solicitante: <strong>${escaparHtml(chamado.solicitante_nome || "-")}</strong></span>
+        ${linkWhatsApp(chamado.solicitante_telefone, chamado.id, chamado.titulo)}
+        <span>| Abertura: <strong>${formatarDataBR(chamado.data_abertura)}</strong> | Prazo: <strong>${formatarDataBR(chamado.prazo)}</strong> (${chamado.situacao_prazo})</span>
+      </p>
 
       ${
-        !finalizado && permissaoChamados.editar
+        chamado.observacao
           ? `
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <select id="select-atribuir-responsavel" style="padding: 0.35rem 0.6rem; font-size: 0.85rem;">
-            <option value="">Atribuir para alguém do setor…</option>
-            ${usuariosDoSetor
-              .map(
-                (u) =>
-                  `<option value="${u.id}" ${u.id === chamado.responsavel_id ? "selected" : ""}>${escaparHtml(u.nome)}</option>`
-              )
-              .join("")}
-          </select>
-          <button type="button" id="btn-salvar-atribuicao" class="btn btn-secundario btn-pequeno">Atribuir</button>
-          ${
-            chamado.responsavel_id === usuario.id
-              ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario btn-pequeno">Liberar</button>`
-              : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario btn-pequeno">Assumir</button>`
-          }
+        <div style="margin-top: 0.65rem; padding: 0.65rem 0.85rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-left: 4px solid var(--cor-primaria); border-radius: 0.35rem; font-size: 0.9rem;">
+          <strong style="color: var(--cor-primaria); display: block; margin-bottom: 0.25rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em;">
+            📝 Observações da solicitação
+          </strong>
+          <div style="white-space: pre-wrap; line-height: 1.45; color: var(--cor-texto);">${escaparHtml(chamado.observacao)}</div>
         </div>
       `
           : ""
       }
-    </div>
 
-    ${chamado.resultado ? `<p style="margin-top: 0.5rem; font-weight: 600;">Resultado: ${escaparHtml(chamado.resultado)}</p>` : ""}
-    ${
-      chamado.bloqueado
-        ? `<p class="erro" style="margin-top: 0.5rem;">⚠️ Bloqueado: aguardando outra ação pré-requisito finalizar.</p>`
-        : ""
-    }
+      <!-- Atribuição de Responsável com Visual Padronizado -->
+      <div style="margin-top: 0.85rem; padding-top: 0.65rem; border-top: 1px solid var(--cor-borda); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <span style="font-weight: 600; font-size: 0.88rem; color: var(--cor-texto-secundario);">Responsável atual:</span>
+          <span style="font-size: 0.9rem; font-weight: 600;">
+            ${chamado.responsavel_nome ? escaparHtml(chamado.responsavel_nome) : `<em style="color: var(--cor-texto-secundario); font-weight: normal;">Ninguém atribuído</em>`}
+          </span>
+          ${chamado.responsavel_nome ? linkWhatsApp(chamado.responsavel_telefone, chamado.id, chamado.titulo) : ""}
+        </div>
+
+        ${
+          !finalizado && permissaoChamados.editar
+            ? `
+          <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+            <select id="select-atribuir-responsavel" class="select-padrao" style="min-width: 210px; padding: 0.35rem 0.65rem; font-size: 0.85rem; height: 34px;">
+              <option value="">Atribuir para alguém do setor…</option>
+              ${usuariosDoSetor
+                .map(
+                  (u) =>
+                    `<option value="${u.id}" ${u.id === chamado.responsavel_id ? "selected" : ""}>${escaparHtml(u.nome)}</option>`
+                )
+                .join("")}
+            </select>
+            <button type="button" id="btn-salvar-atribuicao" class="btn btn-primario btn-pequeno" style="height: 34px; padding: 0 0.85rem;">Atribuir</button>
+            ${
+              chamado.responsavel_id === usuario.id
+                ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario btn-pequeno" style="height: 34px; padding: 0 0.85rem;">Liberar</button>`
+                : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario btn-pequeno" style="height: 34px; padding: 0 0.85rem;">Assumir</button>`
+            }
+          </div>
+        `
+            : ""
+        }
+      </div>
+
+      ${chamado.resultado ? `<p style="margin-top: 0.5rem; font-weight: 600;">Resultado: ${escaparHtml(chamado.resultado)}</p>` : ""}
+      ${
+        chamado.bloqueado
+          ? `<p class="erro" style="margin-top: 0.5rem;">⚠️ Bloqueado: aguardando outra ação pré-requisito finalizar.</p>`
+          : ""
+      }
+    </div>
   `;
   detalheEl.hidden = false;
+
+  // Handler de recolhimento do card de detalhes
+  document.getElementById("btn-recolher-detalhe")?.addEventListener("click", () => {
+    estadoRecolhimento.detalhe = !estadoRecolhimento.detalhe;
+    const box = document.getElementById("detalhe-conteudo-recolhivel");
+    if (box) {
+      box.style.display = estadoRecolhimento.detalhe ? "none" : "block";
+    }
+    const btn = document.getElementById("btn-recolher-detalhe");
+    if (btn) {
+      btn.textContent = estadoRecolhimento.detalhe ? "▼ Expandir" : "▲ Recolher";
+    }
+  });
+
+  // Handler do botão Atualizar Status no Topo
+  const btnSalvarStatusTopo = document.getElementById("btn-salvar-status-topo");
+  if (btnSalvarStatusTopo) {
+    btnSalvarStatusTopo.addEventListener("click", async () => {
+      const selectStatus = document.getElementById("select-status-topo");
+      const erroStatus = document.getElementById("erro-status-topo");
+      const toastStatus = document.getElementById("toast-status-topo");
+      erroStatus.hidden = true;
+
+      const statusId = Number(selectStatus.value);
+      const statusEscolhido = statusList.find((s) => s.id === statusId);
+
+      if (chamado.bloqueado && String(statusEscolhido?.nome || "").toLowerCase() === "finalizado") {
+        erroStatus.textContent = "Não é possível finalizar: chamado bloqueado aguardando pré-requisito.";
+        erroStatus.hidden = false;
+        return;
+      }
+
+      btnSalvarStatusTopo.disabled = true;
+      try {
+        await api(`/chamados/${chamado.id}`, { method: "PUT", body: { status_id: statusId } });
+        await carregarTudo();
+        
+        // Exibir toast rápido de confirmação
+        const novoToast = document.getElementById("toast-status-topo");
+        if (novoToast) {
+          novoToast.textContent = "✓ Status alterado.";
+          novoToast.hidden = false;
+          clearTimeout(novoToast._timeout);
+          novoToast._timeout = setTimeout(() => {
+            novoToast.hidden = true;
+          }, 3000);
+        }
+      } catch (e) {
+        mostrarErro(erroStatus, e);
+      } finally {
+        btnSalvarStatusTopo.disabled = false;
+      }
+    });
+  }
 
   async function definirResponsavel(responsavelId) {
     try {
@@ -568,22 +349,17 @@ async function carregarDetalhe() {
   document.getElementById("btn-assumir-responsavel")?.addEventListener("click", () => definirResponsavel(usuario.id));
   document.getElementById("btn-liberar-responsavel")?.addEventListener("click", () => definirResponsavel(null));
   document.getElementById("btn-salvar-atribuicao")?.addEventListener("click", () => {
-    const val = document.getElementById("select-atribuir-responsavel").value;
+    const val = document.getElementById("select-atribuir-responsavel")?.value;
     definirResponsavel(val ? Number(val) : null);
   });
 
   const acaoContainer = document.getElementById("acao");
-  if (finalizado || !permissaoChamados.editar) {
-    acaoContainer.innerHTML = "";
-    acaoContainer.hidden = true;
-    return;
-  }
-  acaoContainer.hidden = false;
-
-  if (chamado.etapa_id && chamado.etapa_tipo === "aprovacao") {
+  if (ehEtapaAprovacao && !finalizado && permissaoChamados.editar) {
+    acaoContainer.hidden = false;
     await renderAprovacao(chamado);
   } else {
-    await renderStatusManual(chamado);
+    acaoContainer.innerHTML = "";
+    acaoContainer.hidden = true;
   }
 }
 
@@ -593,6 +369,7 @@ async function carregarCamposDinamicos() {
   const conteudo = document.getElementById("conteudo-campos-dinamicos");
   const btnSalvar = document.getElementById("btn-salvar-campos-dinamicos");
   const msgErro = document.getElementById("msg-erro-campos");
+  const msgSucesso = document.getElementById("msg-sucesso-campos");
 
   try {
     const camposComValores = await api(`/chamados/${id}/campos`);
@@ -608,16 +385,17 @@ async function carregarCamposDinamicos() {
     const ehMae = chamado.chamado_mae_id == null;
     const ehSolicitante = usuario.id === chamado.solicitante_id;
     const ehAdmin = usuario.admin === 1;
-    const podeEditar = !ehMae || ehSolicitante || ehAdmin;
+    const statusFinalizado = String(chamado.status_nome || "").toLowerCase() === "finalizado";
+    const podeEditar = (!ehMae || ehSolicitante || ehAdmin) && !statusFinalizado;
 
-    btnSalvar.hidden = !podeEditar || chamado.status_nome === "finalizado";
+    btnSalvar.hidden = !podeEditar;
 
     conteudo.innerHTML = `
-      <form id="form-campos-dinamicos" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+      <form id="form-campos-dinamicos" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.85rem;">
         ${camposComValores
           .map((c) => {
-            const disabledAttr = podeEditar && chamado.status_nome !== "finalizado" ? "" : "disabled";
-            const val = c.valor != null ? c.valor : "";
+            const disabledAttr = podeEditar ? "" : "disabled";
+            const val = c.valor != null ? String(c.valor) : "";
             const tipoNorm = String(c.tipo || "texto").toLowerCase();
             let inputHtml = "";
 
@@ -627,6 +405,24 @@ async function carregarCamposDinamicos() {
               inputHtml = `<input type="number" step="any" name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" value="${escaparHtml(val)}" ${disabledAttr} class="input-padrao" style="width: 100%;">`;
             } else if (tipoNorm === "data" || tipoNorm === "date") {
               inputHtml = `<input type="date" name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" value="${escaparHtml(val)}" ${disabledAttr} class="input-padrao" style="width: 100%;">`;
+            } else if (tipoNorm === "checkbox") {
+              const checkedAttr = val === "sim" || val === "true" || val === "1" ? "checked" : "";
+              inputHtml = `
+                <div class="campo-fixo-exibicao" style="font-weight: normal; cursor: pointer;">
+                  <label style="display: flex; align-items: center; gap: 0.5rem; width: 100%; cursor: pointer; margin: 0;">
+                    <input type="checkbox" name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" value="sim" ${checkedAttr} ${disabledAttr}>
+                    <span>Marcar para confirmar</span>
+                  </label>
+                </div>
+              `;
+            } else if (tipoNorm === "sim_nao") {
+              inputHtml = `
+                <select name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" ${disabledAttr} class="select-padrao" style="width: 100%;">
+                  <option value="">Selecione…</option>
+                  <option value="sim" ${val === "sim" ? "selected" : ""}>Sim</option>
+                  <option value="nao" ${val === "nao" ? "selected" : ""}>Não</option>
+                </select>
+              `;
             } else if (tipoNorm === "selecao" || tipoNorm === "select") {
               let opcoes = Array.isArray(c.opcoes_parsed) && c.opcoes_parsed.length > 0 ? c.opcoes_parsed : [];
               if (opcoes.length === 0 && (c.opcoes_json || c.opcoes)) {
@@ -661,13 +457,16 @@ async function carregarCamposDinamicos() {
 
     btnSalvar.onclick = async () => {
       msgErro.hidden = true;
+      if (msgSucesso) msgSucesso.hidden = true;
+
       const form = document.getElementById("form-campos-dinamicos");
       const valores = {};
       for (const c of camposComValores) {
-        const el = form.elements[`campo_${c.id}`];
+        const el = form.elements[`campo_${c.id}`] || form.querySelector(`[data-id="${c.id}"]`);
         if (el) {
-          valores[c.id] = el.value;
-          valores[c.nome] = el.value;
+          const v = el.type === "checkbox" ? (el.checked ? "sim" : "nao") : el.value;
+          valores[c.id] = v;
+          valores[c.nome] = v;
         }
       }
 
@@ -680,9 +479,12 @@ async function carregarCamposDinamicos() {
           body: { valores },
         });
         await carregarCamposDinamicos();
-        if (typeof carregarAuditoria === "function") {
-          carregarAuditoria();
+        if (msgSucesso) {
+          msgSucesso.textContent = "✓ Campos salvos com sucesso.";
+          msgSucesso.hidden = false;
+          setTimeout(() => (msgSucesso.hidden = true), 3000);
         }
+        carregarAuditoria();
       } catch (err) {
         msgErro.textContent = err.message || "Erro ao salvar campos.";
         msgErro.hidden = false;
@@ -696,51 +498,273 @@ async function carregarCamposDinamicos() {
   }
 }
 
-// Carregar e gerenciar anexos com respeito aos limites e privacidade
-async function carregarAnexos() {
-  const listaEl = document.getElementById("lista-anexos");
+// Configuração unificada de formulário para Comentários + Anexos
+function configurarFormularioComentariosEAnexos() {
+  const formComentario = document.getElementById("form-comentario");
+  const textareaComentario = document.getElementById("textarea-comentario");
+  const inputArquivo = document.getElementById("input-arquivo-anexo");
+  const previewAnexoWrap = document.getElementById("preview-anexo-wrap");
+  const msgErroAnexo = document.getElementById("msg-erro-anexo");
+  const btnSubmit = document.getElementById("btn-submit-comentario");
+
+  const previewPrintWrap = document.getElementById("preview-print-comentario");
+  const imgPreviewPrint = document.getElementById("img-preview-print");
+  const nomePrintComentario = document.getElementById("nome-print-comentario");
+  const btnRemoverPrint = document.getElementById("btn-remover-print");
+
+  let arquivoSelecionado = null;
+  let printColado = null;
+
+  function limparArquivo() {
+    arquivoSelecionado = null;
+    if (inputArquivo) inputArquivo.value = "";
+    if (previewAnexoWrap) {
+      previewAnexoWrap.innerHTML = "";
+      previewAnexoWrap.hidden = true;
+    }
+  }
+
+  function limparPrint() {
+    printColado = null;
+    if (previewPrintWrap) previewPrintWrap.hidden = true;
+    if (imgPreviewPrint) imgPreviewPrint.src = "";
+    if (nomePrintComentario) nomePrintComentario.textContent = "";
+  }
+
+  if (btnRemoverPrint) {
+    btnRemoverPrint.addEventListener("click", limparPrint);
+  }
+
+  if (inputArquivo) {
+    inputArquivo.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) {
+        limparArquivo();
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        if (msgErroAnexo) {
+          msgErroAnexo.textContent = "O arquivo excede o limite máximo permitido de 2MB.";
+          msgErroAnexo.hidden = false;
+        }
+        limparArquivo();
+        return;
+      }
+      if (msgErroAnexo) msgErroAnexo.hidden = true;
+      arquivoSelecionado = file;
+
+      if (previewAnexoWrap) {
+        previewAnexoWrap.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: var(--cor-fundo-elevado); padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid var(--cor-borda); font-size: 0.85rem;">
+            <span>📎 <strong>${escaparHtml(file.name)}</strong> (${formatarTamanho(file.size)})</span>
+            <button type="button" class="btn-icone btn-icone--excluir btn-remover-arquivo" title="Remover anexo">✕</button>
+          </div>
+        `;
+        previewAnexoWrap.hidden = false;
+        previewAnexoWrap.querySelector(".btn-remover-arquivo")?.addEventListener("click", limparArquivo);
+      }
+    });
+  }
+
+  if (textareaComentario) {
+    textareaComentario.addEventListener("paste", (e) => {
+      capturarImagemDoClipboard(e, (blob) => {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        const nomeArquivo = `print_${timestamp}.png`;
+        printColado = { file: blob, nome: nomeArquivo };
+
+        if (previewPrintWrap && imgPreviewPrint) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            imgPreviewPrint.src = reader.result;
+            if (nomePrintComentario) nomePrintComentario.textContent = nomeArquivo;
+            previewPrintWrap.hidden = false;
+          };
+          reader.readAsDataURL(blob);
+        }
+      });
+    });
+  }
+
+  if (formComentario) {
+    formComentario.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const texto = textareaComentario ? textareaComentario.value.trim() : "";
+      const ehPrivado = document.getElementById("check-comentario-privado")?.checked || false;
+
+      if (!texto && !arquivoSelecionado && !printColado) {
+        return;
+      }
+
+      if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = "Enviando…";
+      }
+
+      try {
+        // Enviar anexo selecionado
+        if (arquivoSelecionado) {
+          const leitor = new FileReader();
+          await new Promise((resolve, reject) => {
+            leitor.onload = async () => {
+              try {
+                const base64 = leitor.result.split(",")[1];
+                await api(`/chamados/${id}/anexos`, {
+                  method: "POST",
+                  body: {
+                    nome_arquivo: arquivoSelecionado.name,
+                    mime_type: arquivoSelecionado.type || "application/octet-stream",
+                    tamanho_bytes: arquivoSelecionado.size,
+                    conteudo_base64: base64,
+                    eh_privado: ehPrivado,
+                    texto: texto,
+                  },
+                });
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            };
+            leitor.onerror = reject;
+            leitor.readAsDataURL(arquivoSelecionado);
+          });
+        } else if (printColado && printColado.file) {
+          // Enviar print colado
+          const leitorPrint = new FileReader();
+          await new Promise((resolve, reject) => {
+            leitorPrint.onload = async () => {
+              try {
+                const base64 = leitorPrint.result.split(",")[1];
+                await api(`/chamados/${id}/anexos`, {
+                  method: "POST",
+                  body: {
+                    nome_arquivo: printColado.nome,
+                    mime_type: printColado.file.type || "image/png",
+                    tamanho_bytes: printColado.file.size,
+                    conteudo_base64: base64,
+                    eh_privado: ehPrivado,
+                    texto: texto,
+                  },
+                });
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            };
+            leitorPrint.onerror = reject;
+            leitorPrint.readAsDataURL(printColado.file);
+          });
+        } else if (texto) {
+          // Apenas comentário textual
+          await api(`/chamados/${id}/comentarios`, {
+            method: "POST",
+            body: {
+              texto: texto,
+              eh_privado: ehPrivado,
+            },
+          });
+        }
+
+        formComentario.reset();
+        limparArquivo();
+        limparPrint();
+        if (document.getElementById("check-comentario-privado")) {
+          document.getElementById("check-comentario-privado").checked = false;
+        }
+
+        await carregarComentariosEAnexos();
+        carregarAuditoria();
+      } catch (err) {
+        mostrarErro(document.getElementById("mensagem-erro"), err);
+      } finally {
+        if (btnSubmit) {
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = "Enviar comentário";
+        }
+      }
+    });
+  }
+}
+
+// Carregar feed integrado de Comentários e Anexos
+async function carregarComentariosEAnexos() {
+  const listaEl = document.getElementById("lista-comentarios");
   const resumoEl = document.getElementById("resumo-anexos");
-  const msgErro = document.getElementById("msg-erro-anexo");
+  if (!listaEl) return;
 
   try {
-    const anexos = await api(`/chamados/${id}/anexos`);
-    const totalBytes = anexos.reduce((acc, a) => acc + (a.tamanho_bytes || 0), 0);
-    resumoEl.textContent = `(${anexos.length} arquivos, ${formatarTamanho(totalBytes)} utilizados)`;
+    const [comentarios, anexos] = await Promise.all([
+      api(`/chamados/${id}/comentarios`).catch(() => []),
+      api(`/chamados/${id}/anexos`).catch(() => []),
+    ]);
 
-    if (anexos.length === 0) {
-      listaEl.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem;">Nenhum anexo adicionado a este chamado.</li>`;
+    const totalBytes = anexos.reduce((acc, a) => acc + (a.tamanho_bytes || 0), 0);
+    if (resumoEl) {
+      resumoEl.textContent = anexos.length > 0 ? `(${anexos.length} anexo(s) - ${formatarTamanho(totalBytes)})` : "";
+    }
+
+    if (comentarios.length === 0 && anexos.length === 0) {
+      listaEl.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem; text-align: center; padding: 1rem 0;">Nenhum comentário ou anexo ainda.</li>`;
       return;
     }
 
-    listaEl.innerHTML = anexos
-      .map((a) => {
-        const ehPrivadoBadge = a.eh_privado
-          ? `<span class="badge-status" style="background: #fee2e2; color: #991b1b; font-size: 0.75rem; margin-left: 0.5rem;">🔒 Privado</span>`
+    // Mapa de anexos para anexar ações de download diretamente quando citados
+    const mapaAnexos = new Map(anexos.map((a) => [a.nome_arquivo, a]));
+
+    let htmlItens = "";
+
+    // Exibir primeiro a barra de anexos disponíveis caso existam
+    if (anexos.length > 0) {
+      htmlItens += `
+        <li style="background: var(--cor-fundo-elevado); border: 1px dashed var(--cor-borda); border-radius: 6px; padding: 0.65rem 0.85rem; margin-bottom: 0.5rem;">
+          <span style="font-size: 0.82rem; font-weight: 700; color: var(--cor-texto-secundario); text-transform: uppercase; display: block; margin-bottom: 0.4rem;">
+            📎 Arquivos anexados (${anexos.length}):
+          </span>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+            ${anexos
+              .map((a) => {
+                return `
+                  <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.25rem 0.55rem; border-radius: 4px; font-size: 0.82rem;">
+                    <span>📄 <strong>${escaparHtml(a.nome_arquivo)}</strong> <small style="color: var(--cor-texto-secundario);">(${formatarTamanho(a.tamanho_bytes)})</small></span>
+                    <button type="button" class="btn btn-secundario btn-pequeno btn-baixar-anexo" data-id="${a.id}" style="padding: 0.15rem 0.45rem; font-size: 0.78rem;">Baixar</button>
+                    ${
+                      a.usuario_id === usuario.id || usuario.admin === 1
+                        ? `<button type="button" class="btn btn-perigo btn-pequeno btn-excluir-anexo" data-id="${a.id}" style="padding: 0.15rem 0.45rem; font-size: 0.78rem;">✕</button>`
+                        : ""
+                    }
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>
+        </li>
+      `;
+    }
+
+    // Exibir timeline de comentários
+    htmlItens += comentarios
+      .map((c) => {
+        const ehPrivadoBadge = c.eh_privado
+          ? `<span class="badge-status" style="background: #fee2e2; color: #991b1b; font-size: 0.72rem; margin-left: 0.4rem;">🔒 Privado</span>`
           : "";
 
         return `
-          <li style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 0.35rem; margin-bottom: 0.4rem;">
-            <div>
-              <strong>📄 ${escaparHtml(a.nome_arquivo)}</strong>
-              <span style="color: var(--cor-texto-secundario); font-size: 0.85rem; margin-left: 0.5rem;">
-                (${formatarTamanho(a.tamanho_bytes)}) - enviado por ${escaparHtml(a.usuario_nome || "Anônimo")} em ${a.criado_em.slice(0, 16).replace("T", " ")}
+          <li style="padding: 0.65rem 0.85rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 0.35rem; font-size: 0.9rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+              <strong>${escaparHtml(c.usuario_nome ?? "Sistema")}${ehPrivadoBadge}</strong>
+              <span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">
+                ${formatarDataBR(c.data)}${c.eh_justificativa ? " - justificativa" : ""}
               </span>
-              ${ehPrivadoBadge}
             </div>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <button type="button" class="btn btn-secundario btn-pequeno btn-baixar-anexo" data-id="${a.id}">Baixar</button>
-              ${
-                a.usuario_id === usuario.id || usuario.admin === 1
-                  ? `<button type="button" class="btn btn-perigo btn-pequeno btn-excluir-anexo" data-id="${a.id}">Excluir</button>`
-                  : ""
-              }
-            </div>
+            <div style="line-height: 1.45; white-space: pre-wrap;">${escaparHtml(c.texto)}</div>
           </li>
         `;
       })
       .join("");
 
-    // Eventos de download e exclusão
+    listaEl.innerHTML = htmlItens;
+
+    // Listeners de download e exclusão de anexo
     listaEl.querySelectorAll(".btn-baixar-anexo").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const anexoId = btn.dataset.id;
@@ -749,12 +773,9 @@ async function carregarAnexos() {
           const link = document.createElement("a");
           link.href = `data:${dados.mime_type};base64,${dados.conteudo_base64}`;
           link.download = dados.nome_arquivo;
-          document.body.appendChild(link);
           link.click();
-          document.body.removeChild(link);
-        } catch (err) {
-          msgErro.textContent = err.message || "Erro ao baixar arquivo.";
-          msgErro.hidden = false;
+        } catch (e) {
+          mostrarErro(document.getElementById("mensagem-erro"), e);
         }
       });
     });
@@ -762,27 +783,187 @@ async function carregarAnexos() {
     listaEl.querySelectorAll(".btn-excluir-anexo").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const anexoId = btn.dataset.id;
-        const confirmado = await confirmarAcao("Excluir anexo?", "Essa ação não poderá ser desfeita.");
+        const confirmado = await confirmarAcao("Excluir este arquivo anexo?");
         if (!confirmado) return;
-
         try {
           await api(`/chamados/${id}/anexos?anexo_id=${anexoId}`, { method: "DELETE" });
-          carregarAnexos();
+          await carregarComentariosEAnexos();
           carregarAuditoria();
-        } catch (err) {
-          msgErro.textContent = err.message || "Erro ao excluir arquivo.";
-          msgErro.hidden = false;
+        } catch (e) {
+          mostrarErro(document.getElementById("mensagem-erro"), e);
         }
       });
     });
   } catch (err) {
-    listaEl.innerHTML = `<li class="erro">Erro ao carregar anexos: ${escaparHtml(err.message)}</li>`;
+    listaEl.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem;">Erro ao carregar comentários.</li>`;
   }
+}
+
+// Atualizar indicador de total de horas no card de comentários
+async function atualizarResumoHoras() {
+  const el = document.getElementById("indicador-horas-topo");
+  if (!el) return;
+  try {
+    const resumo = await api(`/chamados/${id}/horas`);
+    el.textContent = `(Total: ${resumo.total_horas || 0}h)`;
+  } catch (_) {
+    el.textContent = "";
+  }
+}
+
+// Abrir tela suspensa (modal flutuante) para apontamento rápido de horas
+async function abrirModalHoras() {
+  const container = document.getElementById("modal-horas-container");
+  if (!container) return;
+
+  let resumoHoras = { total_horas: 0, lancamentos: [] };
+  try {
+    resumoHoras = await api(`/chamados/${id}/horas`);
+  } catch (_) {}
+
+  const hoje = new Date().toISOString().slice(0, 10);
+
+  container.innerHTML = `
+    <div class="modal-horas-overlay" id="overlay-horas" role="dialog" aria-modal="true">
+      <div class="modal-horas-dialog">
+        <div class="modal-horas-header">
+          <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.4rem;">
+            <span>⏱️</span> Apontamento Rápido de Horas
+          </h3>
+          <button type="button" class="btn-icone" id="btn-fechar-modal-horas" aria-label="Fechar modal">✕</button>
+        </div>
+
+        <div class="modal-horas-body">
+          <p id="msg-erro-modal-horas" class="erro" hidden></p>
+          <div id="toast-sucesso-horas" class="toast-status-rapido" style="margin-bottom: 0.75rem;" hidden>✓ Horas apontadas com sucesso.</div>
+
+          <!-- Total Destaque -->
+          <div style="background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 6px; padding: 0.65rem 0.85rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.88rem; color: var(--cor-texto-secundario);">Total apontado neste chamado:</span>
+            <strong id="modal-horas-total-destaque" style="font-size: 1.1rem; color: var(--cor-primaria);">${resumoHoras.total_horas || 0}h</strong>
+          </div>
+
+          <!-- Formulário de Apontamento -->
+          <form id="form-modal-horas" style="display: flex; flex-direction: column; gap: 0.85rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div class="campo-grupo" style="margin: 0;">
+                <label class="campo-rotulo" for="modal-campo-horas-data">Data *</label>
+                <input type="date" id="modal-campo-horas-data" required class="input-padrao" value="${hoje}">
+              </div>
+              <div class="campo-grupo" style="margin: 0;">
+                <label class="campo-rotulo" for="modal-campo-horas-qtd">Horas *</label>
+                <input type="number" step="0.25" min="0.25" id="modal-campo-horas-qtd" required placeholder="Ex: 1.5" class="input-padrao">
+              </div>
+            </div>
+
+            <!-- Botões Rápidos de Tempo -->
+            <div>
+              <span style="font-size: 0.78rem; font-weight: 600; color: var(--cor-texto-secundario); display: block; margin-bottom: 0.3rem;">Adição rápida:</span>
+              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                <button type="button" class="btn-tempo-rapido-modal btn btn-secundario btn-pequeno" data-horas="0.25">+15m</button>
+                <button type="button" class="btn-tempo-rapido-modal btn btn-secundario btn-pequeno" data-horas="0.5">+30m</button>
+                <button type="button" class="btn-tempo-rapido-modal btn btn-secundario btn-pequeno" data-horas="1.0">+1h</button>
+                <button type="button" class="btn-tempo-rapido-modal btn btn-secundario btn-pequeno" data-horas="2.0">+2h</button>
+                <button type="button" class="btn-tempo-rapido-modal btn btn-secundario btn-pequeno" data-horas="4.0">+4h</button>
+              </div>
+            </div>
+
+            <div class="campo-grupo" style="margin: 0;">
+              <label class="campo-rotulo" for="modal-campo-horas-obs">Observação / Atividade</label>
+              <input type="text" id="modal-campo-horas-obs" placeholder="Descrição do trabalho executado..." class="input-padrao">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+              <button type="button" id="btn-cancelar-modal-horas" class="btn btn-secundario">Cancelar</button>
+              <button type="submit" class="btn btn-primario" id="btn-submit-modal-horas">Salvar apontamento</button>
+            </div>
+          </form>
+
+          <!-- Histórico de Lançamentos -->
+          <div style="margin-top: 1.15rem; border-top: 1px solid var(--cor-borda); padding-top: 0.85rem;">
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--cor-texto-secundario); text-transform: uppercase;">Últimos apontamentos:</span>
+            <ul id="modal-lista-horas" style="list-style: none; padding: 0; margin: 0.5rem 0 0; max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem;">
+              ${
+                resumoHoras.lancamentos.length === 0
+                  ? `<li style="color: var(--cor-texto-secundario); font-size: 0.85rem;">Nenhum apontamento registrado ainda.</li>`
+                  : resumoHoras.lancamentos
+                      .map(
+                        (l) =>
+                          `<li style="padding: 0.35rem 0.5rem; background: var(--cor-fundo); border-radius: 4px; font-size: 0.85rem; border: 1px solid var(--cor-borda);">
+                             <strong>${formatarDataBR(l.data)}</strong> - <strong>${l.horas}h</strong> por ${escaparHtml(l.usuario_nome)} ${l.observacao ? `<em>(${escaparHtml(l.observacao)})</em>` : ""}
+                           </li>`
+                      )
+                      .join("")
+              }
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const overlay = document.getElementById("overlay-horas");
+  const fechar = () => {
+    container.innerHTML = "";
+  };
+
+  document.getElementById("btn-fechar-modal-horas")?.addEventListener("click", fechar);
+  document.getElementById("btn-cancelar-modal-horas")?.addEventListener("click", fechar);
+  overlay?.addEventListener("click", (e) => {
+    if (e.target === overlay) fechar();
+  });
+
+  const campoQtd = document.getElementById("modal-campo-horas-qtd");
+  container.querySelectorAll(".btn-tempo-rapido-modal").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const incremento = Number(btn.dataset.horas) || 0;
+      if (campoQtd) {
+        const atual = Number(campoQtd.value) || 0;
+        const total = atual > 0 ? atual + incremento : incremento;
+        campoQtd.value = total % 1 === 0 ? total.toFixed(1) : total.toString();
+      }
+    });
+  });
+
+  const formModal = document.getElementById("form-modal-horas");
+  formModal?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const dataVal = document.getElementById("modal-campo-horas-data").value;
+    const horasVal = Number(campoQtd.value);
+    const obsVal = document.getElementById("modal-campo-horas-obs").value.trim() || null;
+    const msgErro = document.getElementById("msg-erro-modal-horas");
+    const btnSubmit = document.getElementById("btn-submit-modal-horas");
+
+    if (!dataVal || !horasVal) return;
+
+    btnSubmit.disabled = true;
+    try {
+      await api(`/chamados/${id}/horas`, {
+        method: "POST",
+        body: {
+          data: dataVal,
+          horas: horasVal,
+          observacao: obsVal,
+        },
+      });
+
+      await atualizarResumoHoras();
+      carregarAuditoria();
+      fechar();
+    } catch (err) {
+      if (msgErro) {
+        msgErro.textContent = err.message || "Erro ao apontar horas.";
+        msgErro.hidden = false;
+      }
+      btnSubmit.disabled = false;
+    }
+  });
 }
 
 // Carregar histórico unificado de auditoria
 async function carregarAuditoria() {
   const listaEl = document.getElementById("lista-historico-auditoria");
+  if (!listaEl) return;
   try {
     const historico = await api(`/chamados/${id}/historico`);
     if (!Array.isArray(historico) || historico.length === 0) {
@@ -792,7 +973,13 @@ async function carregarAuditoria() {
 
     listaEl.innerHTML = historico
       .map((item) => {
-        const dataFormatada = item.criado_em ? item.criado_em.slice(0, 19).replace("T", " ") : "-";
+        let dataFormatada = "-";
+        if (item.criado_em) {
+          const partes = item.criado_em.slice(0, 19).replace("T", " ").split(" ");
+          const dataBR = formatarDataBR(partes[0]);
+          const hora = partes[1] ? partes[1].slice(0, 5) : "";
+          dataFormatada = `${dataBR} ${hora}`.trim();
+        }
         return `
           <li style="font-size: 0.88rem; border-left: 3px solid var(--cor-primaria); padding: 0.35rem 0.6rem; background: var(--cor-fundo);">
             <div style="display: flex; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.2rem;">
@@ -810,34 +997,42 @@ async function carregarAuditoria() {
 }
 
 async function renderAprovacao(chamado) {
-  const etapa = await api(`/etapas/${chamado.etapa_id}`);
+  let etapa = null;
+  try {
+    etapa = await api(`/etapas/${chamado.etapa_id}`);
+  } catch (e) {
+    return;
+  }
   const acaoContainer = document.getElementById("acao");
+  if (!acaoContainer) return;
+
+  const acoesList = etapa.acoes || [];
 
   acaoContainer.innerHTML = `
-    <h2>Avaliação ${info(
-      "Aprova a solicitação e libera a próxima etapa do fluxo automaticamente, ou reprova e encerra toda a cadeia acima."
+    <h2 style="font-size: 1.15rem; margin: 0 0 0.75rem;">Avaliação da Tarefa / Etapa ${info(
+      "Aprova a solicitação e libera a próxima etapa do fluxo automaticamente, ou reprova e encerra a cadeia."
     )}</h2>
     ${
-      etapa.acoes.length > 0
-        ? `<fieldset id="fieldset-acoes" style="margin-bottom: 1rem; padding: 0.75rem 1rem; border: 1px solid var(--cor-borda); border-radius: 0.35rem;">
-             <legend style="font-weight: 600; padding: 0 0.4rem;">Ações a executar se aprovado</legend>
-             ${etapa.acoes
+      acoesList.length > 0
+        ? `<fieldset id="fieldset-acoes" style="margin-bottom: 0.85rem; padding: 0.65rem 0.85rem; border: 1px solid var(--cor-borda); border-radius: 0.35rem;">
+             <legend style="font-weight: 600; padding: 0 0.4rem; font-size: 0.85rem;">Ações a executar se aprovado</legend>
+             ${acoesList
                .map(
                  (a) =>
-                   `<label style="display: block; margin: 0.4rem 0; cursor: pointer;"><input type="checkbox" name="acao-${a.id}" value="${a.id}"> ${escaparHtml(a.rotulo)}</label>`
+                   `<label style="display: block; margin: 0.35rem 0; cursor: pointer; font-size: 0.9rem;"><input type="checkbox" name="acao-${a.id}" value="${a.id}"> ${escaparHtml(a.rotulo)}</label>`
                )
                .join("")}
            </fieldset>`
         : ""
     }
-    <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+    <div style="display: flex; gap: 0.75rem; margin-bottom: 0.75rem;">
       <button type="button" id="btn-aprovar" class="btn btn-primario">✓ Aprovar e avançar</button>
     </div>
     
-    <div style="border-top: 1px solid var(--cor-borda); padding-top: 1rem; margin-top: 1rem;">
-      <label style="display: block; font-weight: 600; margin-bottom: 0.4rem;">
+    <div style="border-top: 1px solid var(--cor-borda); padding-top: 0.75rem; margin-top: 0.75rem;">
+      <label style="display: block; font-weight: 600; font-size: 0.88rem; margin-bottom: 0.4rem;">
         Justificativa (obrigatória para reprovar)
-        <textarea id="justificativa" style="width: 100%; min-height: 60px; margin-top: 0.2rem;"></textarea>
+        <textarea id="justificativa" style="width: 100%; min-height: 60px; margin-top: 0.2rem;" class="textarea-padrao" placeholder="Informe o motivo da reprovação..."></textarea>
       </label>
       <button type="button" id="btn-reprovar" class="btn btn-perigo">✕ Reprovar</button>
     </div>
@@ -845,112 +1040,41 @@ async function renderAprovacao(chamado) {
   `;
 
   async function enviarDecisao(corpo) {
+    const erro = document.getElementById("erro-decisao");
+    if (erro) erro.hidden = true;
     try {
       await api(`/chamados/${chamado.id}/decisao`, {
         method: "POST",
         body: corpo,
       });
-      carregarTudo();
+      await carregarTudo();
     } catch (e) {
-      const erro = document.getElementById("erro-decisao");
-      erro.textContent = e.message;
-      erro.hidden = false;
+      if (erro) {
+        erro.textContent = e.message || "Falha ao processar decisão.";
+        erro.hidden = false;
+      }
     }
   }
 
-  document.getElementById("btn-aprovar").addEventListener("click", () => {
+  document.getElementById("btn-aprovar")?.addEventListener("click", () => {
     const acoes = {};
-    etapa.acoes.forEach((a) => {
-      acoes[a.id] = acaoContainer.querySelector(`[name="acao-${a.id}"]`).checked;
+    acoesList.forEach((a) => {
+      const cb = acaoContainer.querySelector(`[name="acao-${a.id}"]`);
+      if (cb) acoes[a.id] = cb.checked;
     });
     enviarDecisao({ decisao: "aprovado", acoes });
   });
 
-  document.getElementById("btn-reprovar").addEventListener("click", () => {
-    const justificativa = document.getElementById("justificativa").value.trim();
+  document.getElementById("btn-reprovar")?.addEventListener("click", () => {
+    const justificativa = document.getElementById("justificativa")?.value.trim();
     if (!justificativa) {
       const erro = document.getElementById("erro-decisao");
-      erro.textContent = "Justificativa é obrigatória para reprovar.";
-      erro.hidden = false;
+      if (erro) {
+        erro.textContent = "Justificativa é obrigatória para reprovar.";
+        erro.hidden = false;
+      }
       return;
     }
     enviarDecisao({ decisao: "reprovado", justificativa });
   });
-}
-
-async function renderStatusManual(chamado) {
-  const statusList = await api("/status");
-  const acaoContainer = document.getElementById("acao");
-
-  acaoContainer.innerHTML = `
-    <h2>Atualizar Status da Etapa ${info(
-      "Atualize o status conforme o andamento; marque 'finalizado' quando a tarefa estiver concluída."
-    )}</h2>
-    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-      <select id="select-status" style="padding: 0.5rem 0.75rem; font-size: 0.95rem;">
-        ${statusList
-          .map(
-            (s) =>
-              `<option value="${s.id}" ${s.id === chamado.status_id ? "selected" : ""}>${escaparHtml(s.nome)}</option>`
-          )
-          .join("")}
-      </select>
-      <button type="button" id="btn-salvar-status" class="btn btn-primario">Salvar status</button>
-    </div>
-    <p id="erro-status" class="erro" hidden></p>
-  `;
-
-  document.getElementById("btn-salvar-status").addEventListener("click", async () => {
-    const statusId = Number(document.getElementById("select-status").value);
-    const statusEscolhido = statusList.find((s) => s.id === statusId);
-    if (chamado.bloqueado && statusEscolhido.nome === "finalizado") {
-      const erro = document.getElementById("erro-status");
-      erro.textContent = "Não é possível finalizar: chamado bloqueado aguardando pré-requisito.";
-      erro.hidden = false;
-      return;
-    }
-    try {
-      await api(`/chamados/${chamado.id}`, { method: "PUT", body: { status_id: statusId } });
-      carregarTudo();
-    } catch (e) {
-      mostrarErro(document.getElementById("erro-status"), e);
-    }
-  });
-}
-
-async function carregarHoras() {
-  const resumo = await api(`/chamados/${id}/horas`);
-  document.getElementById("total-horas").textContent = `(total: ${resumo.total_horas}h)`;
-  document.getElementById("lista-horas").innerHTML =
-    resumo.lancamentos.length === 0
-      ? `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem;">Nenhum lançamento ainda.</li>`
-      : resumo.lancamentos
-          .map(
-            (l) =>
-              `<li style="padding: 0.35rem 0; border-bottom: 1px solid var(--cor-borda); font-size: 0.9rem;">${l.data} - <strong>${escaparHtml(l.usuario_nome)}</strong> - <strong>${l.horas}h</strong> ${l.observacao ? `(${escaparHtml(l.observacao)})` : ""}</li>`
-          )
-          .join("");
-}
-
-async function carregarComentarios() {
-  const comentarios = await api(`/chamados/${id}/comentarios`);
-  document.getElementById("lista-comentarios").innerHTML =
-    comentarios.length === 0
-      ? `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem;">Nenhum comentário ainda.</li>`
-      : comentarios
-          .map((c) => {
-            const ehPrivadoBadge = c.eh_privado
-              ? `<span class="badge-status" style="background: #fee2e2; color: #991b1b; font-size: 0.72rem; margin-left: 0.4rem;">🔒 Privado</span>`
-              : "";
-            return `
-              <li style="padding: 0.6rem 0.8rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 0.35rem; margin-bottom: 0.5rem; font-size: 0.92rem;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                  <strong>${escaparHtml(c.usuario_nome ?? "Sistema")}${ehPrivadoBadge}</strong>
-                  <span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">${c.data}${c.eh_justificativa ? " - justificativa" : ""}</span>
-                </div>
-                <div style="line-height: 1.4;">${escaparHtml(c.texto)}</div>
-              </li>
-            `;
-          })
-          .join("");
 }

@@ -1,6 +1,6 @@
 import { exigirLogin, getUsuarioLogado, setUsuarioLogado } from "./auth.js";
 import { api } from "./api.js";
-import { mostrarErro } from "./ui.js";
+import { mostrarErro, alternarVisualizacaoSenha } from "./ui.js";
 import { gerarSenhaAleatoria, validarComplexidadeSenhaCliente, calcularSha256 } from "./crud-ui.js";
 
 const usuario = exigirLogin();
@@ -49,13 +49,7 @@ if (usuario) {
       const alvoId = btn.dataset.alvo;
       const input = document.getElementById(alvoId);
       if (!input) return;
-      if (input.type === "password") {
-        input.type = "text";
-        btn.textContent = "🙈";
-      } else {
-        input.type = "password";
-        btn.textContent = "👁️";
-      }
+      alternarVisualizacaoSenha(input, btn);
     });
   });
 

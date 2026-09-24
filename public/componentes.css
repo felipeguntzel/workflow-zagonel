@@ -1457,4 +1457,94 @@ form.formulario label.label-checkbox-linha input[type="checkbox"] {
   }
 }
 
+/* Cards compactos da tela de detalhes do chamado */
+.painel-chamado {
+  margin-top: 0 !important;
+  margin-bottom: 0.75rem !important;
+  padding: 1rem 1.25rem !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.painel-chamado-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.btn-recolher-card {
+  font-size: 0.8rem !important;
+  padding: 0.25rem 0.6rem !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 4px;
+}
+
+.toast-status-rapido {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  animation: fadeInOut 3s forwards;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(-4px); }
+  15% { opacity: 1; transform: translateY(0); }
+  80% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+
+/* Modal suspenso de apontamento rápido de horas */
+.modal-horas-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-horas-dialog {
+  background: var(--cor-fundo-elevado);
+  border-radius: 8px;
+  border: 1px solid var(--cor-borda);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 540px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScaleIn 0.18s ease-out;
+}
+
+@keyframes modalScaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modal-horas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.modal-horas-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  max-height: 75vh;
+}
+
 

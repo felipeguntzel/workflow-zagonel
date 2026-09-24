@@ -42,10 +42,10 @@ export async function onRequestPost(context) {
   if (body.admin && usuario.admin !== 1) {
     return error("Apenas administradores podem conceder admin a um usuário.", 403);
   }
-  const login = String(body.login).toLowerCase();
+  const login = String(body.login || "").trim().toLowerCase();
   if (!validarFormatoLogin(login)) {
     return error(
-      "Login inválido: use o padrão nome.sobrenome (ex: felipe.guntzel), com letras minúsculas, números e ponto."
+      "Login inválido: use apenas letras, números, ponto ou sublinhado (ex: felipe.guntzel ou projetoszagonel), sem espaços ou símbolos."
     );
   }
   const existente = await first(context.env.DB, "SELECT id FROM usuarios WHERE login = ?", login);

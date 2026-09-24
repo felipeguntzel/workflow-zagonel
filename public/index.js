@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { setUsuarioLogado } from "./auth.js";
-import { mostrarErro, escaparHtml } from "./ui.js";
+import { mostrarErro, escaparHtml, alternarVisualizacaoSenha } from "./ui.js";
 import { registrarServiceWorker } from "./layout.js";
 
 registrarServiceWorker();
@@ -73,13 +73,7 @@ document.querySelectorAll(".btn-toggle-senha").forEach((btn) => {
     const alvoId = btn.dataset.alvo;
     const input = document.getElementById(alvoId);
     if (!input) return;
-    if (input.type === "password") {
-      input.type = "text";
-      btn.textContent = "🙈";
-    } else {
-      input.type = "password";
-      btn.textContent = "👁️";
-    }
+    alternarVisualizacaoSenha(input, btn);
   });
 });
 

@@ -23,7 +23,7 @@
 <body>
 <div id="nav"></div>
 <main>
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
     <p style="margin: 0;">
       <a href="/chamados" class="link-sem-sublinhado">← Meus chamados</a>
       <span style="color: var(--cor-borda); margin: 0 0.35rem;">|</span>
@@ -34,57 +34,50 @@
   
   <p id="mensagem-erro" class="erro" hidden></p>
   
-  <div id="detalhe" class="painel" style="margin-bottom: 1.5rem;" hidden></div>
+  <!-- Card 1: Dados Principais e Obrigatórios do Chamado -->
+  <div id="detalhe" class="painel painel-chamado" hidden></div>
 
-  <!-- Campos Dinâmicos do Chamado -->
-  <section id="secao-campos-dinamicos" class="painel" style="margin-bottom: 1.5rem;" hidden>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.5rem;">
-      <h2 style="font-size: 1.2rem; margin: 0;">📋 Campos da Solicitação / Etapa</h2>
-      <button type="button" id="btn-salvar-campos-dinamicos" class="btn btn-primario btn-pequeno" hidden>Salvar alterações</button>
+  <!-- Card 2: Campos Dinâmicos do Chamado -->
+  <section id="secao-campos-dinamicos" class="painel painel-chamado" hidden>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.45rem; flex-wrap: wrap; gap: 0.5rem;">
+      <h2 style="font-size: 1.15rem; margin: 0;">📋 Campos da Solicitação / Etapa</h2>
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <button type="button" id="btn-salvar-campos-dinamicos" class="btn btn-primario btn-pequeno" hidden>Salvar alterações</button>
+        <button type="button" id="btn-recolher-campos" class="btn btn-secundario btn-recolher-card" title="Recolher / Expandir">▲ Recolher</button>
+      </div>
     </div>
     <p id="msg-erro-campos" class="erro" hidden></p>
+    <div id="msg-sucesso-campos" class="toast-status-rapido" style="margin-bottom: 0.5rem;" hidden>✓ Campos salvos com sucesso.</div>
     <div id="conteudo-campos-dinamicos"></div>
   </section>
 
-  <!-- Ação / Aprovação / Status -->
-  <div id="acao" class="painel" style="margin-bottom: 1.5rem;" hidden></div>
+  <!-- Card 3: Ação / Aprovação (quando aplicável) -->
+  <div id="acao" class="painel painel-chamado" hidden></div>
 
-  <!-- Anexos de Arquivos (até 2MB por arquivo, até 10MB por chamado mãe) -->
-  <section class="painel" style="margin-bottom: 1.5rem;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.5rem;">
-      <h2 style="font-size: 1.2rem; margin: 0;">📎 Anexos <span id="resumo-anexos" style="font-size: 0.9rem; color: var(--cor-texto-secundario); font-weight: normal;"></span></h2>
-    </div>
-    <p id="msg-erro-anexo" class="erro" hidden></p>
-    <ul id="lista-anexos" style="list-style: none; padding: 0; margin-bottom: 1rem;"></ul>
-    <form class="formulario" id="form-anexo" style="display: flex; flex-direction: column; gap: 0.75rem;">
-      <div id="dropzone-anexo" class="dropzone-anexo dropzone-anexo--compacto" tabindex="0" role="button" aria-label="Área para soltar arquivos anexos">
-        <span class="dropzone-anexo__icone">📁</span>
-        <p class="dropzone-anexo__texto"><strong>Arraste e solte o arquivo aqui</strong> ou clique para navegar</p>
-        <p class="dropzone-anexo__subtexto">Formatos aceitos: PDF, XLSX, DOCX, PNG, JPG, JPEG, CSV, TXT (Máx. 2MB)</p>
-        <input type="file" id="input-arquivo-anexo" style="display: none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.csv">
+  <!-- Card 4: Comentários e Anexos Unificados (com atalho para tela suspensa de horas) -->
+  <section id="card-comentarios-anexos" class="painel painel-chamado">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.45rem; flex-wrap: wrap; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <h2 style="font-size: 1.15rem; margin: 0;">💬 Comentários e Anexos</h2>
+        <span id="resumo-anexos" style="font-size: 0.85rem; color: var(--cor-texto-secundario); font-weight: normal;"></span>
       </div>
-
-      <div id="preview-anexo-wrap" hidden></div>
-
-      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; background: var(--cor-fundo); padding: 0.6rem 0.85rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda);">
-        <label class="label-checkbox-linha">
-          <input type="checkbox" id="check-anexo-privado">
-          <span>Anexo privado (visível apenas para este setor/etapa)</span>
-        </label>
-        <button type="submit" id="btn-enviar-anexo" class="btn btn-primario btn-pequeno" disabled>Enviar anexo</button>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span id="indicador-horas-topo" style="font-size: 0.85rem; color: var(--cor-texto-secundario); font-weight: 600;"></span>
+        <button type="button" id="btn-abrir-modal-horas" class="btn btn-secundario btn-pequeno" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Abrir tela suspensa para apontamento rápido de horas">
+          ⏱️ Apontar Horas
+        </button>
       </div>
-    </form>
-  </section>
-
-  <!-- Comentários -->
-  <section class="painel" style="margin-bottom: 1.5rem;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.5rem;">
-      <h2 style="font-size: 1.2rem; margin: 0;">💬 Comentários</h2>
     </div>
-    <ul id="lista-comentarios" style="list-style: none; padding: 0; margin-bottom: 1.25rem;"></ul>
-    <form class="formulario" id="form-comentario">
-      <label class="campo-rotulo" for="textarea-comentario">Novo comentário</label>
-      <textarea name="texto" id="textarea-comentario" required style="width: 100%; min-height: 70px;" placeholder="Digite seu comentário ou cole prints com Ctrl+V..."></textarea>
+
+    <!-- Lista Unificada de Comentários e Anexos -->
+    <ul id="lista-comentarios" style="list-style: none; padding: 0; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.5rem;"></ul>
+
+    <!-- Formulário Unificado: Comentário + Anexo -->
+    <form class="formulario" id="form-comentario" style="display: flex; flex-direction: column; gap: 0.6rem;">
+      <label class="campo-rotulo" for="textarea-comentario" style="font-weight: 600;">Novo comentário ou anexo</label>
+      <textarea name="texto" id="textarea-comentario" style="width: 100%; min-height: 70px;" placeholder="Digite seu comentário, anexe arquivos abaixo ou cole prints com Ctrl+V..."></textarea>
+      
+      <!-- Preview do print colado via Ctrl+V -->
       <div id="preview-print-comentario" class="preview-print-wrap" hidden>
         <img id="img-preview-print" class="preview-print-img" alt="Print colado">
         <div style="flex: 1; min-width: 0;">
@@ -93,64 +86,45 @@
         </div>
         <button type="button" id="btn-remover-print" class="btn-icone btn-icone--excluir" title="Remover imagem" aria-label="Remover imagem">✕</button>
       </div>
-      <p class="campo-ajuda" style="margin: 0.3rem 0 0.5rem; font-size: 0.8rem;">💡 Dica: você pode colar imagens ou prints diretamente com <strong>Ctrl+V</strong> neste campo.</p>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+
+      <!-- Área de Anexo Integrada -->
+      <div style="display: flex; flex-direction: column; gap: 0.5rem; background: var(--cor-fundo); padding: 0.65rem 0.85rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+          <label style="display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--cor-primaria);">
+            <span>📎 Adicionar arquivo anexo</span>
+            <input type="file" id="input-arquivo-anexo" style="display: none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.csv">
+          </label>
+          <span style="font-size: 0.75rem; color: var(--cor-texto-secundario);">PDF, XLSX, DOCX, PNG, JPG, CSV (Máx. 2MB)</span>
+        </div>
+
+        <div id="preview-anexo-wrap" hidden></div>
+        <p id="msg-erro-anexo" class="erro" style="margin: 0.2rem 0 0;" hidden></p>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.25rem; flex-wrap: wrap; gap: 0.5rem;">
         <label class="label-checkbox-linha">
           <input type="checkbox" id="check-comentario-privado">
-          <span>Comentário privado (visível apenas para o setor desta etapa)</span>
+          <span>Comentário/anexo privado (visível apenas para o setor desta etapa)</span>
         </label>
-        <button type="submit" class="btn btn-primario" id="btn-submit-comentario">Comentar</button>
+        <button type="submit" class="btn btn-primario" id="btn-submit-comentario">Enviar comentário</button>
       </div>
     </form>
   </section>
 
-  <!-- Apontamento de horas -->
-  <section class="painel" style="margin-bottom: 1.5rem;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.5rem;">
-      <h2 style="font-size: 1.2rem; margin: 0;">⏱️ Apontamento de horas <span id="total-horas" style="font-size: 0.95rem; font-weight: normal; color: var(--cor-texto-secundario);"></span></h2>
-    </div>
-    <ul id="lista-horas" style="list-style: none; padding: 0; margin-bottom: 1.25rem;"></ul>
-    <form class="formulario" id="form-horas">
-      <div class="apontamento-grid">
-        <div class="campo-grupo" style="margin: 0;">
-          <label for="campo-horas-data" class="campo-rotulo">Data</label>
-          <input type="date" name="data" id="campo-horas-data" required class="input-padrao">
-        </div>
-        <div class="campo-grupo" style="margin: 0;">
-          <label for="campo-horas-qtd" class="campo-rotulo">Horas</label>
-          <input type="number" step="0.25" min="0.25" name="horas" id="campo-horas-qtd" required placeholder="Ex: 1.5" class="input-padrao">
-        </div>
-        <div class="campo-grupo" style="margin: 0;">
-          <label for="campo-horas-obs" class="campo-rotulo">Observação</label>
-          <input type="text" name="observacao" id="campo-horas-obs" placeholder="Atividade realizada..." class="input-padrao">
-        </div>
-        <div style="display: flex; align-items: flex-end;">
-          <button type="submit" class="btn btn-primario" style="height: 38px; white-space: nowrap; width: 100%;">Lançar horas</button>
-        </div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 0.6rem; margin-top: 0.5rem; flex-wrap: wrap;">
-        <span style="font-size: 0.82rem; font-weight: 600; color: var(--cor-texto-secundario);">Lançamento rápido:</span>
-        <div class="atalhos-horas" style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
-          <button type="button" class="btn-tempo-rapido" data-horas="0.25">+15m</button>
-          <button type="button" class="btn-tempo-rapido" data-horas="0.5">+30m</button>
-          <button type="button" class="btn-tempo-rapido" data-horas="1.0">+1h</button>
-          <button type="button" class="btn-tempo-rapido" data-horas="2.0">+2h</button>
-          <button type="button" class="btn-tempo-rapido" data-horas="4.0">+4h</button>
-        </div>
-      </div>
-    </form>
-  </section>
-
-  <!-- Histórico Unificado de Auditoria (No final da tela, por último) -->
-  <section class="painel">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.5rem;">
-      <h2 style="font-size: 1.2rem; margin: 0;">📜 Histórico Unificado de Ações</h2>
+  <!-- Histórico Unificado de Auditoria -->
+  <section class="painel painel-chamado">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.45rem;">
+      <h2 style="font-size: 1.15rem; margin: 0;">📜 Histórico Unificado de Ações</h2>
     </div>
     <div id="historico-auditoria-wrap" style="max-height: 280px; overflow-y: auto; padding-right: 0.5rem;">
-      <ul id="lista-historico-auditoria" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem;"></ul>
+      <ul id="lista-historico-auditoria" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;"></ul>
     </div>
   </section>
 </main>
+
+<!-- Modal Suspenso para Apontamento Rápido de Horas -->
+<div id="modal-horas-container"></div>
+
 <script type="module" src="chamado.js"></script>
 </body>
 </html>

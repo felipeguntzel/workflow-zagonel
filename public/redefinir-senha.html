@@ -40,7 +40,7 @@
         <label>Nova senha <span class="info" title="Mínimo de 6 e máximo de 10 caracteres. Permite números, letras e símbolos. Se apenas números, não pode conter repetidos nem sequências de 1 em 1.">i</span>
           <div style="display: flex; gap: 0.4rem; align-items: center;">
             <input type="password" name="nova_senha" id="input-nova-senha" required minlength="6" maxlength="10" autocomplete="new-password" placeholder="Mínimo 6 e máximo 10 caracteres" style="flex: 1;">
-            <button type="button" class="btn-toggle-senha" data-alvo="input-nova-senha" title="Visualizar ou ocultar senha">👁️</button>
+            <button type="button" class="btn-toggle-senha" data-alvo="input-nova-senha" title="Visualizar ou ocultar senha" aria-label="Visualizar ou ocultar senha" style="display: inline-flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             <button type="button" class="btn-copiar-campo" data-alvo="input-nova-senha" title="Copiar senha">📋</button>
           </div>
         </label>
@@ -48,7 +48,7 @@
         <label>Confirmar nova senha
           <div style="display: flex; gap: 0.4rem; align-items: center;">
             <input type="password" name="confirmar_senha" id="input-confirmar-senha" required minlength="6" maxlength="10" autocomplete="new-password" placeholder="Repita a nova senha para confirmar" style="flex: 1;">
-            <button type="button" class="btn-toggle-senha" data-alvo="input-confirmar-senha" title="Visualizar ou ocultar senha">👁️</button>
+            <button type="button" class="btn-toggle-senha" data-alvo="input-confirmar-senha" title="Visualizar ou ocultar senha" aria-label="Visualizar ou ocultar senha" style="display: inline-flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             <button type="button" class="btn-copiar-campo" data-alvo="input-confirmar-senha" title="Copiar senha">📋</button>
           </div>
         </label>

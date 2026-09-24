@@ -11,7 +11,13 @@ export async function onRequestGet(context) {
   const chamado = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
   if (!chamado) return error("Chamado não encontrado", 404);
 
-  const camposComValores = await carregarCamposEValoresDoChamado(context.env.DB, chamado.id, chamado.etapa_id);
+  let camposComValores = await carregarCamposEValoresDoChamado(context.env.DB, chamado.id, chamado.etapa_id);
+  if ((!camposComValores || camposComValores.length === 0) && chamado.chamado_mae_id) {
+    const mae = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", chamado.chamado_mae_id);
+    if (mae && mae.etapa_id) {
+      camposComValores = await carregarCamposEValoresDoChamado(context.env.DB, mae.id, mae.etapa_id);
+    }
+  }
   return json(camposComValores);
 }
 

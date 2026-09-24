@@ -12,6 +12,16 @@ export function escaparAtributo(texto) {
   return String(texto).replace(/"/g, "&quot;");
 }
 
+export function formatarDataBR(str) {
+  if (!str) return "-";
+  const s = String(str).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+  return s;
+}
+
 export function traduzirTextoParaPtBr(mensagem) {
   if (!mensagem) return "Ocorreu um erro inesperado.";
   const str = String(mensagem);
@@ -78,6 +88,28 @@ export function botaoIconeEditar(classe, id) {
 
 export function botaoIconeExcluir(classe, id) {
   return `<button type="button" class="btn-icone btn-icone--excluir ${classe}" data-id="${id}" aria-label="Excluir" title="Excluir">${SVG_ICONE_EXCLUIR}</button>`;
+}
+
+export const SVG_ICONE_OLHO =
+  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+
+export const SVG_ICONE_OLHO_RISCADO =
+  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+export function alternarVisualizacaoSenha(input, botao) {
+  if (!input || !botao) return;
+  const estaVisivel = input.type === "text";
+  if (estaVisivel) {
+    input.type = "password";
+    botao.innerHTML = SVG_ICONE_OLHO;
+    botao.title = "Visualizar senha";
+    botao.setAttribute("aria-label", "Visualizar senha");
+  } else {
+    input.type = "text";
+    botao.innerHTML = SVG_ICONE_OLHO_RISCADO;
+    botao.title = "Ocultar senha";
+    botao.setAttribute("aria-label", "Ocultar senha");
+  }
 }
 
 export function linkWhatsApp(telefone, chamadoId, chamadoTitulo) {

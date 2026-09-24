@@ -86,10 +86,10 @@ export async function onRequestPut(context) {
 
   let login = null;
   if (body.login !== undefined) {
-    login = String(body.login).toLowerCase();
+    login = String(body.login || "").trim().toLowerCase();
     if (!validarFormatoLogin(login)) {
       return error(
-        "Login inválido: use o padrão nome.sobrenome (ex: felipe.guntzel), com letras minúsculas, números e ponto."
+        "Login inválido: use apenas letras, números, ponto ou sublinhado (ex: felipe.guntzel ou projetoszagonel), sem espaços ou símbolos."
       );
     }
     const existente = await first(

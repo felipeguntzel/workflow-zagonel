@@ -1,5 +1,16 @@
 import { api } from "./api.js";
-import { info, mostrarErro, escaparAtributo, escaparHtml, botaoIconeEditar, botaoIconeExcluir, debounce } from "./ui.js";
+import {
+  info,
+  mostrarErro,
+  escaparAtributo,
+  escaparHtml,
+  botaoIconeEditar,
+  botaoIconeExcluir,
+  debounce,
+  SVG_ICONE_OLHO,
+  SVG_ICONE_OLHO_RISCADO,
+  alternarVisualizacaoSenha
+} from "./ui.js";
 import { permissaoDaTela } from "./auth.js";
 import { confirmarAcao } from "./modal.js";
 
@@ -668,7 +679,7 @@ export async function renderCrud(container, config) {
             <div class="campo-senha-container" style="display: flex; gap: 0.4rem; align-items: center;">
               <input type="password" name="${campo.nome}" autocomplete="new-password" ${campo.obrigatorio && !linhaEdicao ? "required" : ""} placeholder="${escaparAtributo(placeholder)}" style="flex: 1;">
               <button type="button" class="btn btn-secundario btn-gerar-senha" data-campo="${campo.nome}" style="white-space: nowrap; font-size: 0.8rem; padding: 0.45rem 0.65rem;" title="Gerar senha aleatória de 6 dígitos misturando letras e números">⚡ Gerar senha</button>
-              <button type="button" class="btn btn-secundario btn-toggle-senha" data-campo="${campo.nome}" style="font-size: 0.95rem; padding: 0.4rem 0.55rem;" title="Visualizar ou ocultar senha">👁️</button>
+              <button type="button" class="btn btn-secundario btn-toggle-senha" data-campo="${campo.nome}" style="display: inline-flex; align-items: center; justify-content: center; padding: 0.45rem 0.6rem;" title="Visualizar ou ocultar senha" aria-label="Visualizar ou ocultar senha">${SVG_ICONE_OLHO}</button>
             </div>
             <div class="aviso-capslock aviso-capslock-${campo.nome}" hidden style="display: none; align-items: center; gap: 0.35rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.78rem; font-weight: 600; margin-top: 0.35rem;">⚠️ Caps Lock ativado</div>
           </label>
@@ -877,7 +888,11 @@ export async function renderCrud(container, config) {
         input.type = "text";
         input.classList.remove("campo-destaque-obrigatorio");
         const btnToggle = formModal.querySelector(`.btn-toggle-senha[data-campo="${nomeCampo}"]`);
-        if (btnToggle) btnToggle.textContent = "🙈";
+        if (btnToggle) {
+          btnToggle.innerHTML = SVG_ICONE_OLHO_RISCADO;
+          btnToggle.title = "Ocultar senha";
+          btnToggle.setAttribute("aria-label", "Ocultar senha");
+        }
 
         navigator.clipboard?.writeText(novaSenha).catch(() => {});
         const feedback = document.createElement("span");
@@ -894,13 +909,7 @@ export async function renderCrud(container, config) {
         const nomeCampo = btn.dataset.campo;
         const input = formModal.elements[nomeCampo];
         if (!input) return;
-        if (input.type === "password") {
-          input.type = "text";
-          btn.textContent = "🙈";
-        } else {
-          input.type = "password";
-          btn.textContent = "👁️";
-        }
+        alternarVisualizacaoSenha(input, btn);
       });
     });
 
@@ -1105,11 +1114,16 @@ export async function renderCrud(container, config) {
           }
         }
 
-        if (campo.nome === "login" && !/^[a-zA-Z0-9_]+$/.test(valor)) {
-          erroValidacao = `O Login deve conter apenas letras e números, sem espaços ou símbolos.`;
-          inputEl?.classList.add("campo-destaque-obrigatorio");
-          inputEl?.focus();
-          break;
+        if (campo.nome === "login") {
+          const loginLimpo = String(valor || "").trim().toLowerCase();
+          if (!/^[a-z0-9]+([._][a-z0-9]+)*$/.test(loginLimpo)) {
+            erroValidacao = `Login inválido: use apenas letras, números, ponto ou sublinhado (ex: felipe.guntzel ou projetoszagonel), sem espaços ou símbolos.`;
+            inputEl?.classList.add("campo-destaque-obrigatorio");
+            inputEl?.focus();
+            break;
+          }
+          corpo[campo.nome] = loginLimpo;
+          continue;
         }
 
         if (campo.tipo === "password") {
