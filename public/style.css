@@ -116,7 +116,8 @@ body {
   justify-content: center;
   padding: 2rem;
 }
-.login-split__form form {
+.login-split__form form,
+.login-card {
   width: 100%;
   max-width: 380px;
   background: white;
@@ -125,32 +126,46 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
   padding: 2.5rem 2rem;
   gap: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
-.login-split__form h2 {
+.login-split__form form[hidden],
+.login-card[hidden] {
+  display: none !important;
+}
+.login-split__form h2,
+.login-card h2 {
   margin: 0 0 0.25rem;
   font-size: 1.5rem;
   font-weight: 700;
   color: #1f2933;
 }
-.login-split__form label {
+.login-split__form label,
+.login-card label {
   font-size: 0.85rem;
   font-weight: 600;
   color: #1f2933;
   gap: 0.35rem;
 }
-.login-split__form input {
+.login-split__form input,
+.login-card input {
   padding: 0.65rem 0.8rem;
   border: 1px solid #d6d9dc;
   border-radius: 0.4rem;
   font-size: 1rem;
   font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
 }
-.login-split__form input:focus {
+.login-split__form input:focus,
+.login-card input:focus {
   outline: none;
   border-color: #2f6f4f;
   box-shadow: 0 0 0 3px rgba(47, 111, 79, 0.15);
 }
-.login-split__form button {
+.login-split__form button,
+.login-card button {
   margin-top: 0.4rem;
   padding: 0.75rem;
   background: #2f6f4f;
@@ -160,13 +175,63 @@ body {
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
 }
-.login-split__form button:hover { background: #24593f; }
+.login-split__form button:hover,
+.login-card button:hover { background: #24593f; }
+
+.login-split__form .btn-link,
+.login-card .btn-link {
+  background: transparent !important;
+  color: var(--cor-primaria, #2f6f4f) !important;
+  border: none !important;
+  padding: 0.3rem 0.5rem !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  text-decoration: underline !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  width: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.login-split__form .btn-link:hover,
+.login-card .btn-link:hover {
+  color: var(--cor-primaria-escura, #24593f) !important;
+  background: transparent !important;
+}
+
+.login-split__form .btn-toggle-senha,
+.login-card .btn-toggle-senha,
+.login-split__form .btn-copiar-campo,
+.login-card .btn-copiar-campo {
+  background: var(--cor-fundo-elevado, #f3f4f6) !important;
+  color: var(--cor-texto, #1f2937) !important;
+  border: 1px solid var(--cor-borda, #d6d9dc) !important;
+  padding: 0.55rem 0.65rem !important;
+  font-size: 0.9rem !important;
+  margin: 0 !important;
+  width: auto !important;
+  box-shadow: none !important;
+  border-radius: 0.4rem !important;
+  cursor: pointer;
+}
+.login-split__form .btn-toggle-senha:hover,
+.login-card .btn-toggle-senha:hover,
+.login-split__form .btn-copiar-campo:hover,
+.login-card .btn-copiar-campo:hover {
+  background: #e5e7eb !important;
+}
+
 @media (max-width: 720px) {
   .login-split { flex-direction: column; }
   .login-split__destaque { flex: 0 0 auto; padding: 2rem 1.5rem; }
   .login-split__destaque h1 { font-size: 2.25rem; }
-  .login-split__form form { box-shadow: none; border: none; padding: 2rem 0.5rem; }
+  .login-split__form form,
+  .login-card { box-shadow: none; border: none; padding: 2rem 0.5rem; }
 }
 
 table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
@@ -225,8 +290,9 @@ main h3, main h4, main h5 { margin-top: 2rem; margin-bottom: 0.75rem; }
 .badge-ok { background: var(--cor-ok); }
 :root[data-tema="alto-contraste"] .badge { border-color: var(--cor-borda); font-weight: 700; }
 
-form.formulario { display: flex; flex-direction: column; gap: 0.5rem; max-width: 480px; }
-form.formulario label { display: flex; flex-direction: column; gap: 0.2rem; }
+form.formulario { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }
+form.formulario label { display: flex; flex-direction: column; gap: 0.25rem; }
+form.formulario--estreito { max-width: 480px; }
 form.formulario[hidden] { display: none; }
 
 .arvore ul { list-style: none; padding-left: 1.25rem; }
@@ -719,17 +785,34 @@ form.formulario[hidden] { display: none; }
   line-height: 1.1;
 }
 
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 49;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.sidebar-overlay.visivel {
+  display: block;
+  opacity: 1;
+}
+
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
     z-index: 50;
-    width: 240px;
+    width: 250px;
     transform: translateX(-100%);
-    transition: transform 0.15s ease;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.35);
   }
   .sidebar.aberta { transform: translateX(0); }
-  .sidebar.recolhida { width: 240px; padding: 1rem 0.75rem; }
+  .sidebar.recolhida { width: 250px; padding: 1rem 0.75rem; }
   .sidebar.recolhida .sidebar__logo-texto,
   .sidebar.recolhida .sidebar__link-texto,
   .sidebar.recolhida .sidebar__grupo-titulo,
@@ -740,6 +823,7 @@ form.formulario[hidden] { display: none; }
   .sidebar__colapsar { display: none; }
   .topbar__hamburguer { display: block; }
   .topbar { display: flex; align-items: center; padding: 0.6rem 1rem; border-bottom: none; position: relative; z-index: 51; }
+  .app-shell__conteudo main { padding: 1rem; }
 }
 
 /* Cabeçalho padrão de telas com título e ações */
@@ -1210,6 +1294,39 @@ a.btn:active {
 
 .linha-fluxo-selecionada td {
   background: rgba(47, 111, 79, 0.05);
+}
+
+/* Destaque visual enfático para campos obrigatórios não preenchidos */
+.campo-destaque-obrigatorio {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.22) !important;
+  background-color: #fff8f8 !important;
+}
+
+/* Indicador visual de Caps Lock ativado */
+.aviso-capslock {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 0.35rem;
+}
+
+/* Container para campo de senha com botão gerador e visualizador */
+.campo-senha-container {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  width: 100%;
+}
+.campo-senha-container input {
+  flex: 1;
 }
 
 

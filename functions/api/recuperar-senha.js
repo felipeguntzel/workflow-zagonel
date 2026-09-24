@@ -14,6 +14,7 @@ export async function onRequestPost(context) {
     const baseUrl = `${url.protocol}//${url.host}`;
 
     if (acao === "solicitar") {
+      console.log("[recuperar-senha] Variaveis presentes no context.env:", Object.keys(context.env || {}));
       const res = await gerarSolicitacaoRecuperacao(
         context.env.DB,
         body.identificador,

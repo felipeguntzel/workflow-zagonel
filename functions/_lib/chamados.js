@@ -12,9 +12,11 @@ export function hojeISO() {
 }
 
 async function statusIdPorNome(db, nome) {
-  const row = await first(db, "SELECT id FROM status WHERE nome = ?", nome);
-  if (!row) throw new Error(`Status não encontrado: ${nome}`);
-  return row.id;
+  const row = await first(db, "SELECT id FROM status WHERE LOWER(nome) = LOWER(?)", nome);
+  if (row) return row.id;
+  const fallback = await first(db, "SELECT id FROM status ORDER BY id ASC LIMIT 1");
+  if (fallback) return fallback.id;
+  throw new Error(`Status não encontrado no sistema: ${nome}`);
 }
 
 async function resolverSetorEPrazoPadrao(db, { etapa_id, acao_origem_id }) {
@@ -22,35 +24,77 @@ async function resolverSetorEPrazoPadrao(db, { etapa_id, acao_origem_id }) {
     const row = await first(
       db,
       `SELECT s.id AS setor_id, s.prazo_padrao_dias
-       FROM etapas e JOIN setores s ON s.id = e.setor_id
+       FROM etapas e LEFT JOIN setores s ON s.id = e.setor_id
        WHERE e.id = ?`,
       etapa_id
     );
-    if (!row) throw new Error(`Etapa não encontrada ou sem setor: ${etapa_id}`);
-    return row;
+    if (!row) {
+      return { setor_id: null, prazo_padrao_dias: 5 };
+    }
+    return {
+      setor_id: row.setor_id || null,
+      prazo_padrao_dias: row.prazo_padrao_dias != null ? Number(row.prazo_padrao_dias) : 5,
+    };
   }
-  const row = await first(
-    db,
-    `SELECT s.id AS setor_id, s.prazo_padrao_dias
-     FROM acoes a JOIN setores s ON s.id = a.setor_destino_id
-     WHERE a.id = ?`,
-    acao_origem_id
-  );
-  if (!row) throw new Error(`Ação não encontrada ou sem setor destino: ${acao_origem_id}`);
-  return row;
+  if (acao_origem_id) {
+    const row = await first(
+      db,
+      `SELECT s.id AS setor_id, s.prazo_padrao_dias
+       FROM acoes a LEFT JOIN setores s ON s.id = a.setor_destino_id
+       WHERE a.id = ?`,
+      acao_origem_id
+    );
+    if (!row) {
+      return { setor_id: null, prazo_padrao_dias: 5 };
+    }
+    return {
+      setor_id: row.setor_id || null,
+      prazo_padrao_dias: row.prazo_padrao_dias != null ? Number(row.prazo_padrao_dias) : 5,
+    };
+  }
+  return { setor_id: null, prazo_padrao_dias: 5 };
+}
+
+let colunasChamadosGarantidas = false;
+export async function garantirColunasChamados(db) {
+  if (colunasChamadosGarantidas) return;
+  try {
+    const cols = await all(db, "PRAGMA table_info(chamados)");
+    const nomes = new Set(cols.map((c) => c.name.toLowerCase()));
+    if (!nomes.has("titulo")) {
+      await run(db, "ALTER TABLE chamados ADD COLUMN titulo TEXT").catch(() => {});
+    }
+    if (!nomes.has("prioridade")) {
+      await run(db, "ALTER TABLE chamados ADD COLUMN prioridade TEXT NOT NULL DEFAULT 'normal'").catch(() => {});
+    }
+    if (!nomes.has("observacao")) {
+      await run(db, "ALTER TABLE chamados ADD COLUMN observacao TEXT").catch(() => {});
+    }
+    if (!nomes.has("empresa_id")) {
+      await run(db, "ALTER TABLE chamados ADD COLUMN empresa_id INTEGER REFERENCES empresas(id)").catch(() => {});
+    }
+    colunasChamadosGarantidas = true;
+  } catch (err) {
+    console.error("Aviso ao garantir colunas de chamados:", err);
+  }
 }
 
 export async function criarChamado(db, spec) {
+  await garantirColunasChamados(db);
   const { prazo_padrao_dias } = await resolverSetorEPrazoPadrao(db, spec);
   const hoje = hojeISO();
   const prazo = spec.prazo ?? calcularPrazoSugerido(hoje, prazo_padrao_dias, { apenasDiasUteis: true });
   const statusPrevisto = await statusIdPorNome(db, "previsto");
+  const titulo = spec.titulo ?? null;
+  const prioridade = spec.prioridade ?? "normal";
+  const observacao = spec.observacao ?? null;
+
   const resultado = await run(
     db,
     `INSERT INTO chamados
        (fluxo_template_id, etapa_id, acao_origem_id, chamado_mae_id, chamado_pai_id,
-        empresa_id, status_id, solicitante_id, data_abertura, prazo)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        empresa_id, status_id, solicitante_id, data_abertura, prazo, titulo, prioridade, observacao)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     spec.fluxo_template_id,
     spec.etapa_id ?? null,
     spec.acao_origem_id ?? null,
@@ -60,7 +104,10 @@ export async function criarChamado(db, spec) {
     statusPrevisto,
     spec.solicitante_id,
     hoje,
-    prazo
+    prazo,
+    titulo,
+    prioridade,
+    observacao
   );
   return first(db, "SELECT * FROM chamados WHERE id = ?", resultado.meta.last_row_id);
 }
@@ -81,6 +128,9 @@ export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}) {
       chamado_pai_id: spec.chamado_pai_id,
       empresa_id: chamado.empresa_id,
       solicitante_id: chamado.solicitante_id,
+      titulo: chamado.titulo,
+      prioridade: chamado.prioridade,
+      observacao: chamado.observacao,
     });
     criados.push(criado);
   }
@@ -150,20 +200,22 @@ export async function computarBloqueado(db, chamado) {
 }
 
 export async function chamadoComDetalhes(db, id) {
+  await garantirColunasChamados(db);
   const chamado = await first(
     db,
     `SELECT
        c.*,
        COALESCE(e.setor_id, a.setor_destino_id) AS setor_id,
        s.nome AS setor_nome,
-       COALESCE(e.nome, a.rotulo) AS titulo,
+       COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
        e.tipo AS etapa_tipo,
        st.nome AS status_nome,
        resp.nome AS responsavel_nome,
        resp.telefone AS responsavel_telefone,
        sol.nome AS solicitante_nome,
        sol.telefone AS solicitante_telefone,
-       ft.nome AS fluxo_nome
+       ft.nome AS fluxo_nome,
+       emp.nome AS empresa_nome
      FROM chamados c
      LEFT JOIN etapas e ON e.id = c.etapa_id
      LEFT JOIN acoes a ON a.id = c.acao_origem_id
@@ -172,6 +224,7 @@ export async function chamadoComDetalhes(db, id) {
      LEFT JOIN usuarios resp ON resp.id = c.responsavel_id
      LEFT JOIN usuarios sol ON sol.id = c.solicitante_id
      LEFT JOIN fluxos_template ft ON ft.id = c.fluxo_template_id
+     LEFT JOIN empresas emp ON emp.id = c.empresa_id
      WHERE c.id = ?`,
     id
   );

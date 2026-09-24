@@ -119,3 +119,12 @@ export async function exigirAdmin(context) {
   if (usuario.admin !== 1) return { erro: error("Acesso restrito a administradores", 403) };
   return { usuario };
 }
+
+export async function exigirUsuarioLogado(context) {
+  const usuario = await obterUsuarioDaRequisicao(context.request, context.env);
+  if (!usuario) return { erro: error("Não autenticado", 401) };
+  if (usuario.deve_trocar_senha === 1) {
+    return { erro: error("Troque sua senha antes de continuar", 403) };
+  }
+  return { usuario };
+}

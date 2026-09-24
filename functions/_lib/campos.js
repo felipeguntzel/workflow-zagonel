@@ -9,6 +9,8 @@ export function normalizarTipoCampo(tipo) {
   if (t === "selecao" || t === "select") return "select";
   if (t === "numero" || t === "number") return "numero";
   if (t === "data" || t === "date") return "data";
+  if (t === "checkbox") return "checkbox";
+  if (t === "sim_nao" || t === "sim-nao" || t === "boolean") return "sim_nao";
   return "texto";
 }
 
@@ -57,6 +59,28 @@ export async function obterTabelaCampos(db) {
   if (db && typeof db === "object") {
     tabelaCamposCache.set(db, tabela);
   }
+
+  // Garantir colunas adicionais para ordem, posicao e orientacao
+  try {
+    const cols = await all(db, `PRAGMA table_info(${tabela})`);
+    const nomes = new Set(cols.map((c) => c.name.toLowerCase()));
+    if (!nomes.has("ordem")) {
+      await run(db, `ALTER TABLE ${tabela} ADD COLUMN ordem INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+    }
+    if (!nomes.has("posicao")) {
+      await run(db, `ALTER TABLE ${tabela} ADD COLUMN posicao TEXT NOT NULL DEFAULT 'esquerda'`).catch(() => {});
+    }
+    if (!nomes.has("orientacao")) {
+      await run(db, `ALTER TABLE ${tabela} ADD COLUMN orientacao TEXT`).catch(() => {});
+    }
+    if (!nomes.has("dias_minimos")) {
+      await run(db, `ALTER TABLE ${tabela} ADD COLUMN dias_minimos INTEGER DEFAULT 0`).catch(() => {});
+    }
+    if (db && typeof db === "object" && colunasTabelaCache.has(db)) {
+      colunasTabelaCache.get(db).delete(tabela);
+    }
+  } catch (_) {}
+
   return tabela;
 }
 
@@ -78,7 +102,7 @@ async function obterColunasTabela(db, tabela) {
   }
 }
 
-async function garantirTabelaValores(db) {
+export async function garantirTabelaValores(db) {
   try {
     await run(
       db,
@@ -91,6 +115,41 @@ async function garantirTabelaValores(db) {
       )`
     );
   } catch (_) {}
+
+  try {
+    const cols = await all(db, "PRAGMA table_info(chamado_campos_valores)");
+    const nomes = new Set(cols.map((c) => c.name.toLowerCase()));
+
+    if (!nomes.has("campo_id")) {
+      await run(db, "ALTER TABLE chamado_campos_valores ADD COLUMN campo_id INTEGER").catch(() => {});
+    }
+    if (!nomes.has("valor")) {
+      await run(db, "ALTER TABLE chamado_campos_valores ADD COLUMN valor TEXT").catch(() => {});
+    }
+    if (!nomes.has("chamado_id")) {
+      await run(db, "ALTER TABLE chamado_campos_valores ADD COLUMN chamado_id INTEGER").catch(() => {});
+    }
+
+    if (nomes.has("etapa_campo_id")) {
+      await run(
+        db,
+        "UPDATE chamado_campos_valores SET campo_id = etapa_campo_id WHERE campo_id IS NULL AND etapa_campo_id IS NOT NULL"
+      ).catch(() => {});
+    }
+    if (nomes.has("campo_etapa_id")) {
+      await run(
+        db,
+        "UPDATE chamado_campos_valores SET campo_id = campo_etapa_id WHERE campo_id IS NULL AND campo_etapa_id IS NOT NULL"
+      ).catch(() => {});
+    }
+
+    await run(
+      db,
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_chamado_campos_valores_chamado_campo ON chamado_campos_valores(chamado_id, campo_id)"
+    ).catch(() => {});
+  } catch (err) {
+    console.error("Falha ao sincronizar esquema de chamado_campos_valores:", err);
+  }
 }
 
 /**
@@ -130,8 +189,11 @@ export async function salvarCampoEtapa(db, etapaId, dados) {
     opcoes = null,
     opcoes_json = null,
     ordem = 0,
+    posicao = "esquerda",
+    orientacao = null,
     somente_leitura = 0,
     bloqueio_regra = null,
+    dias_minimos = 0,
   } = dados;
 
   const rawOpcoes = opcoes ?? opcoes_json;
@@ -143,6 +205,10 @@ export async function salvarCampoEtapa(db, etapaId, dados) {
 
   const tipoSalvo = normalizarTipoCampo(tipo);
 
+  const posicaoValida = ["esquerda", "direita", "inteira"].includes(String(posicao || "").toLowerCase())
+    ? String(posicao).toLowerCase()
+    : "esquerda";
+
   const registro = {
     etapa_id: Number(etapaId),
     nome: String(nome).trim().toLowerCase().replace(/[^a-z0-9_]/g, "_"),
@@ -150,8 +216,11 @@ export async function salvarCampoEtapa(db, etapaId, dados) {
     tipo: tipoSalvo,
     obrigatorio: obrigatorio ? 1 : 0,
     ordem: Number(ordem) || 0,
+    posicao: posicaoValida,
+    orientacao: orientacao ? String(orientacao).trim() : null,
     somente_leitura: somente_leitura ? 1 : 0,
     bloqueio_regra: bloqueio_regra ?? null,
+    dias_minimos: dias_minimos != null ? Math.max(0, parseInt(dias_minimos, 10) || 0) : 0,
   };
 
   if (colunas.size === 0 || colunas.has("opcoes")) {
@@ -159,6 +228,9 @@ export async function salvarCampoEtapa(db, etapaId, dados) {
   }
   if (colunas.has("opcoes_json")) {
     registro.opcoes_json = opcoesTexto;
+  }
+  if (colunas.has("dias_minimos")) {
+    registro.dias_minimos = registro.dias_minimos;
   }
 
   const colunasParaGravar = colunas.size > 0
@@ -219,17 +291,42 @@ export function validarCamposObrigatorios(campos, valoresObjeto) {
     }
   }
 
-  for (const c of campos) {
-    if (c.obrigatorio) {
-      const valPorId = mapaValores.get(String(c.id));
-      const valPorNome = mapaValores.get(String(c.nome).toLowerCase().trim());
-      const valor = valPorId !== undefined ? valPorId : valPorNome;
+  const hoje = new Date();
+  const hojeZero = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
 
+  for (const c of campos) {
+    const valPorId = mapaValores.get(String(c.id));
+    const valPorNome = mapaValores.get(String(c.nome).toLowerCase().trim());
+    const valor = valPorId !== undefined ? valPorId : valPorNome;
+
+    if (c.obrigatorio) {
       if (valor === undefined || valor === null || String(valor).trim() === "") {
         return {
           valido: false,
           erro: `O campo "${c.rotulo}" é de preenchimento obrigatório.`,
         };
+      }
+    }
+
+    // Validação de regra de data mínima para campos do tipo data
+    const tipoNorm = normalizarTipoCampo(c.tipo);
+    if (tipoNorm === "data" && valor && typeof valor === "string" && valor.trim()) {
+      const diasMin = c.dias_minimos != null ? Math.max(0, parseInt(c.dias_minimos, 10) || 0) : 0;
+      const ehFaturamento = /faturamento|entrega|previs[aã]o/i.test(c.rotulo || c.nome);
+      const diasEfetivos = diasMin > 0 ? diasMin : (ehFaturamento ? 1 : 0);
+
+      if (diasEfetivos > 0 || diasMin === 0) {
+        const dataMin = new Date(hojeZero.getFullYear(), hojeZero.getMonth(), hojeZero.getDate() + diasEfetivos);
+        const dataMinISO = dataMin.toISOString().slice(0, 10);
+        const valorDataISO = String(valor).trim().slice(0, 10);
+
+        if (valorDataISO < dataMinISO) {
+          const [ano, mes, dia] = dataMinISO.split("-");
+          return {
+            valido: false,
+            erro: `A data informada no campo "${c.rotulo}" não pode ser anterior a ${dia}/${mes}/${ano} (antecedência mínima de ${diasEfetivos} dia(s)).`,
+          };
+        }
       }
     }
   }
@@ -325,14 +422,34 @@ export async function salvarValoresCamposChamado(db, chamadoId, valoresObjeto, e
 
   for (const item of entradas) {
     if (!item.campo_id) continue;
-    await run(
-      db,
-      `INSERT INTO chamado_campos_valores (chamado_id, campo_id, valor)
-       VALUES (?, ?, ?)
-       ON CONFLICT(chamado_id, campo_id) DO UPDATE SET valor = excluded.valor`,
-      chamadoId,
-      item.campo_id,
-      item.valor != null ? String(item.valor) : null
-    );
+    try {
+      await run(
+        db,
+        `INSERT INTO chamado_campos_valores (chamado_id, campo_id, valor)
+         VALUES (?, ?, ?)
+         ON CONFLICT(chamado_id, campo_id) DO UPDATE SET valor = excluded.valor`,
+        chamadoId,
+        item.campo_id,
+        item.valor != null ? String(item.valor) : null
+      );
+    } catch (_) {
+      try {
+        await run(
+          db,
+          "DELETE FROM chamado_campos_valores WHERE chamado_id = ? AND campo_id = ?",
+          chamadoId,
+          item.campo_id
+        );
+        await run(
+          db,
+          `INSERT INTO chamado_campos_valores (chamado_id, campo_id, valor) VALUES (?, ?, ?)`,
+          chamadoId,
+          item.campo_id,
+          item.valor != null ? String(item.valor) : null
+        );
+      } catch (err) {
+        console.error("Falha ao gravar campo personalizado:", err);
+      }
+    }
   }
 }

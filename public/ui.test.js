@@ -107,5 +107,13 @@ test("formatarRotuloFK formata com código e nome quando código está presente"
   assert.equal(formatarRotuloFK(null), "");
 });
 
+test("modal.js exporta confirmarAcao, mostrarAviso e abrirModal", async () => {
+  const { confirmarAcao, mostrarAviso, abrirModal } = await import("./modal.js");
+  assert.equal(typeof confirmarAcao, "function");
+  assert.equal(typeof mostrarAviso, "function");
+  assert.equal(typeof abrirModal, "function");
+});
+
+
 
 

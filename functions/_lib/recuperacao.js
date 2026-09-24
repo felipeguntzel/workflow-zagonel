@@ -1,5 +1,6 @@
 import { all, first, run } from "./db.js";
 import { hashSenha, validarComplexidadeSenha } from "./auth.js";
+import { desbloquearUsuario, limparTentativasLogin } from "./rate-limit.js";
 
 let tabelaGarantida = false;
 
@@ -69,44 +70,112 @@ export async function gerarSolicitacaoRecuperacao(db, identificador, baseUrl, en
   let emailEnviado = false;
   let erroEnvio = null;
 
-  // Se houver chave do Resend configurada nas variáveis de ambiente
-  if (env && env.RESEND_API_KEY) {
+  const sendgridKey = env && (env.SENDGRID_API_KEY || env.sendgrid_api_key || env.Sendgrid_Api_Key);
+  const resendKey = env && (env.RESEND_API_KEY || env.resend_api_key || env.Resend_Api_Key || env.RESEND_KEY);
+
+  if ((!sendgridKey || !sendgridKey.trim()) && (!resendKey || !resendKey.trim())) {
+    throw new Error(
+      "O serviço de envio de e-mails (SENDGRID_API_KEY ou RESEND_API_KEY) não está configurado neste ambiente. Solicite a um administrador para redefinir sua senha diretamente no painel de Usuários."
+    );
+  }
+
+  const htmlCorpoEmail = `
+    <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 20px; color: #1f2937;">
+      <h2 style="color: #2f6f4f;">Recuperação de Senha</h2>
+      <p>Olá, <strong>${usuario.nome}</strong>,</p>
+      <p>Recebemos uma solicitação para redefinir a senha do seu usuário <code>${usuario.login}</code> no sistema WorkFlow Zagonel.</p>
+      <p>Clique no botão abaixo para criar sua nova senha (link válido por 30 minutos):</p>
+      <p style="margin: 25px 0;">
+        <a href="${linkRedefinicao}" style="background-color: #2f6f4f; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+          Redefinir Minha Senha
+        </a>
+      </p>
+      <p style="font-size: 0.85rem; color: #6b7280;">Se você não solicitou a troca de senha, pode ignorar este e-mail com segurança.</p>
+    </div>
+  `;
+
+  if (sendgridKey && sendgridKey.trim()) {
     try {
-      const remetente = env.EMAIL_REMETENTE || "WorkFlow Zagonel <onboarding@resend.dev>";
+      const remetenteEmail = (env && (env.EMAIL_REMETENTE || env.email_remetente)) || "engenharia18@zagonel.com.br";
+      const resp = await fetch("https://api.sendgrid.com/v3/mail/send", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sendgridKey.trim()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          personalizations: [
+            {
+              to: [{ email: usuario.email, name: usuario.nome || usuario.login }],
+            },
+          ],
+          from: {
+            email: remetenteEmail,
+            name: "WorkFlow Zagonel",
+          },
+          subject: "Redefinição de Senha - WorkFlow Zagonel",
+          content: [
+            {
+              type: "text/html",
+              value: htmlCorpoEmail,
+            },
+          ],
+        }),
+      });
+
+      emailEnviado = resp.status === 202 || resp.ok;
+      if (!emailEnviado) {
+        let txt = await resp.text();
+        try {
+          const jsonErro = JSON.parse(txt);
+          if (jsonErro.errors && jsonErro.errors.length) {
+            txt = jsonErro.errors.map((e) => e.message).join("; ");
+          }
+        } catch (_) {}
+        erroEnvio = `SendGrid status ${resp.status}: ${txt}`;
+      }
+    } catch (e) {
+      erroEnvio = e.message;
+    }
+  } else if (resendKey && resendKey.trim()) {
+    try {
+      const remetente = (env && (env.EMAIL_REMETENTE || env.email_remetente)) || "WorkFlow Zagonel <onboarding@resend.dev>";
       const resp = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${env.RESEND_API_KEY}`,
+          Authorization: `Bearer ${resendKey.trim()}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           from: remetente,
           to: [usuario.email],
           subject: "Redefinição de Senha - WorkFlow Zagonel",
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 20px; color: #1f2937;">
-              <h2 style="color: #2f6f4f;">Recuperação de Senha</h2>
-              <p>Olá, <strong>${usuario.nome}</strong>,</p>
-              <p>Recebemos uma solicitação para redefinir a senha do seu usuário <code>${usuario.login}</code> no sistema WorkFlow Zagonel.</p>
-              <p>Clique no botão abaixo para criar sua nova senha (link válido por 30 minutos):</p>
-              <p style="margin: 25px 0;">
-                <a href="${linkRedefinicao}" style="background-color: #2f6f4f; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                  Redefinir Minha Senha
-                </a>
-              </p>
-              <p style="font-size: 0.85rem; color: #6b7280;">Se você não solicitou a troca de senha, pode ignorar este e-mail com segurança.</p>
-            </div>
-          `,
+          html: htmlCorpoEmail,
         }),
       });
       emailEnviado = resp.ok;
       if (!resp.ok) {
-        const txt = await resp.text();
-        erroEnvio = `Resend retornou status ${resp.status}: ${txt}`;
+        let txt = await resp.text();
+        try {
+          const jsonErro = JSON.parse(txt);
+          if (jsonErro.message) txt = jsonErro.message;
+        } catch (_) {}
+
+        if (resp.status === 403) {
+          erroEnvio = `Resend rejeitou o envio (403): ${txt}. No plano gratuito do Resend, e-mails só podem ser enviados para o mesmo endereço da sua conta Resend, ou após validar o domínio corporativo em resend.com/domains`;
+        } else {
+          erroEnvio = `Resend status ${resp.status}: ${txt}`;
+        }
       }
     } catch (e) {
       erroEnvio = e.message;
     }
+  }
+
+  if (!emailEnviado) {
+    throw new Error(
+      `Falha no envio do e-mail de recuperação: ${erroEnvio || "serviço indisponível"}. Solicite a um administrador para redefinir sua senha diretamente no painel de Usuários.`
+    );
   }
 
   // Mascarar e-mail para exibição segura (ex: f***@zagonel.com.br)
@@ -119,8 +188,6 @@ export async function gerarSolicitacaoRecuperacao(db, identificador, baseUrl, en
     sucesso: true,
     email_mascarado: usuarioMascarado,
     email_enviado: emailEnviado,
-    erro_envio: erroEnvio,
-    link_recuperacao: linkRedefinicao, // Disponibilizado para teste / fallback quando não há servidor SMTP configurado
   };
 }
 
@@ -160,7 +227,19 @@ export async function redefinirSenhaComToken(db, token, novaSenha) {
     throw new Error(checagem.mensagem);
   }
 
-  const senhaHash = await hashSenha(novaSenha);
+  // Normalização: o login envia SHA-256 da senha digitada (64 caracteres hexadecimais).
+  // Se novaSenha vier em texto puro, convertemos para SHA-256 antes de calcular o hash PBKDF2
+  // para garantir consistência total com a autenticação no login.
+  let hashParaArmazenar = novaSenha;
+  if (!/^[a-f0-9]{64}$/i.test(hashParaArmazenar)) {
+    const dados = new TextEncoder().encode(hashParaArmazenar);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", dados);
+    hashParaArmazenar = Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  const senhaHash = await hashSenha(hashParaArmazenar);
   const agora = Date.now();
 
   // Atualiza senha, desmarca flag de troca obrigatoria e invalida sessoes antigas
@@ -174,6 +253,10 @@ export async function redefinirSenhaComToken(db, token, novaSenha) {
 
   // Marca token como usado
   await run(db, "UPDATE recuperacao_senha SET usado = 1 WHERE id = ?", registro.id);
+
+  // Desbloqueia eventuais tentativas de login bloqueadas e limpa contador de falhas
+  await desbloquearUsuario(db, registro.usuario_login);
+  await limparTentativasLogin(db, registro.usuario_login.toLowerCase());
 
   return { sucesso: true, usuario_nome: registro.usuario_nome, usuario_login: registro.usuario_login };
 }

@@ -40,9 +40,10 @@ function configurarFiltros() {
   filtroEmpresa?.addEventListener("change", () => carregarDashboard());
   btnAtualizar?.addEventListener("click", () => carregarDashboard());
 
-  btnExportar?.addEventListener("click", () => {
+  btnExportar?.addEventListener("click", async () => {
     if (!relatorioAtual || !relatorioAtual.setores || relatorioAtual.setores.length === 0) {
-      alert("Não há dados de setores disponíveis para exportação.");
+      const { mostrarAviso } = await import("./modal.js");
+      await mostrarAviso("Não há dados de setores disponíveis para exportação.", "Exportação", "aviso");
       return;
     }
 

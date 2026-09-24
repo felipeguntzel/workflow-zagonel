@@ -1,11 +1,10 @@
 import { api } from "./api.js";
 import { setUsuarioLogado } from "./auth.js";
-import { mostrarErro } from "./ui.js";
+import { mostrarErro, escaparHtml } from "./ui.js";
 
 const formLogin = document.getElementById("form-login");
 const mensagemErro = document.getElementById("mensagem-erro");
 const btnEsqueciSenha = document.getElementById("btn-esqueci-senha");
-const painelRecuperacao = document.getElementById("painel-recuperacao");
 const formRecuperar = document.getElementById("form-recuperar-senha");
 const inputIdentificador = document.getElementById("recuperar-identificador");
 const btnCancelarRecuperacao = document.getElementById("btn-cancelar-recuperacao");
@@ -13,38 +12,114 @@ const btnEnviarRecuperacao = document.getElementById("btn-enviar-recuperacao");
 const msgRecuperacaoErro = document.getElementById("msg-recuperacao-erro");
 const msgRecuperacaoSucesso = document.getElementById("msg-recuperacao-sucesso");
 
-formLogin.addEventListener("submit", async (ev) => {
+const inputSenha = formLogin?.elements?.senha;
+const avisoCapsLogin = document.getElementById("aviso-capslock-login");
+
+async function calcularSha256(texto) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+const checarCapsLogin = (ev) => {
+  if (!avisoCapsLogin) return;
+  if (ev.getModifierState && ev.getModifierState("CapsLock")) {
+    avisoCapsLogin.hidden = false;
+    avisoCapsLogin.style.display = "flex";
+  } else {
+    avisoCapsLogin.hidden = true;
+    avisoCapsLogin.style.display = "none";
+  }
+};
+inputSenha?.addEventListener("keydown", checarCapsLogin);
+inputSenha?.addEventListener("keyup", checarCapsLogin);
+inputSenha?.addEventListener("blur", () => {
+  if (avisoCapsLogin) {
+    avisoCapsLogin.hidden = true;
+    avisoCapsLogin.style.display = "none";
+  }
+});
+
+function abrirRecuperacao() {
+  if (!formRecuperar || !formLogin) return;
+  formLogin.hidden = true;
+  formRecuperar.hidden = false;
+  msgRecuperacaoErro.hidden = true;
+  msgRecuperacaoSucesso.hidden = true;
+
+  const loginDigitado = formLogin.elements.login?.value?.trim();
+  if (loginDigitado && !inputIdentificador.value.trim()) {
+    inputIdentificador.value = loginDigitado;
+  }
+  inputIdentificador.focus();
+}
+
+function voltarParaLogin() {
+  if (!formRecuperar || !formLogin) return;
+  formRecuperar.hidden = true;
+  formLogin.hidden = false;
+  msgRecuperacaoErro.hidden = true;
+  msgRecuperacaoSucesso.hidden = true;
+  formLogin.elements.login?.focus();
+}
+
+// Alternar visualização da senha no login
+document.querySelectorAll(".btn-toggle-senha").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const alvoId = btn.dataset.alvo;
+    const input = document.getElementById(alvoId);
+    if (!input) return;
+    if (input.type === "password") {
+      input.type = "text";
+      btn.textContent = "🙈";
+    } else {
+      input.type = "password";
+      btn.textContent = "👁️";
+    }
+  });
+});
+
+btnEsqueciSenha?.addEventListener("click", abrirRecuperacao);
+btnCancelarRecuperacao?.addEventListener("click", voltarParaLogin);
+
+formLogin?.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   mensagemErro.hidden = true;
+  mensagemErro.innerHTML = "";
+  const loginDigitado = formLogin.elements.login.value.trim();
   try {
+    const senhaHash = await calcularSha256(formLogin.elements.senha.value);
     const usuario = await api("/login", {
       method: "POST",
       body: {
-        login: formLogin.elements.login.value,
-        senha: formLogin.elements.senha.value,
+        login: loginDigitado,
+        senha: senhaHash,
       },
     });
     setUsuarioLogado(usuario);
     window.location.href = usuario.deve_trocar_senha ? "/trocar-senha" : "/chamados";
   } catch (e) {
-    mostrarErro(mensagemErro, e);
+    let msg = e && e.message ? e.message : String(e || "");
+    if (msg.includes("bloqueado") || msg.includes("Redefina sua senha")) {
+      mensagemErro.innerHTML = `
+        <div>${escaparHtml(msg)}</div>
+        <div style="margin-top: 0.5rem; text-align: right;">
+          <button type="button" id="btn-atalho-redefinir" class="btn-link" style="color: #b91c1c !important; font-weight: 700;">
+            Redefinir senha agora &rarr;
+          </button>
+        </div>
+      `;
+      mensagemErro.className = "erro";
+      mensagemErro.hidden = false;
+      document.getElementById("btn-atalho-redefinir")?.addEventListener("click", abrirRecuperacao);
+    } else {
+      if (msg.includes("Login ou senha inválidos") && !loginDigitado.includes(".") && !loginDigitado.includes("@")) {
+        msg += " (Dica: o login utiliza o formato nome.sobrenome, ex: felipe.guntzel, ou seu e-mail corporativo).";
+      }
+      mostrarErro(mensagemErro, new Error(msg));
+    }
   }
-});
-
-btnEsqueciSenha?.addEventListener("click", () => {
-  painelRecuperacao.hidden = !painelRecuperacao.hidden;
-  msgRecuperacaoErro.hidden = true;
-  msgRecuperacaoSucesso.hidden = true;
-  if (!painelRecuperacao.hidden) {
-    inputIdentificador.focus();
-    painelRecuperacao.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }
-});
-
-btnCancelarRecuperacao?.addEventListener("click", () => {
-  painelRecuperacao.hidden = true;
-  msgRecuperacaoErro.hidden = true;
-  msgRecuperacaoSucesso.hidden = true;
 });
 
 formRecuperar?.addEventListener("submit", async (ev) => {
@@ -56,7 +131,7 @@ formRecuperar?.addEventListener("submit", async (ev) => {
   if (!identificador) return;
 
   btnEnviarRecuperacao.disabled = true;
-  btnEnviarRecuperacao.textContent = "Gerando solicitação…";
+  btnEnviarRecuperacao.textContent = "Gerando solicitação...";
 
   try {
     const res = await api("/recuperar-senha", {
@@ -65,23 +140,17 @@ formRecuperar?.addEventListener("submit", async (ev) => {
     });
 
     let htmlSucesso = `
-      <div>
-        <strong>Solicitação registrada com sucesso!</strong><br>
-        Um link de recuperação válido por 30 minutos foi gerado para o e-mail cadastrado <strong>(${res.email_mascarado})</strong>.
+      <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+        <span style="font-size: 1.25rem; line-height: 1;">✉️</span>
+        <div>
+          <strong style="display: block; margin-bottom: 0.25rem;">Solicitação registrada com sucesso!</strong>
+          <p style="margin: 0 0 0.5rem;">Enviamos as instruções e o link seguro para o e-mail cadastrado <strong>(${escaparHtml(res.email_mascarado)})</strong>. O link expira em 30 minutos.</p>
+          <div style="background: rgba(234, 179, 8, 0.16); border: 1px solid rgba(202, 138, 4, 0.4); border-radius: 4px; padding: 0.45rem 0.6rem; font-size: 0.8rem; color: #713f12; margin-top: 0.5rem;">
+            📬 <strong>Importante:</strong> Se não localizar na Caixa de Entrada em instantes, consulte sua pasta de <strong>Lixo Eletrônico</strong> ou <strong>Spam</strong>.
+          </div>
+        </div>
       </div>
     `;
-
-    // Se estiver em ambiente sem serviço externo ou de teste, disponibiliza o link de teste
-    if (res.link_recuperacao && !res.email_enviado) {
-      htmlSucesso += `
-        <div style="margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px dashed rgba(21, 128, 61, 0.4); font-size: 0.84rem;">
-          <em>Link de redefinição direta:</em><br>
-          <a href="${res.link_recuperacao}" style="color: #15803d; font-weight: bold; word-break: break-all;">
-            Clique aqui para redefinir sua senha agora
-          </a>
-        </div>
-      `;
-    }
 
     msgRecuperacaoSucesso.innerHTML = htmlSucesso;
     msgRecuperacaoSucesso.hidden = false;

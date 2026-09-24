@@ -17,13 +17,41 @@
   <div class="login-split__form">
     <form class="formulario" id="form-trocar-senha">
       <h2>Trocar senha</h2>
-      <p>Esta é sua primeira vez entrando com essa senha, ou ela foi redefinida por um administrador. Escolha uma nova senha para continuar.</p>
-      <label>Nova senha <span class="info" title="Mínimo de 8 caracteres. Deve conter letra maiúscula, minúscula, número e símbolo ou caractere especial (@, #, $, etc.).">i</span>
-        <input type="password" name="nova_senha" required minlength="8" autocomplete="new-password">
+      <p>Esta é sua primeira vez entrando com essa senha, ou ela foi redefinida por um administrador. Cadastre uma nova senha para continuar o acesso.</p>
+      
+      <div style="margin-bottom: 1rem;">
+        <button type="button" id="btn-gerar-senha-troca" style="width: 100%; font-size: 0.88rem; padding: 0.55rem; background: var(--cor-fundo-elevado); border: 1px solid var(--cor-borda); border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-weight: 600;">
+          ⚡ Gerar senha aleatória segura (6 dígitos)
+        </button>
+        <div id="painel-senha-gerada" hidden style="margin-top: 0.5rem; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 6px; padding: 0.6rem; display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
+          <div>
+            <span style="color: var(--cor-texto-secundario);">Senha gerada: </span>
+            <strong id="texto-senha-gerada" style="font-family: monospace; font-size: 1.05rem; letter-spacing: 1px; color: #15803d;"></strong>
+          </div>
+          <button type="button" id="btn-copiar-senha-gerada" style="background: #15803d; color: #fff; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.78rem; cursor: pointer;">
+            Copiar
+          </button>
+        </div>
+      </div>
+
+      <label>Nova senha <span class="info" title="Mínimo de 6 e máximo de 10 caracteres. Permite números, letras e símbolos. Se apenas números, não pode conter repetidos (ex: 111111) nem sequências de 1 em 1 (ex: 123456).">i</span>
+        <div style="display: flex; gap: 0.4rem; align-items: center;">
+          <input type="password" name="nova_senha" id="input-nova-senha" required minlength="6" maxlength="10" autocomplete="new-password" placeholder="Mínimo 6 e máximo 10 caracteres" style="flex: 1;">
+          <button type="button" class="btn-toggle-senha" data-alvo="input-nova-senha" style="padding: 0.55rem 0.65rem; background: var(--cor-fundo-elevado); border: 1px solid var(--cor-borda); border-radius: 4px; cursor: pointer;" title="Visualizar ou ocultar senha">👁️</button>
+        </div>
       </label>
+
       <label>Confirmar nova senha
-        <input type="password" name="confirmar_senha" required minlength="8" autocomplete="new-password">
+        <div style="display: flex; gap: 0.4rem; align-items: center;">
+          <input type="password" name="confirmar_senha" id="input-confirmar-senha" required minlength="6" maxlength="10" autocomplete="new-password" placeholder="Repita a nova senha para confirmar" style="flex: 1;">
+          <button type="button" class="btn-toggle-senha" data-alvo="input-confirmar-senha" style="padding: 0.55rem 0.65rem; background: var(--cor-fundo-elevado); border: 1px solid var(--cor-borda); border-radius: 4px; cursor: pointer;" title="Visualizar ou ocultar senha">👁️</button>
+        </div>
       </label>
+
+      <div id="aviso-capslock-troca" hidden style="display: none; align-items: center; gap: 0.35rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.75rem;">
+        <span>⚠️ Caps Lock ativado</span>
+      </div>
+
       <button type="submit">Salvar nova senha</button>
       <p id="mensagem-erro" class="erro" hidden></p>
     </form>

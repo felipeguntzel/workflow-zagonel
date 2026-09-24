@@ -303,12 +303,30 @@ function construirSidebar(usuario, modalBusca) {
         <span class="sidebar__usuario-seta">▲</span>
       </button>
       <div class="sidebar__usuario-menu" id="sidebar-usuario-menu" hidden>
+        <button type="button" id="btn-instalar-pwa" class="sidebar__usuario-item" style="display: none; width: 100%; border: none; background: none; text-align: left; cursor: pointer; color: var(--cor-primaria); font-weight: 700; padding: 0.5rem 0.75rem; font-size: 0.85rem;">📲 Instalar Aplicativo</button>
         <a href="#" id="link-preferencias">Preferências</a>
         <a href="#" id="link-logout-todos" style="font-size: 0.8rem; color: var(--cor-perigo, #e53935);">Sair de todos os dispositivos</a>
         <a href="#" id="link-sair">Sair</a>
       </div>
     </div>
   `;
+
+  const btnInstalarPwa = sidebar.querySelector("#btn-instalar-pwa");
+  if (btnInstalarPwa && typeof window !== "undefined") {
+    if (window.__promptInstalacaoPwa) {
+      btnInstalarPwa.style.display = "block";
+    }
+    btnInstalarPwa.addEventListener("click", async () => {
+      if (window.__promptInstalacaoPwa) {
+        window.__promptInstalacaoPwa.prompt();
+        const { outcome } = await window.__promptInstalacaoPwa.userChoice;
+        if (outcome === "accepted") {
+          btnInstalarPwa.style.display = "none";
+        }
+        window.__promptInstalacaoPwa = null;
+      }
+    });
+  }
 
   if (modalBusca) {
     const btnBusca = sidebar.querySelector("#btn-sidebar-busca");
@@ -351,15 +369,25 @@ function construirSidebar(usuario, modalBusca) {
     ev.stopPropagation();
     menuUsuario.hidden = true;
     btnUsuario.setAttribute("aria-expanded", "false");
-    if (!confirm("Deseja encerrar a sessão em todos os outros navegadores e dispositivos?")) {
+    const { confirmarAcao, mostrarAviso } = await import("./modal.js");
+    const confirmado = await confirmarAcao(
+      "Encerrar outras sessões?",
+      "Deseja encerrar a sessão em todos os outros navegadores e dispositivos?",
+      {
+        textoCancelar: "Cancelar",
+        textoConfirmar: "Encerrar sessões",
+        tipo: "perigo",
+      }
+    );
+    if (!confirmado) {
       return;
     }
     try {
       const { api } = await import("./api.js");
       await api.post("/logout-todos");
-      alert("Todas as outras sessões foram encerradas com sucesso.");
+      await mostrarAviso("Todas as outras sessões foram encerradas com sucesso.", "Sessões encerradas", "sucesso");
     } catch (e) {
-      alert("Erro ao encerrar sessões: " + (e.message || e));
+      await mostrarAviso("Erro ao encerrar sessões: " + (e.message || e), "Erro ao encerrar", "perigo");
     }
   });
 
@@ -553,7 +581,7 @@ function construirModalBusca(usuario) {
   return { fundo, abrirModal, fecharModal };
 }
 
-function construirTopbar(usuario, sidebar, modalBusca) {
+function construirTopbar(usuario, sidebar, modalBusca, overlaySidebar) {
   const topbar = document.createElement("div");
   topbar.className = "topbar";
   topbar.innerHTML = `
@@ -571,7 +599,10 @@ function construirTopbar(usuario, sidebar, modalBusca) {
   `;
 
   topbar.querySelector("#btn-abrir-sidebar").addEventListener("click", () => {
-    sidebar.classList.toggle("aberta");
+    const aberta = sidebar.classList.toggle("aberta");
+    if (overlaySidebar) {
+      overlaySidebar.classList.toggle("visivel", aberta);
+    }
   });
 
   const btnBusca = topbar.querySelector("#btn-busca-rapida-topbar");
@@ -634,20 +665,30 @@ export function aplicarLayout(usuario) {
   const shell = document.createElement("div");
   shell.className = "app-shell";
 
+  const overlaySidebar = document.createElement("div");
+  overlaySidebar.className = "sidebar-overlay";
+
   const modalBusca = construirModalBusca(usuario);
   const sidebar = construirSidebar(usuario, modalBusca);
-  const topbar = construirTopbar(usuario, sidebar, modalBusca);
+  const topbar = construirTopbar(usuario, sidebar, modalBusca, overlaySidebar);
+
+  overlaySidebar.addEventListener("click", () => {
+    sidebar.classList.remove("aberta");
+    overlaySidebar.classList.remove("visivel");
+  });
 
   const conteudo = document.createElement("div");
   conteudo.className = "app-shell__conteudo";
   conteudo.appendChild(topbar);
   if (main) conteudo.appendChild(main);
 
+  shell.appendChild(overlaySidebar);
   shell.appendChild(sidebar);
   shell.appendChild(conteudo);
   shell.appendChild(modalBusca.fundo);
 
   navPlaceholder.replaceWith(shell);
+  registrarServiceWorker();
 
   if (!listenerNavegacaoInstalado) {
     listenerNavegacaoInstalado = true;
@@ -707,3 +748,24 @@ export function aplicarLayout(usuario) {
     }
   }
 }
+
+// Registro e gerenciamento PWA
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    window.__promptInstalacaoPwa = e;
+    const btn = document.getElementById("btn-instalar-pwa");
+    if (btn) btn.style.display = "block";
+  });
+}
+
+export function registrarServiceWorker() {
+  if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.warn("Falha ao registrar Service Worker:", err);
+      });
+    });
+  }
+}
+

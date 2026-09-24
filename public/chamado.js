@@ -6,9 +6,10 @@ import { api } from "./api.js";
 
 let id = new URLSearchParams(window.location.search).get("id");
 let permissaoChamados = { visualizar: false, inserir: false, editar: false, excluir: false };
+let usuario = null;
 
 export function inicializar() {
-  const usuario = exigirLogin();
+  usuario = exigirLogin();
   id = new URLSearchParams(window.location.search).get("id");
   permissaoChamados = usuario
     ? permissaoDaTela("chamados")
@@ -32,6 +33,24 @@ function formatarTamanho(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function capturarImagemDoClipboard(e, callback) {
+  const clipboardData = e.clipboardData || window.clipboardData;
+  if (!clipboardData || !clipboardData.items) return false;
+
+  for (let i = 0; i < clipboardData.items.length; i++) {
+    const item = clipboardData.items[i];
+    if (item.type && item.type.includes("image")) {
+      const blob = item.getAsFile();
+      if (blob) {
+        e.preventDefault();
+        callback(blob);
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function iniciar() {
@@ -64,8 +83,26 @@ function iniciar() {
     botaoExcluir.hidden = true;
   }
 
-  // Lançamento de horas
+  // Lançamento de horas com data de hoje e atalhos rápidos
   const formHoras = document.getElementById("form-horas");
+  const campoDataHoras = document.getElementById("campo-horas-data");
+  const campoQtdHoras = document.getElementById("campo-horas-qtd");
+
+  if (campoDataHoras && !campoDataHoras.value) {
+    campoDataHoras.value = new Date().toISOString().slice(0, 10);
+  }
+
+  document.querySelectorAll(".btn-tempo-rapido").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const incremento = Number(btn.dataset.horas) || 0;
+      if (campoQtdHoras) {
+        const atual = Number(campoQtdHoras.value) || 0;
+        const total = atual > 0 ? atual + incremento : incremento;
+        campoQtdHoras.value = total % 1 === 0 ? total.toFixed(1) : total.toString();
+      }
+    });
+  });
+
   if (permissaoChamados.inserir) {
     formHoras.addEventListener("submit", async (ev) => {
       ev.preventDefault();
@@ -80,6 +117,9 @@ function iniciar() {
           },
         });
         form.reset();
+        if (campoDataHoras) {
+          campoDataHoras.value = new Date().toISOString().slice(0, 10);
+        }
         carregarHoras();
       } catch (e) {
         mostrarErro(document.getElementById("mensagem-erro"), e);
@@ -89,27 +129,109 @@ function iniciar() {
     formHoras.hidden = true;
   }
 
-  // Comentários com suporte a comentário privado
-  document.getElementById("form-comentario").addEventListener("submit", async (ev) => {
+  // Comentários com suporte a comentário privado e colar print (Ctrl+V)
+  const formComentario = document.getElementById("form-comentario");
+  const textareaComentario = document.getElementById("textarea-comentario");
+  const previewPrintWrap = document.getElementById("preview-print-comentario");
+  const imgPreviewPrint = document.getElementById("img-preview-print");
+  const nomePrintComentario = document.getElementById("nome-print-comentario");
+  const btnRemoverPrint = document.getElementById("btn-remover-print");
+  const btnSubmitComentario = document.getElementById("btn-submit-comentario");
+
+  let printColadoComentario = null;
+
+  function limparPrintComentario() {
+    printColadoComentario = null;
+    if (previewPrintWrap) previewPrintWrap.hidden = true;
+    if (imgPreviewPrint) imgPreviewPrint.src = "";
+    if (nomePrintComentario) nomePrintComentario.textContent = "";
+  }
+
+  if (btnRemoverPrint) {
+    btnRemoverPrint.addEventListener("click", limparPrintComentario);
+  }
+
+  if (textareaComentario) {
+    textareaComentario.addEventListener("paste", (e) => {
+      capturarImagemDoClipboard(e, (blob) => {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        const nomeArquivo = `print_${timestamp}.png`;
+        printColadoComentario = { file: blob, nome: nomeArquivo };
+
+        if (previewPrintWrap && imgPreviewPrint) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            imgPreviewPrint.src = reader.result;
+            if (nomePrintComentario) nomePrintComentario.textContent = nomeArquivo;
+            previewPrintWrap.hidden = false;
+          };
+          reader.readAsDataURL(blob);
+        }
+      });
+    });
+  }
+
+  formComentario.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const form = ev.target;
     const ehPrivado = document.getElementById("check-comentario-privado")?.checked || false;
+    const texto = form.elements.texto.value.trim();
+
+    if (!texto && !printColadoComentario) {
+      return;
+    }
+
+    if (btnSubmitComentario) btnSubmitComentario.disabled = true;
+
     try {
-      await api(`/chamados/${id}/comentarios`, {
-        method: "POST",
-        body: {
-          texto: form.elements.texto.value,
-          eh_privado: ehPrivado,
-        },
-      });
+      if (texto) {
+        await api(`/chamados/${id}/comentarios`, {
+          method: "POST",
+          body: {
+            texto: texto,
+            eh_privado: ehPrivado,
+          },
+        });
+      }
+
+      if (printColadoComentario && printColadoComentario.file) {
+        const leitorPrint = new FileReader();
+        await new Promise((resolve, reject) => {
+          leitorPrint.onload = async () => {
+            try {
+              const base64 = leitorPrint.result.split(",")[1];
+              await api(`/chamados/${id}/anexos`, {
+                method: "POST",
+                body: {
+                  nome_arquivo: printColadoComentario.nome,
+                  mime_type: printColadoComentario.file.type || "image/png",
+                  tamanho_bytes: printColadoComentario.file.size,
+                  conteudo_base64: base64,
+                  eh_privado: ehPrivado,
+                },
+              });
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          };
+          leitorPrint.onerror = reject;
+          leitorPrint.readAsDataURL(printColadoComentario.file);
+        });
+      }
+
       form.reset();
+      limparPrintComentario();
       if (document.getElementById("check-comentario-privado")) {
         document.getElementById("check-comentario-privado").checked = false;
       }
       carregarComentarios();
+      carregarAnexos();
       carregarAuditoria();
     } catch (e) {
       mostrarErro(document.getElementById("mensagem-erro"), e);
+    } finally {
+      if (btnSubmitComentario) btnSubmitComentario.disabled = false;
     }
   });
 
@@ -236,6 +358,14 @@ function iniciar() {
       }
     });
 
+    dropzoneAnexo.addEventListener("paste", (e) => {
+      capturarImagemDoClipboard(e, (blob) => {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        const arquivoPrint = new File([blob], `print_${timestamp}.png`, { type: blob.type || "image/png" });
+        selecionarArquivo(arquivoPrint);
+      });
+    });
+
     inputArquivo.addEventListener("change", () => {
       if (inputArquivo.files && inputArquivo.files[0]) {
         selecionarArquivo(inputArquivo.files[0]);
@@ -333,12 +463,27 @@ async function carregarDetalhe() {
   const ehSolicitante = usuario.id === chamado.solicitante_id;
   const ehAdmin = usuario.admin === 1;
 
+  function badgePrioridade(p) {
+    const prioridadeNorm = String(p || "normal").toLowerCase();
+    if (prioridadeNorm === "urgente") {
+      return `<span class="badge-status" style="background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; font-weight: 800;">🚨 Urgente</span>`;
+    }
+    if (prioridadeNorm === "alta") {
+      return `<span class="badge-status" style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-weight: 700;">⚠️ Alta</span>`;
+    }
+    if (prioridadeNorm === "baixa") {
+      return `<span class="badge-status" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: 600;">⬇️ Baixa</span>`;
+    }
+    return `<span class="badge-status" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0; font-weight: 600;">Normal</span>`;
+  }
+
   document.getElementById("detalhe").innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
-      <div>
+      <div style="flex: 1; min-width: 280px;">
         <h1 style="margin: 0 0 0.5rem; font-size: 1.5rem;">#${chamado.id} - ${escaparHtml(chamado.titulo)}</h1>
         <p style="margin: 0 0 0.4rem; color: var(--cor-texto-secundario); font-size: 0.95rem;">
           Fluxo: <strong>${escaparHtml(chamado.fluxo_nome || "-")}</strong> |
+          Empresa: <strong>${escaparHtml(chamado.empresa_nome || "Geral")}</strong> |
           Setor: <strong>${escaparHtml(chamado.setor_nome || "-")}</strong> ${info("Setor responsável por esta etapa/tarefa.")}
         </p>
         <p style="margin: 0 0 0.4rem; font-size: 0.95rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem;">
@@ -347,12 +492,26 @@ async function carregarDetalhe() {
           <span>| Abertura: <strong>${chamado.data_abertura}</strong> | Prazo: <strong>${chamado.prazo}</strong> (${chamado.situacao_prazo})</span>
         </p>
       </div>
-      <div>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem;">
         <span class="badge-status" style="font-size: 0.9rem; padding: 0.35rem 0.75rem; font-weight: 700; background: var(--cor-fundo); border: 1px solid var(--cor-borda);">
           Status: ${escaparHtml(chamado.status_nome)}
         </span>
+        ${badgePrioridade(chamado.prioridade)}
       </div>
     </div>
+
+    ${
+      chamado.observacao
+        ? `
+      <div style="margin-top: 0.9rem; padding: 0.75rem 1rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-left: 4px solid var(--cor-primaria); border-radius: 0.35rem; font-size: 0.92rem;">
+        <strong style="color: var(--cor-primaria); display: block; margin-bottom: 0.35rem; font-size: 0.88rem; text-transform: uppercase; letter-spacing: 0.03em;">
+          📝 Observações da solicitação
+        </strong>
+        <div style="white-space: pre-wrap; line-height: 1.5; color: var(--cor-texto);">${escaparHtml(chamado.observacao)}</div>
+      </div>
+    `
+        : ""
+    }
 
     <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--cor-borda); display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;">
       <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">

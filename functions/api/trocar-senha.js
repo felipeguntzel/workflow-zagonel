@@ -2,6 +2,7 @@ import { run } from "../_lib/db.js";
 import { json, error } from "../_lib/http.js";
 import { hashSenha, validarComplexidadeSenha } from "../_lib/auth.js";
 import { obterUsuarioDaRequisicao } from "../_lib/permissoes.js";
+import { desbloquearUsuario } from "../_lib/rate-limit.js";
 
 export async function onRequestPost(context) {
   const usuario = await obterUsuarioDaRequisicao(context.request, context.env);
@@ -20,5 +21,8 @@ export async function onRequestPost(context) {
     agora,
     usuario.id
   );
+  if (usuario.login) {
+    await desbloquearUsuario(context.env.DB, usuario.login);
+  }
   return json({ ok: true });
 }

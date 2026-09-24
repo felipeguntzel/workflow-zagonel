@@ -16,6 +16,11 @@ export function traduzirTextoParaPtBr(mensagem) {
   if (!mensagem) return "Ocorreu um erro inesperado.";
   const str = String(mensagem);
 
+  // Mensagens em português estruturadas pelo backend não devem ser sobrescritas
+  if (str.includes("Falha no envio") || str.includes("Resend") || str.includes("recuperação") || str.includes("bloqueado") || str.includes("RESEND_API_KEY")) {
+    return str;
+  }
+
   if (str.includes("Cannot read properties of null") || str.includes("reading 'filter'")) {
     return "Dados não encontrados ou incompletos para esta operação.";
   }
@@ -28,7 +33,7 @@ export function traduzirTextoParaPtBr(mensagem) {
   if (str.includes("Unauthorized") || str.includes("401")) {
     return "Acesso não autorizado. Por favor, realize o login novamente.";
   }
-  if (str.includes("Forbidden") || str.includes("403")) {
+  if (str === "Forbidden" || str === "403" || str.includes("status 403") || str.includes("HTTP 403")) {
     return "Você não possui permissão para realizar esta operação.";
   }
   if (str.includes("Not Found") || str.includes("404")) {

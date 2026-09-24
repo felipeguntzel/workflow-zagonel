@@ -1,7 +1,6 @@
 import { first, run } from "./db.js";
 
-export const MAX_TENTATIVAS_LOGIN = 5;
-export const JANELA_BLOQUEIO_MS = 15 * 60 * 1000; // 15 minutos
+export const MAX_TENTATIVAS_LOGIN = 3;
 
 let tabelaGarantida = false;
 
@@ -23,19 +22,17 @@ export async function ensureTentativasLoginTabela(db) {
 }
 
 /**
- * Verifica se a chave (login ou IP) esta temporariamente bloqueada por excesso de tentativas.
+ * Verifica se a chave (login ou usuario) esta bloqueada por excesso de tentativas.
  */
 export async function verificarRateLimit(db, chave, agora = Date.now()) {
   await ensureTentativasLoginTabela(db);
   const registro = await first(db, "SELECT * FROM tentativas_login WHERE chave = ?", chave);
   if (!registro) return { bloqueado: false };
 
-  if (registro.bloqueado_ate > agora) {
-    const minutosRestantes = Math.max(1, Math.ceil((registro.bloqueado_ate - agora) / 60000));
+  if (registro.bloqueado_ate === -1 || registro.bloqueado_ate > agora) {
     return {
       bloqueado: true,
-      minutosRestantes,
-      mensagem: `Acesso temporariamente bloqueado por excesso de tentativas incorretas. Tente novamente em ${minutosRestantes} minuto(s).`,
+      mensagem: "Acesso bloqueado por 3 tentativas incorretas. Redefina sua senha pelo e-mail ou solicite a um administrador para alterá-la.",
     };
   }
 
@@ -43,7 +40,7 @@ export async function verificarRateLimit(db, chave, agora = Date.now()) {
 }
 
 /**
- * Registra uma tentativa incorreta de login e bloqueia se atingir o limite.
+ * Registra uma tentativa incorreta de login e bloqueia definitivamente ao atingir o limite.
  */
 export async function registrarFalhaLogin(db, chave, agora = Date.now()) {
   await ensureTentativasLoginTabela(db);
@@ -62,20 +59,14 @@ export async function registrarFalhaLogin(db, chave, agora = Date.now()) {
     return { tentativas: 1, bloqueado: false, tentativasRestantes: MAX_TENTATIVAS_LOGIN - 1 };
   }
 
-  // Se o bloqueio anterior ja expirou, reinicia a contagem
+  // Se o registro anterior existia, incrementa
   let novasTentativas = Number(registro.tentativas || 0) + 1;
-  if (registro.bloqueado_ate > 0 && registro.bloqueado_ate <= agora) {
-    novasTentativas = 1;
-  }
-
   let bloqueadoAte = 0;
   let bloqueado = false;
-  let minutosRestantes = 0;
 
   if (novasTentativas >= MAX_TENTATIVAS_LOGIN) {
-    bloqueadoAte = agora + JANELA_BLOQUEIO_MS;
+    bloqueadoAte = -1; // Bloqueio permanente até redefinição por e-mail ou admin
     bloqueado = true;
-    minutosRestantes = Math.ceil(JANELA_BLOQUEIO_MS / 60000);
   }
 
   await run(
@@ -90,17 +81,27 @@ export async function registrarFalhaLogin(db, chave, agora = Date.now()) {
   return {
     tentativas: novasTentativas,
     bloqueado,
-    minutosRestantes,
     tentativasRestantes: Math.max(0, MAX_TENTATIVAS_LOGIN - novasTentativas),
   };
 }
 
 /**
- * Remove o historico de tentativas incorretas apos um login bem-sucedido.
+ * Remove o histórico de tentativas incorretas após um login bem-sucedido.
  */
 export async function limparTentativasLogin(db, chave) {
   await ensureTentativasLoginTabela(db);
   try {
-    await run(db, "DELETE FROM tentativas_login WHERE chave = ?", chave);
+    await run(db, "DELETE FROM tentativas_login WHERE chave = ? OR chave LIKE ?", chave, `${chave}:%`);
+  } catch (_) {}
+}
+
+/**
+ * Desbloqueia um usuário completamente por seu login.
+ */
+export async function desbloquearUsuario(db, login) {
+  await ensureTentativasLoginTabela(db);
+  try {
+    const l = String(login).toLowerCase();
+    await run(db, "DELETE FROM tentativas_login WHERE chave = ? OR chave LIKE ?", l, `${l}:%`);
   } catch (_) {}
 }

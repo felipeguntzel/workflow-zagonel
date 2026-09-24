@@ -17,6 +17,8 @@ test("normalizarTipoCampo converte tipos para os nomes aceitos pelo SQLite D1", 
   assert.equal(normalizarTipoCampo("select"), "select");
   assert.equal(normalizarTipoCampo("numero"), "numero");
   assert.equal(normalizarTipoCampo("data"), "data");
+  assert.equal(normalizarTipoCampo("checkbox"), "checkbox");
+  assert.equal(normalizarTipoCampo("sim_nao"), "sim_nao");
 });
 
 test("obterTabelaCampos resolve campos_etapa ou etapa_campos de forma transparente", async () => {
@@ -209,3 +211,67 @@ test("carregarCamposEValoresDoChamado combina campos e valores com parsing de op
   assert.equal(resultado[0].valor, "Preto");
   assert.deepEqual(resultado[0].opcoes_parsed, ["Branco", "Preto"]);
 });
+
+test("validarCamposObrigatorios valida regra de dias_minimos para campos do tipo data", () => {
+  const campos = [
+    { id: 10, nome: "data_faturamento", rotulo: "Data de Faturamento", tipo: "data", obrigatorio: 1, dias_minimos: 7 }
+  ];
+
+  const hoje = new Date();
+  const ontem = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - 1).toISOString().slice(0, 10);
+  const daqui3Dias = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 3).toISOString().slice(0, 10);
+  const daqui8Dias = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 8).toISOString().slice(0, 10);
+
+  // Caso 1: Data de ontem (passado) deve ser rejeitada
+  const rPassado = validarCamposObrigatorios(campos, { data_faturamento: ontem });
+  assert.equal(rPassado.valido, false);
+  assert.match(rPassado.erro, /não pode ser anterior a/);
+
+  // Caso 2: Data de daqui a 3 dias (menor que o mínimo de 7) deve ser rejeitada
+  const rInsuficiente = validarCamposObrigatorios(campos, { data_faturamento: daqui3Dias });
+  assert.equal(rInsuficiente.valido, false);
+  assert.match(rInsuficiente.erro, /antecedência mínima de 7 dia\(s\)/);
+
+  // Caso 3: Data de daqui a 8 dias deve ser aceita com sucesso
+  const rValido = validarCamposObrigatorios(campos, { data_faturamento: daqui8Dias });
+  assert.equal(rValido.valido, true);
+});
+
+test("garantirTabelaValores adiciona coluna campo_id e cria indice caso faltem", async () => {
+  const comandosExecutados = [];
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind() { return this; },
+        async run() {
+          comandosExecutados.push(sql);
+          return { meta: {} };
+        },
+        async all() {
+          if (sql.includes("PRAGMA table_info(chamado_campos_valores)")) {
+            // Simula tabela existente que só tinha id, chamado_id e valor (sem campo_id)
+            return {
+              results: [
+                { name: "id" },
+                { name: "chamado_id" },
+                { name: "valor" }
+              ]
+            };
+          }
+          return { results: [] };
+        },
+        async first() { return null; }
+      };
+    }
+  };
+
+  const { garantirTabelaValores } = await import("./campos.js");
+  await garantirTabelaValores(mockDb);
+
+  const alterAddCampoId = comandosExecutados.find((cmd) => cmd.includes("ALTER TABLE chamado_campos_valores ADD COLUMN campo_id"));
+  assert.ok(alterAddCampoId, "Deveria ter executado ALTER TABLE para adicionar campo_id");
+
+  const createIndex = comandosExecutados.find((cmd) => cmd.includes("CREATE UNIQUE INDEX IF NOT EXISTS"));
+  assert.ok(createIndex, "Deveria ter criado índice único para chamado_id e campo_id");
+});
+
