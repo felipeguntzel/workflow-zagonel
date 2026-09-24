@@ -25,6 +25,6 @@ Este documento lista as pendencias, melhorias mapeadas e o roadmap de evolucao d
 
 ## 3. Backlog e Itens Futuros (Outro Momento)
 
-- **Integracao com sistemas existentes da empresa**: integracao com sistemas legados ou ERP da Zagonel para reaproveitar cadastros ja existentes (usuarios, setores, centros de custo). Conforme alinhado, este item permanece postergado para quando a TI corporativa assumir a homologacao definitiva.
-- **PWA (Progressive Web App)**: suporte a Service Worker, Web App Manifest, instalacao no desktop/mobile e funcionamento com cache offline.
-- **Cor por status**: selecao de cor padronizada por status com validacao para impedir repeticoes de cores entre diferentes status.
+- [x] **PWA (Progressive Web App)**: suporte a Service Worker, Web App Manifest, instalação no desktop/mobile e funcionamento com cache offline.
+- [x] **Cor por status**: seleção de cor padronizada por status com validação no backend e frontend para impedir repetições de cores entre diferentes status, além de visualização colorida de badges nos chamados.
+- **Integracao com sistemas existentes da empresa**: integração com sistemas legados ou ERP da Zagonel para reaproveitar cadastros já existentes (usuários, setores, centros de custo). Conforme alinhado, este item permanece postergado para quando a TI corporativa assumir a homologação definitiva.

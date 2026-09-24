@@ -39,6 +39,12 @@ function situacaoBadge(prazo, statusNome) {
   return `<span class="badge badge-ok">Ok</span>`;
 }
 
+function badgeStatusColorido(nome, cor) {
+  if (!nome) return "-";
+  if (!cor) return escaparHtml(nome);
+  return `<span class="badge-status" style="background: ${cor}18; color: ${cor}; border: 1px solid ${cor}55; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${cor};"></span>${escaparHtml(nome)}</span>`;
+}
+
 function filtrarDados() {
   const termo = (document.getElementById("filtro-busca-chamados")?.value || "").trim().toLowerCase();
   const statusFiltro = document.getElementById("filtro-status-chamados")?.value || "";
@@ -52,9 +58,13 @@ function filtrarDados() {
     if (termo) {
       const matchId = String(c.id).includes(termo.replace(/^#/, ""));
       const matchTitulo = String(c.titulo || "").toLowerCase().includes(termo);
+      const matchEtapa = String(c.etapa_atual || "").toLowerCase().includes(termo);
+      const matchSol = String(c.solicitante_nome || "").toLowerCase().includes(termo);
+      const matchSetor = String(c.setor_nome || "").toLowerCase().includes(termo);
+      const matchEmp = String(c.empresa_nome || "").toLowerCase().includes(termo);
       const matchStatus = String(c.status_nome || "").toLowerCase().includes(termo);
       const matchResp = String(c.responsavel_nome || "").toLowerCase().includes(termo);
-      return matchId || matchTitulo || matchStatus || matchResp;
+      return matchId || matchTitulo || matchEtapa || matchSol || matchSetor || matchEmp || matchStatus || matchResp;
     }
 
     return true;
@@ -102,14 +112,18 @@ function renderizarTabela() {
   if (!tbody) return;
   tbody.innerHTML =
     paginaDados.length === 0
-      ? `<tr><td colspan="5" style="text-align:center; padding: 2rem; color: var(--cor-texto-secundario);">Nenhum chamado encontrado para os filtros selecionados.</td></tr>`
+      ? `<tr><td colspan="9" style="text-align:center; padding: 2rem; color: var(--cor-texto-secundario);">Nenhum chamado encontrado para os filtros selecionados.</td></tr>`
       : paginaDados
           .map(
             (c) => `
               <tr>
                 <td class="td-id">#${c.id}</td>
-                <td title="${escaparAtributo(c.titulo)}"><a href="/chamado?id=${c.id}">${escaparHtml(c.titulo)}</a></td>
-                <td>${escaparHtml(c.status_nome)}</td>
+                <td title="${escaparAtributo(c.titulo)}"><a href="/chamado?id=${c.id}" class="link-sem-sublinhado">${escaparHtml(c.titulo)}</a></td>
+                <td>${escaparHtml(c.etapa_atual || "-")}</td>
+                <td>${escaparHtml(c.solicitante_nome || "-")}</td>
+                <td>${escaparHtml(c.setor_nome || "-")}</td>
+                <td>${escaparHtml(c.empresa_nome || "-")}</td>
+                <td>${badgeStatusColorido(c.status_nome, c.status_cor)}</td>
                 <td>${c.prazo ? escaparHtml(c.prazo) : "-"}</td>
                 <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
               </tr>`
@@ -222,6 +236,10 @@ function configurarEventosFiltros() {
       const colunas = [
         { chave: "id", rotulo: "Protocolo" },
         { chave: "titulo", rotulo: "Chamado" },
+        { chave: "etapa_atual", rotulo: "Etapa Atual" },
+        { chave: "solicitante_nome", rotulo: "Solicitante" },
+        { chave: "setor_nome", rotulo: "Setor" },
+        { chave: "empresa_nome", rotulo: "Empresa" },
         { chave: "status_nome", rotulo: "Status" },
         { chave: "responsavel_nome", rotulo: "Responsável" },
         { chave: "prazo", rotulo: "Prazo" },

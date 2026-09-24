@@ -1,6 +1,9 @@
 import { api } from "./api.js";
 import { setUsuarioLogado } from "./auth.js";
 import { mostrarErro, escaparHtml } from "./ui.js";
+import { registrarServiceWorker } from "./layout.js";
+
+registrarServiceWorker();
 
 const formLogin = document.getElementById("form-login");
 const mensagemErro = document.getElementById("mensagem-erro");

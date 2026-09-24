@@ -21,15 +21,47 @@ export async function onRequestGet(context) {
     `SELECT
        c.*,
        COALESCE(e.setor_id, a.setor_destino_id) AS setor_id,
+       COALESCE(
+         (SELECT s2.nome
+          FROM chamados c2
+          LEFT JOIN etapas e2 ON e2.id = c2.etapa_id
+          LEFT JOIN acoes a2 ON a2.id = c2.acao_origem_id
+          LEFT JOIN setores s2 ON s2.id = COALESCE(e2.setor_id, a2.setor_destino_id)
+          WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL
+          ORDER BY c2.id DESC LIMIT 1),
+         s.nome,
+         '-'
+       ) AS setor_nome,
        COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
+       COALESCE(
+         (SELECT COALESCE(e2.nome, a2.rotulo)
+          FROM chamados c2
+          LEFT JOIN etapas e2 ON e2.id = c2.etapa_id
+          LEFT JOIN acoes a2 ON a2.id = c2.acao_origem_id
+          WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL
+          ORDER BY c2.id DESC LIMIT 1),
+         (SELECT COALESCE(e2.nome, a2.rotulo)
+          FROM chamados c2
+          LEFT JOIN etapas e2 ON e2.id = c2.etapa_id
+          LEFT JOIN acoes a2 ON a2.id = c2.acao_origem_id
+          WHERE c2.chamado_mae_id = c.id
+          ORDER BY c2.id DESC LIMIT 1),
+         e.nome,
+         a.rotulo,
+         '-'
+       ) AS etapa_atual,
        st.nome AS status_nome,
+       st.cor AS status_cor,
        resp.nome AS responsavel_nome,
+       sol.nome AS solicitante_nome,
        emp.nome AS empresa_nome
      FROM chamados c
      LEFT JOIN etapas e ON e.id = c.etapa_id
      LEFT JOIN acoes a ON a.id = c.acao_origem_id
+     LEFT JOIN setores s ON s.id = COALESCE(e.setor_id, a.setor_destino_id)
      LEFT JOIN status st ON st.id = c.status_id
      LEFT JOIN usuarios resp ON resp.id = c.responsavel_id
+     LEFT JOIN usuarios sol ON sol.id = c.solicitante_id
      LEFT JOIN empresas emp ON emp.id = c.empresa_id
      WHERE ${condicaoSetor}
      ORDER BY c.prazo`,

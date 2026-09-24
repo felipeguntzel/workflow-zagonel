@@ -477,7 +477,8 @@ async function carregarDetalhe() {
     return `<span class="badge-status" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0; font-weight: 600;">Normal</span>`;
   }
 
-  document.getElementById("detalhe").innerHTML = `
+  const detalheEl = document.getElementById("detalhe");
+  detalheEl.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
       <div style="flex: 1; min-width: 280px;">
         <h1 style="margin: 0 0 0.5rem; font-size: 1.5rem;">#${chamado.id} - ${escaparHtml(chamado.titulo)}</h1>
@@ -493,7 +494,8 @@ async function carregarDetalhe() {
         </p>
       </div>
       <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem;">
-        <span class="badge-status" style="font-size: 0.9rem; padding: 0.35rem 0.75rem; font-weight: 700; background: var(--cor-fundo); border: 1px solid var(--cor-borda);">
+        <span class="badge-status" style="font-size: 0.9rem; padding: 0.35rem 0.75rem; font-weight: 700; background: ${chamado.status_cor ? chamado.status_cor + '18' : 'var(--cor-fundo)'}; color: ${chamado.status_cor || 'var(--cor-texto)'}; border: 1px solid ${chamado.status_cor ? chamado.status_cor + '55' : 'var(--cor-borda)'}; display: inline-flex; align-items: center; gap: 0.4rem;">
+          <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: ${chamado.status_cor || 'var(--cor-primaria)'};"></span>
           Status: ${escaparHtml(chamado.status_nome)}
         </span>
         ${badgePrioridade(chamado.prioridade)}
@@ -552,6 +554,7 @@ async function carregarDetalhe() {
         : ""
     }
   `;
+  detalheEl.hidden = false;
 
   async function definirResponsavel(responsavelId) {
     try {

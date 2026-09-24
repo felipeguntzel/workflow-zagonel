@@ -33,6 +33,13 @@ export async function assegurarEsquemaTabela(db, table) {
       // Ignora se coluna já existir ou falhar
     }
   }
+  if (table === "status") {
+    try {
+      await run(db, "ALTER TABLE status ADD COLUMN cor TEXT");
+    } catch (_) {
+      // Ignora se coluna já existir ou falhar
+    }
+  }
   schemaVerificadoPorTabela.add(table);
 }
 

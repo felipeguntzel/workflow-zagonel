@@ -122,7 +122,9 @@ if (usuario) {
     estilo: "simples",
     endpoint: "/status",
     tela: "status",
-    larguraColuna1: 20,
-    campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
+    campos: [
+      { nome: "nome", label: "Nome", obrigatorio: true },
+      { nome: "cor", label: "Cor do Status", tipo: "cor", obrigatorio: false },
+    ],
   }).catch((e) => mostrarErro(mensagemErro, e));
 }

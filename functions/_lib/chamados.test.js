@@ -41,3 +41,32 @@ test("garantirColunasChamados adiciona titulo, prioridade e observacao se faltar
   assert.ok(sqlExecutados.some((s) => s.includes("ADD COLUMN prioridade")));
   assert.ok(sqlExecutados.some((s) => s.includes("ADD COLUMN observacao")));
 });
+
+test("chamadoComDetalhes utiliza tabela fluxo_templates e consulta status_cor", async () => {
+  const { chamadoComDetalhes } = await import("./chamados.js");
+  let sqlExecutado = "";
+  const mockDb = {
+    prepare(sql) {
+      sqlExecutado = sql;
+      return {
+        bind() { return this; },
+        async first() {
+          return {
+            id: 1,
+            titulo: "Chamado Teste",
+            status_nome: "previsto",
+            status_cor: "#2563eb",
+            prazo: "2026-10-10",
+          };
+        },
+        async all() {
+          return { results: [] };
+        },
+      };
+    },
+  };
+  const res = await chamadoComDetalhes(mockDb, 1);
+  assert.ok(sqlExecutado.includes("LEFT JOIN fluxo_templates ft ON ft.id = c.fluxo_template_id"));
+  assert.ok(!sqlExecutado.includes("fluxos_template"));
+  assert.equal(res.status_cor, "#2563eb");
+});
