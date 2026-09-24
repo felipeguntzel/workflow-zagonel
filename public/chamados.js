@@ -1,6 +1,6 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { mostrarErro, escaparAtributo, escaparHtml, debounce, exportarParaCsv, anunciarA11y } from "./ui.js";
+import { mostrarErro, escaparAtributo, escaparHtml, debounce, exportarParaCsv, anunciarA11y, formatarDataBR } from "./ui.js";
 import { api } from "./api.js";
 
 export function inicializar() {
@@ -124,7 +124,7 @@ function renderizarTabela() {
                 <td>${escaparHtml(c.setor_nome || "-")}</td>
                 <td>${escaparHtml(c.empresa_nome || "-")}</td>
                 <td>${badgeStatusColorido(c.status_nome, c.status_cor)}</td>
-                <td>${c.prazo ? escaparHtml(c.prazo) : "-"}</td>
+                <td>${c.prazo ? escaparHtml(formatarDataBR(c.prazo)) : "-"}</td>
                 <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
               </tr>`
           )

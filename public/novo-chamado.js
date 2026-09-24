@@ -500,13 +500,14 @@ async function iniciar(usuarioLogado) {
 
     const valoresCampos = {};
     for (const c of camposEtapaAtuais) {
-      const el = formNovoChamado.elements[`campo_${c.nome}`];
+      const el = formNovoChamado.elements[`campo_${c.nome}`] ||
+                 formNovoChamado.querySelector(`[data-campo-id="${c.id}"]`) ||
+                 formNovoChamado.querySelector(`[name="campo_${c.nome}"]`);
       if (el) {
-        if (el.type === "checkbox") {
-          valoresCampos[c.nome] = el.checked ? "sim" : "nao";
-        } else {
-          valoresCampos[c.nome] = el.value;
-        }
+        const val = el.type === "checkbox" ? (el.checked ? "sim" : "nao") : el.value;
+        valoresCampos[c.id] = val;
+        valoresCampos[c.nome] = val;
+        if (c.rotulo) valoresCampos[c.rotulo] = val;
 
         // Validação de data mínima no submit
         const tipoNorm = String(c.tipo || "texto").toLowerCase();

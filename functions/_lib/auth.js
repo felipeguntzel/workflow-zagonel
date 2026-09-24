@@ -62,8 +62,8 @@ export function ehHashLegado(hashArmazenado) {
 }
 
 export function validarFormatoLogin(login) {
-  if (typeof login !== "string") return false;
-  return /^[a-z0-9]+(\.[a-z0-9]+)+$/.test(login);
+  if (typeof login !== "string" || !login) return false;
+  return /^[a-z0-9]+([._][a-z0-9]+)*$/.test(login);
 }
 
 export function ehSequenciaNumerica(str) {

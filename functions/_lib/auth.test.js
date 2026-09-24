@@ -39,16 +39,19 @@ test("ehHashLegado tells apart the old plain SHA-256 hash from the new pbkdf2$ f
   assert.equal(ehHashLegado("4176647594e2a5ba663e60d7240a308d6562755d22c70d717a704b48448648b3"), true);
 });
 
-test("validarFormatoLogin accepts nome.sobrenome format with lowercase letters and numbers", () => {
+test("validarFormatoLogin accepts nome.sobrenome format and single names with lowercase letters and numbers", () => {
   assert.equal(validarFormatoLogin("felipe.guntzel"), true);
+  assert.equal(validarFormatoLogin("projetos.zagonel"), true);
+  assert.equal(validarFormatoLogin("projetoszagonel"), true);
   assert.equal(validarFormatoLogin("ana.silva"), true);
   assert.equal(validarFormatoLogin("bruno.123"), true);
   assert.equal(validarFormatoLogin("joao.carlos.silva"), true);
+  assert.equal(validarFormatoLogin("ti_suporte"), true);
+  assert.equal(validarFormatoLogin("ana"), true);
+  assert.equal(validarFormatoLogin("felipe"), true);
 });
 
-test("validarFormatoLogin rejects single names without dot, spaces, uppercase or symbols", () => {
-  assert.equal(validarFormatoLogin("ana"), false);
-  assert.equal(validarFormatoLogin("felipe"), false);
+test("validarFormatoLogin rejects spaces, uppercase or symbols", () => {
   assert.equal(validarFormatoLogin("ana silva"), false);
   assert.equal(validarFormatoLogin("ana@silva"), false);
   assert.equal(validarFormatoLogin("Ana.silva"), false);

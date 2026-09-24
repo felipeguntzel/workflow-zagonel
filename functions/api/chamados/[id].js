@@ -49,7 +49,7 @@ export async function onRequestPut(context) {
     // Regra de transição automática de status:
     // Se o chamado estiver em 'não iniciado', ao atribuir responsável ele vai para 'previsto'
     if (chamadoAntes.status_nome === "não iniciado" && body.status_id === undefined) {
-      const statusPrevisto = await first(context.env.DB, "SELECT id FROM status WHERE nome = 'previsto'");
+      const statusPrevisto = await first(context.env.DB, "SELECT id FROM status WHERE LOWER(nome) = 'previsto' LIMIT 1");
       if (statusPrevisto) {
         body.status_id = statusPrevisto.id;
         if (!colunas.includes("status_id")) {
@@ -65,7 +65,7 @@ export async function onRequestPut(context) {
 
   if (body.status_id !== undefined) {
     const statusRow = await first(context.env.DB, "SELECT nome FROM status WHERE id = ?", body.status_id);
-    if (statusRow && statusRow.nome === "finalizado") {
+    if (statusRow && String(statusRow.nome).toLowerCase() === "finalizado") {
       if (await computarBloqueado(context.env.DB, chamadoAntes)) {
         return error("Não é possível finalizar: chamado bloqueado aguardando pré-requisito.", 409);
       }
@@ -134,7 +134,7 @@ export async function onRequestPut(context) {
     });
   }
 
-  if (atualizado.status_nome === "finalizado" && atualizado.data_finalizacao === hoje) {
+  if (atualizado.status_nome && String(atualizado.status_nome).toLowerCase() === "finalizado" && atualizado.data_finalizacao === hoje) {
     await aplicarCascataAtraso(context.env.DB, atualizado, hoje);
   }
 

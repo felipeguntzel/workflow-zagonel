@@ -1,6 +1,6 @@
 import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { escaparHtml } from "./ui.js";
+import { escaparHtml, formatarDataBR } from "./ui.js";
 import { api } from "./api.js";
 
 export function inicializar() {
@@ -32,7 +32,7 @@ function nodeHtml(no) {
         <summary>
           #${no.id} - ${escaparHtml(no.titulo)} (${escaparHtml(no.setor_nome)}) - ${escaparHtml(no.status_nome)}
           ${no.resultado ? ` - ${escaparHtml(no.resultado)}` : ""}
-          - prazo ${no.prazo}${no.data_finalizacao ? `, finalizado em ${no.data_finalizacao}` : ""}
+          - prazo ${formatarDataBR(no.prazo)}${no.data_finalizacao ? `, finalizado em ${formatarDataBR(no.data_finalizacao)}` : ""}
         </summary>
         <div class="comentarios-no" data-id="${no.id}">Carregando comentários…</div>
         ${no.filhos.length > 0 ? `<ul>${no.filhos.map(nodeHtml).join("")}</ul>` : ""}

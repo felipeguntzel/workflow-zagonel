@@ -756,6 +756,12 @@ async function iniciar(container, mensagemErro) {
                   </select>
                 </label>
               </div>
+
+              <div class="campo-wrap col-full" style="background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-left: 3px solid var(--cor-primaria); padding: 0.65rem 0.85rem; border-radius: 4px; font-size: 0.82rem; line-height: 1.45; color: var(--cor-texto-secundario);">
+                <strong style="color: var(--cor-texto); display: block; margin-bottom: 0.25rem;">💡 Quando usar Chamado Pai ou Chamado Mãe?</strong>
+                <div>• <strong>Chamado Mãe (Raiz):</strong> use quando a próxima etapa fizer parte do fluxo principal e responder diretamente ao projeto ou solicitação original (no mesmo nível das outras demandas principais).</div>
+                <div style="margin-top: 0.2rem;">• <strong>Chamado Pai (Imediato):</strong> use quando a próxima etapa for uma subtarefa que depende exclusivamente da etapa anterior (uma ramificação direta subordinada a ela).</div>
+              </div>
             </div>
 
             <div class="modal-rodape" style="margin-top: 1.25rem;">
@@ -903,6 +909,9 @@ async function iniciar(container, mensagemErro) {
                     </div>
                     <div>
                       <button type="submit" class="btn btn-primario" style="width: 100%;">+ Adicionar Ação</button>
+                    </div>
+                    <div style="grid-column: 1 / -1; font-size: 0.8rem; color: var(--cor-texto-secundario); background: var(--cor-fundo); padding: 0.4rem 0.65rem; border-radius: 4px; border: 1px solid var(--cor-borda);">
+                      💡 <strong>Dica de Vínculo:</strong> <em>Mãe</em> atrela o subchamado à raiz do processo (mesmo nível das demandas gerais). <em>Pai</em> atrela como subtarefa dependente exclusivamente desta etapa de aprovação.
                     </div>
                   </form>
                 </div>

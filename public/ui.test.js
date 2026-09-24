@@ -114,6 +114,15 @@ test("modal.js exporta confirmarAcao, mostrarAviso e abrirModal", async () => {
   assert.equal(typeof abrirModal, "function");
 });
 
+test("formatarDataBR converte YYYY-MM-DD para DD/MM/AAAA", async () => {
+  const { formatarDataBR } = await import("./ui.js");
+  assert.equal(formatarDataBR("2026-10-01"), "01/10/2026");
+  assert.equal(formatarDataBR("2026-09-24"), "24/09/2026");
+  assert.equal(formatarDataBR("2026-09-24T12:00:00Z"), "24/09/2026");
+  assert.equal(formatarDataBR(null), "-");
+  assert.equal(formatarDataBR(""), "-");
+});
+
 
 
 

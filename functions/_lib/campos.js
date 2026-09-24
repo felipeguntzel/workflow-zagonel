@@ -350,12 +350,29 @@ export async function carregarCamposEValoresDoChamado(db, chamadoId, etapaId = n
   const campos = await listarCamposDaEtapa(db, idEtapa);
   if (!campos || campos.length === 0) return [];
 
-  const valores = await all(
-    db,
-    "SELECT campo_id, valor FROM chamado_campos_valores WHERE chamado_id = ?",
-    chamadoId
-  );
-  const mapaValores = new Map(valores.map((v) => [v.campo_id, v.valor]));
+  let valores = [];
+  try {
+    valores = await all(
+      db,
+      "SELECT campo_id, valor FROM chamado_campos_valores WHERE chamado_id = ?",
+      chamadoId
+    );
+    if (valores && valores.length > 0 && valores.every((v) => v.campo_id == null)) {
+      throw new Error("fallback");
+    }
+  } catch (_) {
+    valores = await all(
+      db,
+      `SELECT 
+         COALESCE(campo_id, etapa_campo_id, campo_etapa_id) AS campo_id, 
+         valor 
+       FROM chamado_campos_valores 
+       WHERE chamado_id = ?`,
+      chamadoId
+    ).catch(() => []);
+  }
+
+  const mapaValores = new Map((valores || []).map((v) => [v.campo_id, v.valor]));
 
   return campos.map((c) => ({
     ...c,
@@ -391,16 +408,22 @@ export async function salvarValoresCamposChamado(db, chamadoId, valoresObjeto, e
       camposDaEtapa = await listarCamposDaEtapa(db, idEtapa);
     } catch (_) {}
   }
-  const mapaNomeParaId = new Map(
-    camposDaEtapa.map((c) => [String(c.nome).toLowerCase().trim(), c.id])
-  );
+  const mapaNomeParaId = new Map();
+  for (const c of camposDaEtapa) {
+    if (c.nome) mapaNomeParaId.set(String(c.nome).toLowerCase().trim(), c.id);
+    if (c.rotulo) mapaNomeParaId.set(String(c.rotulo).toLowerCase().trim(), c.id);
+    const semAcento = String(c.rotulo || c.nome).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    mapaNomeParaId.set(semAcento, c.id);
+  }
 
   let entradas = [];
   if (Array.isArray(valoresObjeto)) {
     entradas = valoresObjeto.map((it) => {
       let id = it?.campo_id ? Number(it.campo_id) : null;
       if (!id && it?.nome) {
-        id = mapaNomeParaId.get(String(it.nome).toLowerCase().trim()) || null;
+        const n = String(it.nome).toLowerCase().trim();
+        const nSem = n.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        id = mapaNomeParaId.get(n) || mapaNomeParaId.get(nSem) || null;
       }
       return {
         campo_id: id,
@@ -411,7 +434,9 @@ export async function salvarValoresCamposChamado(db, chamadoId, valoresObjeto, e
     entradas = Object.entries(valoresObjeto).map(([chave, valor]) => {
       let id = Number(chave);
       if (isNaN(id) || id <= 0) {
-        id = mapaNomeParaId.get(String(chave).toLowerCase().trim()) || null;
+        const n = String(chave).toLowerCase().trim();
+        const nSem = n.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        id = mapaNomeParaId.get(n) || mapaNomeParaId.get(nSem) || null;
       }
       return {
         campo_id: id,
@@ -420,32 +445,65 @@ export async function salvarValoresCamposChamado(db, chamadoId, valoresObjeto, e
     });
   }
 
+  let colNomes = new Set(["chamado_id", "campo_id", "valor"]);
+  try {
+    const cols = await all(db, "PRAGMA table_info(chamado_campos_valores)");
+    if (Array.isArray(cols) && cols.length > 0) {
+      colNomes = new Set(cols.map((c) => c.name.toLowerCase()));
+    }
+  } catch (_) {}
+
   for (const item of entradas) {
     if (!item.campo_id) continue;
+    const valorStr = item.valor != null ? String(item.valor) : null;
+
+    const camposParaGravar = ["chamado_id"];
+    const valoresParaGravar = [chamadoId];
+
+    if (colNomes.has("campo_id")) {
+      camposParaGravar.push("campo_id");
+      valoresParaGravar.push(item.campo_id);
+    }
+    if (colNomes.has("etapa_campo_id")) {
+      camposParaGravar.push("etapa_campo_id");
+      valoresParaGravar.push(item.campo_id);
+    }
+    if (colNomes.has("campo_etapa_id")) {
+      camposParaGravar.push("campo_etapa_id");
+      valoresParaGravar.push(item.campo_id);
+    }
+    if (colNomes.has("valor")) {
+      camposParaGravar.push("valor");
+      valoresParaGravar.push(valorStr);
+    }
+
     try {
-      await run(
-        db,
-        `INSERT INTO chamado_campos_valores (chamado_id, campo_id, valor)
-         VALUES (?, ?, ?)
-         ON CONFLICT(chamado_id, campo_id) DO UPDATE SET valor = excluded.valor`,
-        chamadoId,
-        item.campo_id,
-        item.valor != null ? String(item.valor) : null
-      );
+      if (colNomes.has("campo_id")) {
+        await run(
+          db,
+          `INSERT INTO chamado_campos_valores (${camposParaGravar.join(", ")})
+           VALUES (${camposParaGravar.map(() => "?").join(", ")})
+           ON CONFLICT(chamado_id, campo_id) DO UPDATE SET valor = excluded.valor`,
+          ...valoresParaGravar
+        );
+      } else {
+        throw new Error("fallback");
+      }
     } catch (_) {
       try {
         await run(
           db,
-          "DELETE FROM chamado_campos_valores WHERE chamado_id = ? AND campo_id = ?",
-          chamadoId,
-          item.campo_id
-        );
-        await run(
-          db,
-          `INSERT INTO chamado_campos_valores (chamado_id, campo_id, valor) VALUES (?, ?, ?)`,
+          "DELETE FROM chamado_campos_valores WHERE chamado_id = ? AND (campo_id = ? OR etapa_campo_id = ? OR campo_etapa_id = ?)",
           chamadoId,
           item.campo_id,
-          item.valor != null ? String(item.valor) : null
+          item.campo_id,
+          item.campo_id
+        ).catch(() => {});
+        await run(
+          db,
+          `INSERT INTO chamado_campos_valores (${camposParaGravar.join(", ")})
+           VALUES (${camposParaGravar.map(() => "?").join(", ")})`,
+          ...valoresParaGravar
         );
       } catch (err) {
         console.error("Falha ao gravar campo personalizado:", err);

@@ -57,7 +57,7 @@ export async function onRequestPost(context) {
   await run(
     context.env.DB,
     `UPDATE chamados
-     SET status_id = (SELECT id FROM status WHERE nome = 'finalizado'),
+     SET status_id = (SELECT id FROM status WHERE LOWER(nome) = 'finalizado' LIMIT 1),
          resultado = 'aprovado',
          data_finalizacao = COALESCE(data_finalizacao, ?)
      WHERE id = ?`,
