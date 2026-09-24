@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WorkFlow Zagonel - Meus Chamados</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#2f6f4f">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="componentes.css">
@@ -59,7 +61,11 @@
       <thead>
         <tr>
           <th class="th-ordenavel th-id" data-col="id">#ID <span class="ordem-indicador" id="ordem-id">▲</span></th>
-          <th class="th-ordenavel" data-col="titulo" style="min-width:22ch">Chamado <span class="ordem-indicador" id="ordem-titulo"></span></th>
+          <th class="th-ordenavel" data-col="titulo" style="min-width:20ch">Chamado <span class="ordem-indicador" id="ordem-titulo"></span></th>
+          <th class="th-ordenavel" data-col="etapa_atual">Etapa Atual <span class="ordem-indicador" id="ordem-etapa_atual"></span></th>
+          <th class="th-ordenavel" data-col="solicitante_nome">Solicitante <span class="ordem-indicador" id="ordem-solicitante_nome"></span></th>
+          <th class="th-ordenavel" data-col="setor_nome">Setor <span class="ordem-indicador" id="ordem-setor_nome"></span></th>
+          <th class="th-ordenavel" data-col="empresa_nome">Empresa <span class="ordem-indicador" id="ordem-empresa_nome"></span></th>
           <th class="th-ordenavel" data-col="status_nome">Status <span class="ordem-indicador" id="ordem-status_nome"></span></th>
           <th class="th-ordenavel" data-col="prazo">Prazo <span class="ordem-indicador" id="ordem-prazo"></span></th>
           <th class="th-ordenavel" data-col="situacao">Situação <span class="ordem-indicador" id="ordem-situacao"></span></th>

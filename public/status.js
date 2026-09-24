@@ -18,9 +18,10 @@ export function inicializar() {
     estilo: "simples",
     endpoint: "/status",
     tela: "status",
-    larguraColuna1: 20,
-    campos: [{ nome: "nome", label: "Nome", obrigatorio: true }],
-  }).catch((e) => mostrarErro(mensagemErro, e));
+    campos: [
+      { nome: "nome", label: "Nome", obrigatorio: true },
+      { nome: "cor", label: "Cor do Status", tipo: "cor", obrigatorio: false },
+    ],
 }
 
 inicializar();

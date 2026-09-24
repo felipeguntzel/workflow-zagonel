@@ -54,3 +54,19 @@ test("assegurarEsquemaTabela executa ALTER TABLE para empresas codigo de forma s
   assert.ok(comandoSql.includes("ALTER TABLE empresas ADD COLUMN codigo TEXT"));
 });
 
+test("assegurarEsquemaTabela executa ALTER TABLE para status cor de forma segura", async () => {
+  const { assegurarEsquemaTabela } = await import("./crud.js");
+  let comandoSql = "";
+  const mockDb = {
+    prepare(sql) {
+      comandoSql = sql;
+      return {
+        bind() { return this; },
+        async run() { return { meta: {} }; }
+      };
+    }
+  };
+  await assegurarEsquemaTabela(mockDb, "status");
+  assert.ok(comandoSql.includes("ALTER TABLE status ADD COLUMN cor TEXT"));
+});
+

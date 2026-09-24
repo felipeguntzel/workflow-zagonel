@@ -799,10 +799,11 @@ a.btn {
 /* ==========================================================================
    Dropzone de Anexos com Drag-and-Drop e Pré-visualização
    ========================================================================== */
-.dropzone-anexo {
+.dropzone-anexo,
+.dropzone-anexo--compacto {
   border: 2px dashed var(--cor-borda);
-  border-radius: 0.5rem;
-  padding: 1.5rem 1rem;
+  border-radius: 0.45rem;
+  padding: 0.75rem 1rem;
   text-align: center;
   background: var(--cor-fundo);
   cursor: pointer;
@@ -811,7 +812,7 @@ a.btn {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
 .dropzone-anexo:hover,
@@ -821,18 +822,19 @@ a.btn {
 }
 
 .dropzone-anexo__icone {
-  font-size: 2rem;
+  font-size: 1.35rem;
   color: var(--cor-primaria);
+  line-height: 1;
 }
 
 .dropzone-anexo__texto {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--cor-texto);
   margin: 0;
 }
 
 .dropzone-anexo__subtexto {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--cor-texto-secundario);
   margin: 0;
 }
@@ -1385,6 +1387,74 @@ form.formulario label.campo-rotulo,
   border-radius: 0.3rem;
   border: 1px solid var(--cor-borda);
   object-fit: contain;
+}
+
+/* Ocultar painéis vazios automaticamente */
+.painel:empty {
+  display: none !important;
+}
+
+/* Links sem sublinhado padronizados */
+.link-sem-sublinhado,
+a.link-sem-sublinhado,
+.tabela-wrap table td a {
+  text-decoration: none !important;
+  color: var(--cor-primaria);
+  font-weight: 600;
+}
+
+.link-sem-sublinhado:hover,
+a.link-sem-sublinhado:hover,
+.tabela-wrap table td a:hover {
+  text-decoration: none !important;
+  opacity: 0.85;
+}
+
+/* Checkbox horizontal alinhado à esquerda */
+.label-checkbox-linha,
+form.formulario label.label-checkbox-linha {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  gap: 0.45rem !important;
+  margin: 0 !important;
+  width: auto !important;
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.label-checkbox-linha input[type="checkbox"],
+form.formulario label.label-checkbox-linha input[type="checkbox"] {
+  margin: 0 !important;
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+/* Layout padronizado para apontamento de horas */
+.apontamento-grid {
+  display: grid;
+  grid-template-columns: 160px 130px 1fr auto;
+  gap: 0.75rem 1rem;
+  align-items: end;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .apontamento-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .apontamento-grid .campo-grupo:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+  .apontamento-grid > div:last-child {
+    grid-column: 1 / -1;
+  }
 }
 
 

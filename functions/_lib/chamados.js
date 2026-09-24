@@ -210,6 +210,7 @@ export async function chamadoComDetalhes(db, id) {
        COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
        e.tipo AS etapa_tipo,
        st.nome AS status_nome,
+       st.cor AS status_cor,
        resp.nome AS responsavel_nome,
        resp.telefone AS responsavel_telefone,
        sol.nome AS solicitante_nome,
@@ -223,7 +224,7 @@ export async function chamadoComDetalhes(db, id) {
      LEFT JOIN status st ON st.id = c.status_id
      LEFT JOIN usuarios resp ON resp.id = c.responsavel_id
      LEFT JOIN usuarios sol ON sol.id = c.solicitante_id
-     LEFT JOIN fluxos_template ft ON ft.id = c.fluxo_template_id
+     LEFT JOIN fluxo_templates ft ON ft.id = c.fluxo_template_id
      LEFT JOIN empresas emp ON emp.id = c.empresa_id
      WHERE c.id = ?`,
     id

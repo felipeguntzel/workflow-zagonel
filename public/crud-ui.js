@@ -414,7 +414,16 @@ export async function renderCrud(container, config) {
           <tr data-id="${linha.id}">
             <td class="td-id">#${linha.id}</td>
             ${camposVisiveis
-              .map((c) => `<td title="${escaparAtributo(String(valorExibicao(linha, c, opcoesFK)))}">${escaparHtml(valorExibicao(linha, c, opcoesFK))}</td>`)
+              .map((c) => {
+                if (c.tipo === "cor") {
+                  const corVal = linha[c.nome];
+                  const celulaHtml = corVal
+                    ? `<span style="display:inline-flex; align-items:center; gap:0.45rem;"><span style="display:inline-block; width:13px; height:13px; border-radius:50%; background:${escaparAtributo(corVal)}; border:1px solid rgba(0,0,0,0.25);"></span><span style="font-family:monospace; font-size:0.85rem;">${escaparHtml(corVal)}</span></span>`
+                    : "-";
+                  return `<td title="${escaparAtributo(corVal || '')}">${celulaHtml}</td>`;
+                }
+                return `<td title="${escaparAtributo(String(valorExibicao(linha, c, opcoesFK)))}">${escaparHtml(valorExibicao(linha, c, opcoesFK))}</td>`;
+              })
               .join("")}
             <td class="td-acoes">
               ${acoesExtrasHtml}
@@ -433,6 +442,13 @@ export async function renderCrud(container, config) {
     const colunasInputs = camposVisiveis
       .map((c) => {
         const val = linha[c.nome] ?? "";
+        if (c.tipo === "cor") {
+          return `
+            <td>
+              <input type="color" class="campo-inline" data-campo="${c.nome}" value="${escaparAtributo(val || '#2563eb')}" style="width: 44px; height: 32px; padding: 2px; cursor: pointer; border-radius: 4px; border: 1px solid var(--cor-borda);">
+            </td>
+          `;
+        }
         return `
           <td>
             <input type="${c.tipo ?? "text"}" class="campo-inline" data-campo="${c.nome}" value="${escaparAtributo(val)}" ${c.obrigatorio ? "required" : ""} placeholder="${escaparAtributo(c.label)}">
@@ -503,6 +519,16 @@ export async function renderCrud(container, config) {
             inp.focus();
             valido = false;
             return;
+          }
+          if (campoCfg?.tipo === "cor" && valor) {
+            const duplicado = listaDados.find((d) => d.id !== id && d.cor && d.cor.toLowerCase() === valor.toLowerCase());
+            if (duplicado) {
+              mostrarAvisoModal("Cor já utilizada", `A cor "${valor}" já está associada ao status "${duplicado.nome}". Escolha uma cor diferente.`);
+              inp.style.borderColor = "var(--cor-vencido)";
+              inp.focus();
+              valido = false;
+              return;
+            }
           }
           corpo[nomeCampo] = campoCfg?.tipo === "number" ? Number(valor) : valor;
         });
@@ -645,6 +671,26 @@ export async function renderCrud(container, config) {
               <button type="button" class="btn btn-secundario btn-toggle-senha" data-campo="${campo.nome}" style="font-size: 0.95rem; padding: 0.4rem 0.55rem;" title="Visualizar ou ocultar senha">👁️</button>
             </div>
             <div class="aviso-capslock aviso-capslock-${campo.nome}" hidden style="display: none; align-items: center; gap: 0.35rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.78rem; font-weight: 600; margin-top: 0.35rem;">⚠️ Caps Lock ativado</div>
+          </label>
+        </div>
+      `;
+    }
+
+    if (campo.tipo === "cor") {
+      const valorAtual = linhaEdicao ? linhaEdicao[campo.nome] ?? "#2563eb" : "#2563eb";
+      const paleta = ["#2563eb", "#16a34a", "#eab308", "#f97316", "#dc2626", "#9333ea", "#06b6d4", "#ec4899", "#6b7280", "#4f46e5"];
+      return `
+        <div class="campo-wrap ${colClasse}">
+          <label>${rotuloHtml}
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.25rem; flex-wrap: wrap;">
+              <input type="color" id="picker-cor-${campo.nome}" value="${escaparAtributo(valorAtual)}" style="width: 44px; height: 38px; padding: 2px; cursor: pointer; border-radius: 4px; border: 1px solid var(--cor-borda);">
+              <input type="text" name="${campo.nome}" id="input-texto-cor-${campo.nome}" value="${escaparAtributo(valorAtual)}" style="width: 110px; font-family: monospace; font-size: 0.88rem;" class="input-padrao" maxlength="7" placeholder="#000000">
+              <div class="paleta-swatches" style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                ${paleta.map(p => `
+                  <button type="button" class="btn-swatch-cor" data-cor="${p}" data-campo="${campo.nome}" style="width: 24px; height: 24px; border-radius: 50%; background: ${p}; border: 2px solid ${valorAtual === p ? 'var(--cor-texto)' : 'transparent'}; cursor: pointer;" title="${p}"></button>
+                `).join("")}
+              </div>
+            </div>
           </label>
         </div>
       `;
@@ -916,6 +962,42 @@ export async function renderCrud(container, config) {
       });
     }
 
+    // Sincronização e eventos de campos de cor (paleta e picker)
+    formModal.querySelectorAll(".btn-swatch-cor").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const cor = btn.dataset.cor;
+        const nomeCampo = btn.dataset.campo;
+        const inputTexto = formModal.querySelector(`#input-texto-cor-${nomeCampo}`);
+        const picker = formModal.querySelector(`#picker-cor-${nomeCampo}`);
+        if (inputTexto) inputTexto.value = cor;
+        if (picker) picker.value = cor;
+        formModal.querySelectorAll(`.btn-swatch-cor[data-campo="${nomeCampo}"]`).forEach((b) => {
+          b.style.borderColor = b.dataset.cor === cor ? "var(--cor-texto)" : "transparent";
+        });
+      });
+    });
+
+    config.campos.filter((c) => c.tipo === "cor").forEach((c) => {
+      const picker = formModal.querySelector(`#picker-cor-${c.nome}`);
+      const inputTexto = formModal.querySelector(`#input-texto-cor-${c.nome}`);
+      if (picker && inputTexto) {
+        picker.addEventListener("input", () => {
+          inputTexto.value = picker.value;
+          formModal.querySelectorAll(`.btn-swatch-cor[data-campo="${c.nome}"]`).forEach((b) => {
+            b.style.borderColor = b.dataset.cor.toLowerCase() === picker.value.toLowerCase() ? "var(--cor-texto)" : "transparent";
+          });
+        });
+        inputTexto.addEventListener("input", () => {
+          if (/^#[0-9a-f]{6}$/i.test(inputTexto.value)) {
+            picker.value = inputTexto.value;
+            formModal.querySelectorAll(`.btn-swatch-cor[data-campo="${c.nome}"]`).forEach((b) => {
+              b.style.borderColor = b.dataset.cor.toLowerCase() === inputTexto.value.toLowerCase() ? "var(--cor-texto)" : "transparent";
+            });
+          }
+        });
+      }
+    });
+
     // Configurar selects dependentes (ex: Empresa -> Setores)
     for (const campo of config.campos) {
       if (!campo.dependeDe) continue;
@@ -1010,6 +1092,17 @@ export async function renderCrud(container, config) {
           inputEl?.classList.add("campo-destaque-obrigatorio");
           inputEl?.focus();
           break;
+        }
+
+        if (campo.tipo === "cor" && valor) {
+          const editId = isEdicao ? Number(linhaEdicao.id) : null;
+          const duplicado = listaDados.find((d) => d.id !== editId && d.cor && d.cor.toLowerCase() === valor.toLowerCase());
+          if (duplicado) {
+            erroValidacao = `A cor "${valor}" já está associada ao status "${duplicado.nome}". Escolha uma cor diferente para evitar repetição.`;
+            inputEl?.classList.add("campo-destaque-obrigatorio");
+            inputEl?.focus();
+            break;
+          }
         }
 
         if (campo.nome === "login" && !/^[a-zA-Z0-9_]+$/.test(valor)) {
