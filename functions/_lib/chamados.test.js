@@ -40,6 +40,8 @@ test("garantirColunasChamados adiciona titulo, prioridade e observacao se faltar
   assert.ok(sqlExecutados.some((s) => s.includes("ADD COLUMN titulo")));
   assert.ok(sqlExecutados.some((s) => s.includes("ADD COLUMN prioridade")));
   assert.ok(sqlExecutados.some((s) => s.includes("ADD COLUMN observacao")));
+  assert.ok(sqlExecutados.some((s) => s.includes("ALTER TABLE status ADD COLUMN cor TEXT")));
+  assert.ok(sqlExecutados.some((s) => s.includes("ALTER TABLE fluxo_templates ADD COLUMN ativo INTEGER DEFAULT 1")));
 });
 
 test("chamadoComDetalhes utiliza tabela fluxo_templates e consulta status_cor", async () => {

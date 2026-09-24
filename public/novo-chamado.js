@@ -45,7 +45,9 @@ async function iniciar(usuarioLogado) {
       api("/empresas").catch(() => []),
       api("/setores").catch(() => []),
     ]);
-    fluxos = Array.isArray(resFluxos) ? resFluxos : [];
+    fluxos = Array.isArray(resFluxos)
+      ? resFluxos.filter((f) => f.ativo !== 0 && f.ativo !== false && f.ativo !== "0")
+      : [];
     empresas = Array.isArray(resEmpresas) ? resEmpresas : [];
     setores = Array.isArray(resSetores) ? resSetores : [];
   } catch (e) {

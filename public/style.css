@@ -1210,6 +1210,18 @@ a.btn:active {
   max-height: none !important;
   min-height: 0;
 }
+.modal-cadastro--tela-cheia .modal-corpo-campos {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.modal-cadastro--tela-cheia .modal-corpo-campos .tabela-wrap {
+  flex: 1;
+  max-height: none !important;
+  min-height: 220px;
+}
 
 /* Botões do cabeçalho do modal */
 .modal-acoes-topo {

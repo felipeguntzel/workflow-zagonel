@@ -7,67 +7,72 @@ import { salvarValoresCamposChamado, listarCamposDaEtapa, validarCamposObrigator
 import { registrarAuditoria } from "../../_lib/auditoria.js";
 
 export async function onRequestGet(context) {
-  const { usuario, permissoes, erro } = await exigirPermissao(context, "chamados", "visualizar");
-  if (erro) return erro;
+  try {
+    const { usuario, permissoes, erro } = await exigirPermissao(context, "chamados", "visualizar");
+    if (erro) return erro;
 
-  await garantirColunasChamados(context.env.DB);
+    await garantirColunasChamados(context.env.DB);
 
-  const verTodos = usuario.admin === 1 || permissoes.chamados.ver_todos_setores;
-  const condicaoSetor = verTodos ? "1 = 1" : "COALESCE(e.setor_id, a.setor_destino_id) = ?";
-  const parametros = verTodos ? [] : [usuario.setor_id];
+    const verTodos = usuario.admin === 1 || permissoes.chamados.ver_todos_setores;
+    const condicaoSetor = verTodos ? "1 = 1" : "COALESCE(e.setor_id, a.setor_destino_id) = ?";
+    const parametros = verTodos ? [] : [usuario.setor_id];
 
-  const chamados = await all(
-    context.env.DB,
-    `SELECT
-       c.*,
-       COALESCE(e.setor_id, a.setor_destino_id) AS setor_id,
-       COALESCE(
-         (SELECT s2.nome
-          FROM chamados c2
-          LEFT JOIN etapas e2 ON e2.id = c2.etapa_id
-          LEFT JOIN acoes a2 ON a2.id = c2.acao_origem_id
-          LEFT JOIN setores s2 ON s2.id = COALESCE(e2.setor_id, a2.setor_destino_id)
-          WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL
-          ORDER BY c2.id DESC LIMIT 1),
-         s.nome,
-         '-'
-       ) AS setor_nome,
-       COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
-       COALESCE(
-         (SELECT COALESCE(e2.nome, a2.rotulo)
-          FROM chamados c2
-          LEFT JOIN etapas e2 ON e2.id = c2.etapa_id
-          LEFT JOIN acoes a2 ON a2.id = c2.acao_origem_id
-          WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL
-          ORDER BY c2.id DESC LIMIT 1),
-         (SELECT COALESCE(e2.nome, a2.rotulo)
-          FROM chamados c2
-          LEFT JOIN etapas e2 ON e2.id = c2.etapa_id
-          LEFT JOIN acoes a2 ON a2.id = c2.acao_origem_id
-          WHERE c2.chamado_mae_id = c.id
-          ORDER BY c2.id DESC LIMIT 1),
-         e.nome,
-         a.rotulo,
-         '-'
-       ) AS etapa_atual,
-       st.nome AS status_nome,
-       st.cor AS status_cor,
-       resp.nome AS responsavel_nome,
-       sol.nome AS solicitante_nome,
-       emp.nome AS empresa_nome
-     FROM chamados c
-     LEFT JOIN etapas e ON e.id = c.etapa_id
-     LEFT JOIN acoes a ON a.id = c.acao_origem_id
-     LEFT JOIN setores s ON s.id = COALESCE(e.setor_id, a.setor_destino_id)
-     LEFT JOIN status st ON st.id = c.status_id
-     LEFT JOIN usuarios resp ON resp.id = c.responsavel_id
-     LEFT JOIN usuarios sol ON sol.id = c.solicitante_id
-     LEFT JOIN empresas emp ON emp.id = c.empresa_id
-     WHERE ${condicaoSetor}
-     ORDER BY c.prazo`,
-    ...parametros
-  );
-  return json(chamados);
+    const chamados = await all(
+      context.env.DB,
+      `SELECT
+         c.*,
+         COALESCE(e.setor_id, a.setor_destino_id) AS setor_id,
+         COALESCE(
+           (SELECT s2.nome
+            FROM chamados c2
+            LEFT JOIN etapas e2 ON e2.id = c2.etapa_id
+            LEFT JOIN acoes a2 ON a2.id = c2.acao_origem_id
+            LEFT JOIN setores s2 ON s2.id = COALESCE(e2.setor_id, a2.setor_destino_id)
+            WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL
+            ORDER BY c2.id DESC LIMIT 1),
+           s.nome,
+           '-'
+         ) AS setor_nome,
+         COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
+         COALESCE(
+           (SELECT COALESCE(e2.nome, a2.rotulo)
+            FROM chamados c2
+            LEFT JOIN etapas e2 ON e2.id = c2.etapa_id
+            LEFT JOIN acoes a2 ON a2.id = c2.acao_origem_id
+            WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL
+            ORDER BY c2.id DESC LIMIT 1),
+           (SELECT COALESCE(e2.nome, a2.rotulo)
+            FROM chamados c2
+            LEFT JOIN etapas e2 ON e2.id = c2.etapa_id
+            LEFT JOIN acoes a2 ON a2.id = c2.acao_origem_id
+            WHERE c2.chamado_mae_id = c.id
+            ORDER BY c2.id DESC LIMIT 1),
+           e.nome,
+           a.rotulo,
+           '-'
+         ) AS etapa_atual,
+         st.nome AS status_nome,
+         st.cor AS status_cor,
+         resp.nome AS responsavel_nome,
+         sol.nome AS solicitante_nome,
+         emp.nome AS empresa_nome
+       FROM chamados c
+       LEFT JOIN etapas e ON e.id = c.etapa_id
+       LEFT JOIN acoes a ON a.id = c.acao_origem_id
+       LEFT JOIN setores s ON s.id = COALESCE(e.setor_id, a.setor_destino_id)
+       LEFT JOIN status st ON st.id = c.status_id
+       LEFT JOIN usuarios resp ON resp.id = c.responsavel_id
+       LEFT JOIN usuarios sol ON sol.id = c.solicitante_id
+       LEFT JOIN empresas emp ON emp.id = c.empresa_id
+       WHERE ${condicaoSetor}
+       ORDER BY c.prazo`,
+      ...parametros
+    );
+    return json(chamados);
+  } catch (err) {
+    console.error("[GET /api/chamados] Falha:", err);
+    return error(err.message || "Erro interno do servidor.", 500);
+  }
 }
 
 export async function onRequestPost(context) {
@@ -82,6 +87,19 @@ export async function onRequestPost(context) {
     if (!body.fluxo_template_id || !body.etapa_inicial_id) {
       return error("Campos obrigatórios: fluxo_template_id, etapa_inicial_id", 400);
     }
+
+    const fluxoTemplate = await first(
+      context.env.DB,
+      "SELECT * FROM fluxo_templates WHERE id = ?",
+      body.fluxo_template_id
+    );
+    if (!fluxoTemplate) {
+      return error("Fluxo não encontrado.", 404);
+    }
+    if (fluxoTemplate.ativo === 0) {
+      return error("Este fluxo de processo está inativo e não pode receber novos chamados.", 400);
+    }
+
     const etapa = await carregarEtapaComAcoes(context.env.DB, body.etapa_inicial_id);
     if (!etapa || Number(etapa.fluxo_template_id) !== Number(body.fluxo_template_id)) {
       return error("etapa_inicial_id inválido para este fluxo_template_id", 400);
