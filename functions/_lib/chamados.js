@@ -73,6 +73,23 @@ export async function garantirColunasChamados(db) {
     if (!nomes.has("empresa_id")) {
       await run(db, "ALTER TABLE chamados ADD COLUMN empresa_id INTEGER REFERENCES empresas(id)").catch(() => {});
     }
+
+    const statusCols = await all(db, "PRAGMA table_info(status)").catch(() => []);
+    const statusNomes = new Set(statusCols.map((c) => c.name.toLowerCase()));
+    if (!statusNomes.has("cor")) {
+      await run(db, "ALTER TABLE status ADD COLUMN cor TEXT").catch(() => {});
+    }
+
+    const fluxoCols = await all(db, "PRAGMA table_info(fluxo_templates)").catch(() => []);
+    const fluxoNomes = new Set(fluxoCols.map((c) => c.name.toLowerCase()));
+    if (!fluxoNomes.has("descricao")) {
+      await run(db, "ALTER TABLE fluxo_templates ADD COLUMN descricao TEXT").catch(() => {});
+    }
+    if (!fluxoNomes.has("ativo")) {
+      await run(db, "ALTER TABLE fluxo_templates ADD COLUMN ativo INTEGER DEFAULT 1").catch(() => {});
+      await run(db, "UPDATE fluxo_templates SET ativo = 1 WHERE ativo IS NULL").catch(() => {});
+    }
+
     colunasChamadosGarantidas = true;
   } catch (err) {
     console.error("Aviso ao garantir colunas de chamados:", err);

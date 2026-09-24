@@ -12,11 +12,16 @@ import { exigirPermissao } from "../../_lib/permissoes.js";
 import { registrarAuditoria } from "../../_lib/auditoria.js";
 
 export async function onRequestGet(context) {
-  const { erro } = await exigirPermissao(context, "chamados", "visualizar");
-  if (erro) return erro;
-  const chamado = await chamadoComDetalhes(context.env.DB, context.params.id);
-  if (!chamado) return error("Não encontrado", 404);
-  return json(chamado);
+  try {
+    const { erro } = await exigirPermissao(context, "chamados", "visualizar");
+    if (erro) return erro;
+    const chamado = await chamadoComDetalhes(context.env.DB, context.params.id);
+    if (!chamado) return error("Não encontrado", 404);
+    return json(chamado);
+  } catch (err) {
+    console.error(`[GET /api/chamados/${context.params.id}] Falha:`, err);
+    return error(err.message || "Erro interno do servidor.", 500);
+  }
 }
 
 export async function onRequestPut(context) {

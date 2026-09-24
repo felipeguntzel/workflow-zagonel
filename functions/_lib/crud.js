@@ -25,6 +25,12 @@ export async function assegurarEsquemaTabela(db, table) {
     } catch (_) {
       // Ignora se coluna já existir ou falhar
     }
+    try {
+      await run(db, "ALTER TABLE fluxo_templates ADD COLUMN ativo INTEGER DEFAULT 1");
+      await run(db, "UPDATE fluxo_templates SET ativo = 1 WHERE ativo IS NULL");
+    } catch (_) {
+      // Ignora se coluna já existir ou falhar
+    }
   }
   if (table === "empresas") {
     try {
@@ -57,6 +63,13 @@ export function crudHandlers(table, { required = [], optional = [], tela } = {})
     const { usuario, erro } = await exigirPermissao(context, tela, "inserir");
     if (erro) return erro;
     const body = await context.request.json();
+    if (table === "fluxo_templates") {
+      if (body.ativo === undefined) {
+        body.ativo = 1;
+      } else {
+        body.ativo = body.ativo === false || body.ativo === 0 || body.ativo === "0" ? 0 : 1;
+      }
+    }
     const faltando = campoObrigatorioFaltando(body, required, { exigirPresente: true });
     if (faltando) return error(`Campo obrigatório: ${faltando}`);
     await assegurarEsquemaTabela(context.env.DB, table);
@@ -129,6 +142,9 @@ export function crudItemHandlers(table, { required = [], optional = [], tela } =
     const { usuario, erro } = await exigirPermissao(context, tela, "editar");
     if (erro) return erro;
     const body = await context.request.json();
+    if (table === "fluxo_templates" && body.ativo !== undefined) {
+      body.ativo = body.ativo === false || body.ativo === 0 || body.ativo === "0" ? 0 : 1;
+    }
     const faltando = campoObrigatorioFaltando(body, required);
     if (faltando) return error(`Campo obrigatório: ${faltando}`);
     await assegurarEsquemaTabela(context.env.DB, table);

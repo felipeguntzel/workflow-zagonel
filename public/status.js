@@ -22,6 +22,7 @@ export function inicializar() {
       { nome: "nome", label: "Nome", obrigatorio: true },
       { nome: "cor", label: "Cor do Status", tipo: "cor", obrigatorio: false },
     ],
+  });
 }
 
 inicializar();

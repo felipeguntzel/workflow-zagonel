@@ -24,10 +24,10 @@ test("campoObrigatorioFaltando with exigirPresente flags an absent field too (PO
 
 test("assegurarEsquemaTabela executa ALTER TABLE para fluxo_templates de forma segura", async () => {
   const { assegurarEsquemaTabela } = await import("./crud.js");
-  let comandoSql = "";
+  const comandosSql = [];
   const mockDb = {
     prepare(sql) {
-      comandoSql = sql;
+      comandosSql.push(sql);
       return {
         bind() { return this; },
         async run() { return { meta: {} }; }
@@ -35,7 +35,8 @@ test("assegurarEsquemaTabela executa ALTER TABLE para fluxo_templates de forma s
     }
   };
   await assegurarEsquemaTabela(mockDb, "fluxo_templates");
-  assert.ok(comandoSql.includes("ALTER TABLE fluxo_templates ADD COLUMN descricao TEXT"));
+  assert.ok(comandosSql.some((c) => c.includes("ALTER TABLE fluxo_templates ADD COLUMN descricao TEXT")));
+  assert.ok(comandosSql.some((c) => c.includes("ALTER TABLE fluxo_templates ADD COLUMN ativo INTEGER DEFAULT 1")));
 });
 
 test("assegurarEsquemaTabela executa ALTER TABLE para empresas codigo de forma segura", async () => {

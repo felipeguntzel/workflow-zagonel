@@ -66,6 +66,7 @@ async function iniciar(container, mensagemErro) {
           <tr>
             <th class="th-ordenavel th-id" data-campo="id">#ID <span class="ordem-indicador" data-indicador="id">▲</span></th>
             <th class="th-ordenavel" data-campo="nome" style="min-width: 25ch;">Nome do Fluxo / Descrição <span class="ordem-indicador" data-indicador="nome"></span></th>
+            <th style="width: 100px; text-align: center;">Status</th>
             <th>Gerenciar Processo</th>
             <th class="td-acoes">Ações</th>
           </tr>
@@ -126,7 +127,7 @@ async function iniciar(container, mensagemErro) {
     if (dados.length === 0) {
       tbodyFluxos.innerHTML = `
         <tr>
-          <td colspan="4" style="text-align: center; padding: 2.5rem 1.5rem; color: var(--cor-texto-secundario); line-height: 1.6;">
+          <td colspan="5" style="text-align: center; padding: 2.5rem 1.5rem; color: var(--cor-texto-secundario); line-height: 1.6;">
             Nenhum fluxo de processo cadastrado.<br>
             Clique no botão <strong>+ Novo Fluxo</strong> acima para criar o primeiro.
           </td>
@@ -139,6 +140,7 @@ async function iniciar(container, mensagemErro) {
     tbodyFluxos.innerHTML = dados
       .map((f) => {
         const isAtivo = f.id === fluxoAtivoId;
+        const fluxoAtivo = f.ativo !== 0 && f.ativo !== false && f.ativo !== "0";
         return `
           <tr data-id="${f.id}" class="${isAtivo ? "linha-fluxo-selecionada" : ""}" style="${isAtivo ? "background: rgba(47, 111, 79, 0.05); font-weight: 500;" : ""}">
             <td class="td-id">#${f.id}</td>
@@ -148,6 +150,11 @@ async function iniciar(container, mensagemErro) {
                 ${isAtivo ? `<span class="badge-status" style="margin-left: 0.5rem; background: var(--cor-primaria); color: #ffffff; font-size: 0.72rem; padding: 0.2rem 0.45rem;">Configurando</span>` : ""}
               </div>
               ${f.descricao ? `<div style="font-size: 0.83rem; color: var(--cor-texto-secundario); font-weight: normal; margin-top: 0.2rem; line-height: 1.35;">${escaparHtml(f.descricao)}</div>` : ""}
+            </td>
+            <td style="text-align: center;">
+              <span class="badge-status" style="background: ${fluxoAtivo ? "var(--cor-fundo-elevado)" : "rgba(100, 116, 139, 0.12)"}; color: ${fluxoAtivo ? "var(--cor-primaria)" : "var(--cor-texto-secundario)"}; border: 1px solid ${fluxoAtivo ? "var(--cor-primaria-suave)" : "var(--cor-borda)"}; font-weight: 600; font-size: 0.78rem;">
+                ${fluxoAtivo ? "Ativo" : "Inativo"}
+              </span>
             </td>
             <td>
               <button type="button" class="btn btn-pequeno ${isAtivo ? "btn-primario" : "btn-secundario"} btn-selecionar-fluxo" data-id="${f.id}" title="${isAtivo ? "Clique para recolher o painel de etapas" : "Clique para expandir e configurar as etapas"}">
@@ -551,6 +558,7 @@ async function iniciar(container, mensagemErro) {
   function abrirModalFluxo(fluxoEdicao = null) {
     const isEdicao = !!fluxoEdicao;
     const titulo = isEdicao ? `Editar Fluxo: ${fluxoEdicao.nome}` : "Novo Fluxo de Processo";
+    const fluxoAtivo = !isEdicao || (fluxoEdicao.ativo !== 0 && fluxoEdicao.ativo !== false && fluxoEdicao.ativo !== "0");
 
     modalFluxoWrap.innerHTML = `
       <div class="modal-fundo modal-fundo--cadastro" role="dialog" aria-modal="true">
@@ -595,6 +603,21 @@ async function iniciar(container, mensagemErro) {
               </p>
             </div>
 
+            <div class="campo-grupo" style="margin-top: 0.75rem; margin-bottom: 0.5rem;">
+              <label class="label-checkbox-linha" style="cursor: pointer; font-size: 0.9rem; font-weight: 600;">
+                <input
+                  type="checkbox"
+                  id="input-fluxo-ativo"
+                  name="ativo"
+                  ${fluxoAtivo ? "checked" : ""}
+                >
+                Fluxo ativo (disponível para abertura de chamados)
+              </label>
+              <p class="campo-ajuda" style="margin-left: 1.5rem; margin-top: 0.2rem;">
+                Se desmarcado, este fluxo ficará inativo e não aparecerá como opção ao abrir novos chamados.
+              </p>
+            </div>
+
             <div class="modal-rodape">
               <button type="button" class="btn btn-secundario btn-cancelar-modal">Cancelar</button>
               <button type="submit" class="btn btn-primario">${isEdicao ? "Salvar alterações" : "Salvar e Configurar Fluxo"}</button>
@@ -619,6 +642,7 @@ async function iniciar(container, mensagemErro) {
 
     const inpNome = form.elements.nome;
     const inpDescricao = form.elements.descricao;
+    const inpAtivo = form.elements.ativo;
     setTimeout(() => inpNome?.focus(), 60);
 
     form.addEventListener("submit", async (e) => {
@@ -633,9 +657,10 @@ async function iniciar(container, mensagemErro) {
       }
 
       const descricao = inpDescricao ? inpDescricao.value.trim() : "";
+      const ativo = inpAtivo ? (inpAtivo.checked ? 1 : 0) : 1;
 
       try {
-        const corpo = { nome, descricao: descricao || null };
+        const corpo = { nome, descricao: descricao || null, ativo };
         if (isEdicao) {
           await api(`/fluxos/${fluxoEdicao.id}`, { method: "PUT", body: corpo });
         } else {
@@ -960,21 +985,27 @@ async function iniciar(container, mensagemErro) {
     function renderConteudoCampos() {
       modalCamposWrap.innerHTML = `
         <div class="modal-fundo modal-fundo--cadastro" role="dialog" aria-modal="true">
-          <div class="modal-cadastro modal-cadastro--complexo" style="max-width: 820px;">
+          <div class="modal-cadastro modal-cadastro--complexo modal-cadastro--tela-cheia" style="display: flex; flex-direction: column;">
             <div class="modal-cabecalho">
               <h3>Campos Personalizados da Etapa: ${escaparHtml(etapa.nome)}</h3>
-              <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
+              <div class="modal-acoes-topo">
+                <button type="button" class="modal-btn-topo btn-toggle-tela-cheia" title="Alternar entre tela cheia e janela padrão" aria-label="Alternar tela cheia">
+                  <span class="icone-tela-cheia">🗗</span>
+                  <span class="texto-tela-cheia">Janela normal</span>
+                </button>
+                <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
+              </div>
             </div>
-            <div style="padding: 1.25rem;">
+            <div class="modal-corpo-campos" style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 1.25rem;">
               <p class="erro-modal-campos erro" hidden></p>
               
               <p style="font-size: 0.88rem; color: var(--cor-texto-secundario); margin: 0 0 1rem;">
                 Configure os campos específicos que o solicitante ou operador deve preencher nesta etapa (ex: Código do produto de referência, Data estimada de faturamento, Detalhamento técnico, etc.).
               </p>
 
-              <div style="margin-bottom: 1.25rem;">
+              <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; margin-bottom: 1.25rem;">
                 <h4 style="margin: 0 0 0.5rem; font-size: 0.95rem;">Campos configurados</h4>
-                <div class="tabela-wrap" style="max-height: 280px; overflow-y: auto;">
+                <div class="tabela-wrap" style="flex: 1; min-height: 200px; overflow-y: auto;">
                   <table style="margin: 0;">
                     <thead>
                       <tr>
@@ -1151,6 +1182,23 @@ async function iniciar(container, mensagemErro) {
           // Evita fechamento acidental ao clicar fora
         }
       });
+
+      const btnTelaCheia = fundo.querySelector(".btn-toggle-tela-cheia");
+      if (btnTelaCheia) {
+        btnTelaCheia.addEventListener("click", () => {
+          const modalCadastro = fundo.querySelector(".modal-cadastro");
+          const telaCheiaAtiva = modalCadastro.classList.toggle("modal-cadastro--tela-cheia");
+          const icone = btnTelaCheia.querySelector(".icone-tela-cheia");
+          const texto = btnTelaCheia.querySelector(".texto-tela-cheia");
+          if (telaCheiaAtiva) {
+            if (icone) icone.textContent = "🗗";
+            if (texto) texto.textContent = "Janela normal";
+          } else {
+            if (icone) icone.textContent = "⛶";
+            if (texto) texto.textContent = "Tela cheia";
+          }
+        });
+      }
 
       const formCampo = fundo.querySelector(".form-novo-campo");
       if (formCampo) {
