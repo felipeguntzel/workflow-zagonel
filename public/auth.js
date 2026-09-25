@@ -7,10 +7,18 @@ export function getUsuarioLogado() {
 
 export function setUsuarioLogado(usuario) {
   localStorage.setItem(CHAVE, JSON.stringify(usuario));
+  try {
+    sessionStorage.removeItem("workflow_ignorar_versao_sessao");
+    sessionStorage.setItem("workflow_verificar_versao_pos_login", "1");
+  } catch (_) {}
 }
 
 export function logout() {
   localStorage.removeItem(CHAVE);
+  try {
+    sessionStorage.removeItem("workflow_ignorar_versao_sessao");
+    sessionStorage.removeItem("workflow_verificar_versao_pos_login");
+  } catch (_) {}
 }
 
 export function exigirLogin() {
