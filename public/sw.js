@@ -1,5 +1,5 @@
 // Service Worker do WorkFlow Zagonel (PWA)
-const CACHE_NAME = "workflow-zagonel-v1";
+const CACHE_NAME = "workflow-zagonel-v2.1.0";
 const ARQUIVOS_ESTATICOS = [
   "/",
   "/index.html",
@@ -14,20 +14,21 @@ const ARQUIVOS_ESTATICOS = [
   "/auth.js",
   "/ui.js",
   "/modal.js",
+  "/versao.json",
 ];
 
-// Instalacao do Service Worker e pre-cache dos recursos estaticos essenciais
+// Instalação do Service Worker e pré-cache dos recursos estáticos essenciais
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
       .then((cache) => cache.addAll(ARQUIVOS_ESTATICOS))
       .then(() => self.skipWaiting())
-      .catch((err) => console.warn("Falha no pre-cache do Service Worker:", err))
+      .catch((err) => console.warn("Falha no pré-cache do Service Worker:", err))
   );
 });
 
-// Ativacao e remocao de caches obsoletos de versoes anteriores
+// Ativação e remoção imediata de caches obsoletos de versões anteriores
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
@@ -36,6 +37,7 @@ self.addEventListener("activate", (event) => {
         Promise.all(
           chaves.map((chave) => {
             if (chave !== CACHE_NAME) {
+              console.log("Removendo cache antigo do Service Worker:", chave);
               return caches.delete(chave);
             }
           })
@@ -45,22 +47,55 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Interceptacao de requisicoes com estrategias diferenciadas
+// Mensagens do cliente para controle de versão e cache
+self.addEventListener("message", (event) => {
+  if (event.data) {
+    if (event.data.type === "SKIP_WAITING") {
+      self.skipWaiting();
+    }
+    if (event.data.type === "LIMPAR_CACHE") {
+      caches.keys().then((chaves) => {
+        return Promise.all(chaves.map((c) => caches.delete(c)));
+      });
+    }
+  }
+});
+
+// Interceptação de requisições com estratégias de alta performance
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Requisicoes nao GET ou chamadas para as APIs nao sao armazenadas em cache
+  // Requisições não GET ou chamadas para as APIs não são armazenadas no Service Worker
   if (req.method !== "GET" || url.pathname.startsWith("/api/")) {
     return;
   }
 
-  // Recursos estaticos: Stale-While-Revalidate (responde rapido e atualiza em segundo plano)
+  // Scripts e Folhas de Estilo (.js, .css): Network-First com fallback rápido para Cache
+  // Garante que novas versões do código sejam carregadas imediatamente, sem prender o usuário em cache velho
+  if (url.pathname.endsWith(".js") || url.pathname.endsWith(".css")) {
+    event.respondWith(
+      fetch(req)
+        .then((respostaRede) => {
+          if (respostaRede && respostaRede.status === 200) {
+            const clone = respostaRede.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return respostaRede;
+        })
+        .catch(async () => {
+          const respostaCache = await caches.match(req);
+          return respostaCache || new Response("", { status: 408 });
+        })
+    );
+    return;
+  }
+
+  // Recursos estáticos multimídia (imagens, ícones, manifest): Stale-While-Revalidate
   if (
-    url.pathname.endsWith(".css") ||
-    url.pathname.endsWith(".js") ||
     url.pathname.endsWith(".svg") ||
     url.pathname.endsWith(".png") ||
+    url.pathname.endsWith(".ico") ||
     url.pathname.endsWith(".webmanifest")
   ) {
     event.respondWith(
@@ -80,7 +115,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navegacao em paginas HTML: Network First com fallback para cache
+  // Navegação em páginas HTML: Network First com fallback para cache
   if (req.mode === "navigate" || req.headers.get("accept")?.includes("text/html")) {
     event.respondWith(
       fetch(req)

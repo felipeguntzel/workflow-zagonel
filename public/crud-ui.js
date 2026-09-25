@@ -229,6 +229,9 @@ export async function renderCrud(container, config) {
       <div class="pagina-cabecalho__acoes" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
         <input type="search" class="input-busca-crud" placeholder="Buscar..." aria-label="Filtrar registros" style="padding: 0.4rem 0.75rem; font-size: 0.88rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda); background: var(--cor-fundo); color: var(--cor-texto); min-width: 180px;">
         ${permissao.inserir ? `<button type="button" class="btn btn-primario btn-adicionar-registro">+ Adicionar</button>` : ""}
+        <button type="button" class="btn btn-secundario btn-pequeno btn-config-colunas" data-tabela="crud_${String(config.tela || config.endpoint || "tabela").replace(/[^a-zA-Z0-9_]/g, "_")}" title="Personalizar exibição de colunas da tabela">
+          <span>⚙️</span> Colunas
+        </button>
       </div>
     </div>
     <div class="container-banner-prerequisito"></div>

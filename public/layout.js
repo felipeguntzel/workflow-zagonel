@@ -1,6 +1,7 @@
 import { logout, permissaoDaTela } from "./auth.js";
 import { escaparHtml } from "./ui.js";
 import { api } from "./api.js";
+import { forcarAtualizacaoApp, inicializarMonitoramentoVersao, VERSAO_CLIENTE } from "./versao.js";
 
 const CHAVE_COLAPSADA = "workflow_zagonel_sidebar_colapsada";
 
@@ -315,6 +316,9 @@ function construirSidebar(usuario, modalBusca) {
         <a href="#" id="link-preferencias" class="sidebar__usuario-item">
           <span>Preferências</span>
         </a>
+        <a href="#" id="link-atualizar-app" class="sidebar__usuario-item" title="Forçar limpeza de cache e recarregar a versão mais recente">
+          <span>🔄 Atualizar app (v${VERSAO_CLIENTE})</span>
+        </a>
         <hr class="sidebar__usuario-divisor">
         <a href="#" id="link-logout-todos" class="sidebar__usuario-item sidebar__usuario-item--alerta">
           <span>Sair de todos os dispositivos</span>
@@ -406,13 +410,21 @@ function construirSidebar(usuario, modalBusca) {
     }
   });
 
-  sidebar.querySelector("#link-preferencias").addEventListener("click", async (ev) => {
+    sidebar.querySelector("#link-preferencias").addEventListener("click", async (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
     menuUsuario.hidden = true;
     btnUsuario.setAttribute("aria-expanded", "false");
     const { abrirPainelPreferencias } = await import("./preferencias.js");
     abrirPainelPreferencias();
+  });
+
+  sidebar.querySelector("#link-atualizar-app")?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    menuUsuario.hidden = true;
+    btnUsuario.setAttribute("aria-expanded", "false");
+    forcarAtualizacaoApp();
   });
 
   return sidebar;
@@ -762,6 +774,9 @@ export function aplicarLayout(usuario) {
       setTimeout(preCarregarTodasTelas, 300);
     }
   }
+
+  // Monitora novas versões disponíveis do sistema
+  inicializarMonitoramentoVersao();
 }
 
 // Registro e gerenciamento PWA
@@ -777,9 +792,15 @@ if (typeof window !== "undefined") {
 export function registrarServiceWorker() {
   if (typeof window !== "undefined" && "serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
-        console.warn("Falha ao registrar Service Worker:", err);
-      });
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => {
+          // Checa atualização no servidor ativamente
+          reg.update().catch(() => {});
+        })
+        .catch((err) => {
+          console.warn("Falha ao registrar Service Worker:", err);
+        });
     });
   }
 }
