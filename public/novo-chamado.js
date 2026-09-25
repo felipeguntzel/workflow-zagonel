@@ -700,6 +700,12 @@ async function iniciar(usuarioLogado) {
                 texto: "Anexo da solicitação inicial",
               },
             });
+          } catch (errAnexo) {
+            console.error("Erro ao enviar anexo da solicitação:", errAnexo);
+          }
+        }
+      }
+
       // Após gerar o chamado, continua na tela de chamados em aberto (não abre a tela de trabalho do chamado)
       sessionStorage.setItem(
         "workflow_toast_sucesso",
