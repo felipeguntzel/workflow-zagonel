@@ -26,8 +26,10 @@
 .painel-consultas-grupo-select {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .painel-consultas-grupo-select label {
   font-weight: 700;
@@ -39,9 +41,9 @@
   margin: 0;
 }
 .painel-consultas-grupo-select select {
-  min-width: 200px;
-  max-width: 300px;
-  padding: 0.45rem 0.65rem;
+  width: 220px;
+  max-width: 280px;
+  padding: 0.42rem 0.65rem;
   font-size: 0.86rem;
 }
 #btn-toggle-filtros {
@@ -53,6 +55,7 @@
   gap: 0.35rem;
   border-radius: 6px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .painel-consultas-grupo-botoes {
   display: flex;
@@ -166,12 +169,12 @@
         <optgroup label="Minhas consultas (privadas)" id="optgroup-minhas-consultas"></optgroup>
         <optgroup label="Consultas públicas" id="optgroup-consultas-publicas"></optgroup>
       </select>
-      <span id="badge-consulta-ativa-padrao" class="badge-padrao-consulta" style="display: none;" title="Esta é sua consulta padrão ao abrir a tela">
-        ⭐ Padrão
-      </span>
       <button type="button" id="btn-toggle-filtros" class="btn btn-secundario" title="Expandir ou recolher filtros detalhados">
         <span id="icone-toggle-filtros">▾</span> <span id="texto-toggle-filtros">Filtros</span>
       </button>
+      <span id="badge-consulta-ativa-padrao" class="badge-padrao-consulta" style="display: none;" title="Esta é sua consulta padrão ao abrir a tela">
+        ⭐ Padrão
+      </span>
     </div>
 
     <div class="painel-consultas-grupo-botoes">
