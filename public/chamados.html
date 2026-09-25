@@ -12,15 +12,63 @@
 <style>
 .painel-consultas-barra {
   display: flex;
-  gap: 0.75rem;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  padding: 0.75rem 1rem;
+  row-gap: 1rem;
+  column-gap: 1.5rem;
+  padding: 0.85rem 1.25rem;
   background: var(--cor-fundo-elevado);
   border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.painel-consultas-barra__seletor {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+.painel-consultas-barra__seletor label {
+  font-weight: 700;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.painel-consultas-barra__seletor select {
+  min-width: 250px;
+  max-width: 340px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.88rem;
+}
+.painel-consultas-barra__acoes {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.painel-consultas-barra__acoes .btn {
+  font-size: 0.85rem;
+  padding: 0.5rem 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   border-radius: 6px;
-  margin-bottom: 0.75rem;
+  white-space: nowrap;
+}
+.divisor-barra-consultas {
+  width: 1px;
+  height: 22px;
+  background: var(--cor-borda);
+  margin: 0 0.25rem;
+}
+@media (max-width: 768px) {
+  .divisor-barra-consultas {
+    display: none;
+  }
 }
 .painel-filtros-grid {
   display: grid;
@@ -108,11 +156,11 @@
 
   <!-- Barra de Consultas Personalizadas -->
   <div class="painel-consultas-barra">
-    <div style="display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap; flex: 1; min-width: 280px;">
-      <label for="seletor-consulta-personalizada" style="font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 0.35rem; white-space: nowrap;">
+    <div class="painel-consultas-barra__seletor">
+      <label for="seletor-consulta-personalizada">
         <span>🔍</span> Consulta:
       </label>
-      <select id="seletor-consulta-personalizada" class="select-padrao" style="min-width: 240px; max-width: 360px; padding: 0.45rem 0.65rem; font-size: 0.88rem;">
+      <select id="seletor-consulta-personalizada" class="select-padrao">
         <option value="">-- Padrão (Sem filtro salvo) --</option>
         <optgroup label="Minhas consultas (privadas)" id="optgroup-minhas-consultas"></optgroup>
         <optgroup label="Consultas públicas" id="optgroup-consultas-publicas"></optgroup>
@@ -122,20 +170,23 @@
       </span>
     </div>
 
-    <div style="display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap;">
-      <button type="button" id="btn-toggle-filtros" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem; display: inline-flex; align-items: center; gap: 0.35rem;" title="Expandir ou recolher filtros detalhados">
+    <div class="painel-consultas-barra__acoes">
+      <button type="button" id="btn-toggle-filtros" class="btn btn-secundario" title="Expandir ou recolher filtros detalhados">
         <span id="icone-toggle-filtros">▾</span> <span id="texto-toggle-filtros">Filtros</span>
       </button>
-      <button type="button" id="btn-salvar-consulta-abrir" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Salvar os filtros atuais como nova consulta">
+
+      <div class="divisor-barra-consultas" aria-hidden="true"></div>
+
+      <button type="button" id="btn-salvar-consulta-abrir" class="btn btn-secundario" title="Salvar os filtros atuais como nova consulta">
         <span>💾</span> Salvar consulta
       </button>
-      <button type="button" id="btn-editar-consulta" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Editar consulta selecionada (somente quem criou pode editar)" disabled>
+      <button type="button" id="btn-editar-consulta" class="btn btn-secundario" title="Editar consulta selecionada (somente quem criou pode editar)" disabled>
         <span>✏️</span> Editar
       </button>
-      <button type="button" id="btn-definir-padrao-consulta" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Definir a consulta selecionada como sua padrão ao abrir a tela" disabled>
+      <button type="button" id="btn-definir-padrao-consulta" class="btn btn-secundario" title="Definir a consulta selecionada como sua padrão ao abrir a tela" disabled>
         <span>⭐</span> Tornar padrão
       </button>
-      <button type="button" id="btn-excluir-consulta" class="btn btn-secundario btn-perigo-outline" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Excluir consulta selecionada (somente quem criou pode excluir)" disabled>
+      <button type="button" id="btn-excluir-consulta" class="btn btn-secundario btn-perigo-outline" title="Excluir consulta selecionada (somente quem criou pode excluir)" disabled>
         <span>🗑️</span> Excluir
       </button>
     </div>
