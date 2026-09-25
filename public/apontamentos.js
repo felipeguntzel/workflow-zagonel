@@ -11,7 +11,11 @@ let dadosResposta = null;
 let listaSetores = [];
 let listaUsuarios = [];
 
+let inicializado = false;
 export function inicializar() {
+  if (inicializado) return;
+  inicializado = true;
+
   usuarioAtual = exigirLogin();
   if (!usuarioAtual) return;
 
@@ -29,7 +33,7 @@ export function inicializar() {
 
   const tabela = document.getElementById("tabela-apontamentos");
   if (tabela) {
-    tornarTabelaReordenavel(tabela, "apontamentos");
+    tornarTabelaReordenavel(tabela, "apontamentos", usuarioAtual?.id);
   }
 
   configurarEventos();
@@ -548,10 +552,11 @@ function exportarCsv() {
   exportarParaCsv(nomeArquivo, cabecalhos, linhas);
 }
 
-// Inicializa automaticamente ao carregar
+// Inicializa automaticamente se carregado diretamente
 if (typeof document !== "undefined") {
-  document.addEventListener("DOMContentLoaded", inicializar);
-  if (document.readyState === "complete" || document.readyState === "interactive") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", inicializar);
+  } else {
     inicializar();
   }
 }

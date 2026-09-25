@@ -12,6 +12,12 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
   const tbody = tabela.querySelector("tbody");
   if (!theadTr) return;
 
+  // Evita re-inicialização com duplicação de eventos na mesma tabela
+  if (tabela.dataset.tabelaReordenavelIniciada === chaveIdentificador) {
+    return;
+  }
+  tabela.dataset.tabelaReordenavelIniciada = chaveIdentificador;
+
   const uid = usuarioId || obterUsuarioIdAtual() || "anon";
   const storageKeyOrdem = `workflow_cols_${uid}_${chaveIdentificador}`;
   const storageKeyVis = `workflow_cols_vis_${uid}_${chaveIdentificador}`;
@@ -227,14 +233,18 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     // 1. Procura se já existe botão específico ou padrão na página
     const btnPreExistente =
       document.getElementById(`btn-colunas-${chaveIdentificador}`) ||
-      document.getElementById("btn-colunas-chamados") ||
-      document.querySelector(`.btn-config-colunas[data-tabela="${chaveIdentificador}"]`);
+      document.querySelector(`.btn-config-colunas[data-tabela="${chaveIdentificador}"]`) ||
+      (chaveIdentificador === "chamados" ? document.getElementById("btn-colunas-chamados") : null);
 
     if (btnPreExistente) {
-      btnPreExistente.addEventListener("click", (e) => {
-        e.stopPropagation();
-        abrirPopoverColunas(btnPreExistente);
-      });
+      if (!btnPreExistente.dataset.colunasVinculado) {
+        btnPreExistente.dataset.colunasVinculado = "1";
+        btnPreExistente.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          abrirPopoverColunas(btnPreExistente);
+        });
+      }
       return;
     }
 
@@ -270,7 +280,9 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
       wrap.parentElement.insertBefore(barraControle, wrap);
     }
 
+    btn.dataset.colunasVinculado = "1";
     btn.addEventListener("click", (e) => {
+      e.preventDefault();
       e.stopPropagation();
       abrirPopoverColunas(btn);
     });
@@ -290,8 +302,21 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     popover.className = "popover-config-colunas";
 
     const ret = btnElemento.getBoundingClientRect();
-    popover.style.top = `${ret.bottom + window.scrollY + 6}px`;
-    popover.style.left = `${Math.max(10, ret.right - 260)}px`;
+    const larguraPopover = 260;
+    let left = ret.right - larguraPopover;
+    if (left < 10) left = 10;
+    if (left + larguraPopover > window.innerWidth - 10) {
+      left = Math.max(10, window.innerWidth - larguraPopover - 10);
+    }
+
+    // Como o popover tem position: fixed, usamos coordenadas de viewport sem somar scrollY
+    const topo = ret.bottom + 6;
+    if (topo + 320 > window.innerHeight && ret.top > 320) {
+      popover.style.top = `${Math.max(10, ret.top - 330)}px`;
+    } else {
+      popover.style.top = `${Math.max(10, topo)}px`;
+    }
+    popover.style.left = `${left}px`;
 
     let htmlItens = `
       <div class="popover-config-colunas__topo">
@@ -324,6 +349,15 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     popover.innerHTML = htmlItens;
     document.body.appendChild(popover);
 
+    let fecharAoClicarFora = null;
+    const fecharPopover = () => {
+      popover.remove();
+      if (fecharAoClicarFora) {
+        document.removeEventListener("click", fecharAoClicarFora);
+        fecharAoClicarFora = null;
+      }
+    };
+
     // Eventos dentro do popover
     popover.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
       cb.addEventListener("change", () => {
@@ -335,9 +369,7 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
       });
     });
 
-    popover.querySelector(".btn-fechar-popover-colunas")?.addEventListener("click", () => {
-      popover.remove();
-    });
+    popover.querySelector(".btn-fechar-popover-colunas")?.addEventListener("click", fecharPopover);
 
     popover.querySelector(".btn-exibir-todas")?.addEventListener("click", () => {
       const mapa = {};
@@ -358,14 +390,13 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
       aplicarVisibilidadeSalva();
       atualizarDraggable();
       sincronizarTbodyComThead();
-      popover.remove();
+      fecharPopover();
     });
 
-    // Fechar ao clicar fora
-    const fecharAoClicarFora = (ev) => {
-      if (!popover.contains(ev.target) && ev.target !== btnElemento) {
-        popover.remove();
-        document.removeEventListener("click", fecharAoClicarFora);
+    // Fechar ao clicar fora, respeitando o próprio botão (e seus filhos)
+    fecharAoClicarFora = (ev) => {
+      if (!popover.contains(ev.target) && !btnElemento.contains(ev.target)) {
+        fecharPopover();
       }
     };
     setTimeout(() => {
