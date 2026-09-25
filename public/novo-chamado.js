@@ -48,7 +48,14 @@ async function iniciar(usuarioLogado) {
     fluxos = Array.isArray(resFluxos)
       ? resFluxos.filter((f) => f.ativo !== 0 && f.ativo !== false && f.ativo !== "0")
       : [];
-    empresas = Array.isArray(resEmpresas) ? resEmpresas : [];
+    empresas = Array.isArray(resEmpresas)
+      ? resEmpresas.filter(
+          (emp, idx, arr) =>
+            arr.findIndex(
+              (e) => String(e.nome || "").trim().toLowerCase() === String(emp.nome || "").trim().toLowerCase()
+            ) === idx
+        )
+      : [];
     setores = Array.isArray(resSetores) ? resSetores : [];
   } catch (e) {
     fluxos = [];

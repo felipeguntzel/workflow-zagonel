@@ -45,7 +45,23 @@ async function carregarEmpresas() {
 
   try {
     const empresas = await api("/empresas");
-    for (const emp of empresas) {
+    selectEmpresa.innerHTML = '<option value="">Todas as empresas</option>';
+
+    // Blindagem de deduplicação por nome e por id
+    const empresasUnicas = [];
+    const nomesVistos = new Set();
+    const idsVistos = new Set();
+
+    for (const emp of (empresas || [])) {
+      const nomeChave = String(emp.nome || "").trim().toLowerCase();
+      if (!nomesVistos.has(nomeChave) && !idsVistos.has(emp.id)) {
+        nomesVistos.add(nomeChave);
+        idsVistos.add(emp.id);
+        empresasUnicas.push(emp);
+      }
+    }
+
+    for (const emp of empresasUnicas) {
       const opt = document.createElement("option");
       opt.value = emp.id;
       opt.textContent = emp.nome;
