@@ -38,6 +38,7 @@ export async function inicializar() {
   try {
     await carregarChamados();
     await carregarConsultasSalvas(true);
+    atualizarEstadoBotaoFiltros();
   } catch (e) {
     mostrarErro(document.getElementById("mensagem-erro"), e);
   }
@@ -370,6 +371,23 @@ function configurarEventosFiltros() {
     });
   });
 
+  const btnToggleFiltros = document.getElementById("btn-toggle-filtros");
+  const painelFiltros = document.getElementById("painel-filtros-chamados");
+
+  if (btnToggleFiltros && painelFiltros) {
+    btnToggleFiltros.addEventListener("click", () => {
+      const estaOculto = painelFiltros.hidden || painelFiltros.style.display === "none";
+      if (estaOculto) {
+        painelFiltros.hidden = false;
+        painelFiltros.style.display = "block";
+      } else {
+        painelFiltros.hidden = true;
+        painelFiltros.style.display = "none";
+      }
+      atualizarEstadoBotaoFiltros();
+    });
+  }
+
   const btnLimpar = document.getElementById("btn-limpar-filtros-chamados");
   if (btnLimpar) {
     btnLimpar.addEventListener("click", () => {
@@ -386,6 +404,7 @@ function configurarEventosFiltros() {
       const seletorConsulta = document.getElementById("seletor-consulta-personalizada");
       if (seletorConsulta) seletorConsulta.value = "";
       atualizarEstadoBotoesConsulta(null);
+      atualizarEstadoBotaoFiltros();
 
       paginaAtual = 1;
       renderizarTabela();
@@ -529,6 +548,41 @@ function obterFiltrosAtuais() {
   };
 }
 
+function atualizarEstadoBotaoFiltros() {
+  const painelFiltros = document.getElementById("painel-filtros-chamados");
+  const iconeToggle = document.getElementById("icone-toggle-filtros");
+  const textoToggle = document.getElementById("texto-toggle-filtros");
+  const btnToggleFiltros = document.getElementById("btn-toggle-filtros");
+
+  const estaAberto = painelFiltros && !painelFiltros.hidden && painelFiltros.style.display !== "none";
+  if (iconeToggle) iconeToggle.textContent = estaAberto ? "▴" : "▾";
+
+  const filtros = obterFiltrosAtuais();
+  const temFiltroAtivo = Boolean(
+    filtros.busca ||
+    (filtros.status && filtros.status !== "ativos") ||
+    filtros.empresa ||
+    filtros.responsavel ||
+    filtros.setor
+  );
+
+  if (textoToggle) {
+    if (estaAberto) {
+      textoToggle.textContent = "Ocultar filtros";
+    } else {
+      textoToggle.textContent = temFiltroAtivo ? "Filtros (ativos)" : "Filtros";
+    }
+  }
+
+  if (btnToggleFiltros) {
+    if (estaAberto) {
+      btnToggleFiltros.classList.add("btn-ativo");
+    } else {
+      btnToggleFiltros.classList.remove("btn-ativo");
+    }
+  }
+}
+
 function aplicarFiltros(filtros) {
   if (!filtros) return;
   const inputBusca = document.getElementById("filtro-busca-chamados");
@@ -543,6 +597,7 @@ function aplicarFiltros(filtros) {
   if (selectResp) selectResp.value = filtros.responsavel || "";
   if (selectSetor) selectSetor.value = filtros.setor || "";
 
+  atualizarEstadoBotaoFiltros();
   paginaAtual = 1;
   renderizarTabela();
 }

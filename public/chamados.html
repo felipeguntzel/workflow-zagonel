@@ -28,6 +28,16 @@
   gap: 0.85rem;
   align-items: flex-end;
 }
+@media (min-width: 1200px) {
+  .painel-filtros-grid {
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+  }
+}
+.btn-ativo {
+  background: var(--cor-primaria) !important;
+  color: var(--cor-primaria-texto) !important;
+  border-color: var(--cor-primaria) !important;
+}
 .btn-apontar-tabela {
   padding: 0.35rem 0.65rem;
   font-size: 0.8rem;
@@ -113,6 +123,9 @@
     </div>
 
     <div style="display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap;">
+      <button type="button" id="btn-toggle-filtros" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem; display: inline-flex; align-items: center; gap: 0.35rem;" title="Expandir ou recolher filtros detalhados">
+        <span id="icone-toggle-filtros">▾</span> <span id="texto-toggle-filtros">Filtros</span>
+      </button>
       <button type="button" id="btn-salvar-consulta-abrir" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Salvar os filtros atuais como consulta">
         <span>💾</span> Salvar consulta
       </button>
@@ -125,8 +138,8 @@
     </div>
   </div>
 
-  <!-- Painel de Filtros Superiores Expandido -->
-  <div class="painel" style="margin-bottom: 1.25rem;">
+  <!-- Painel de Filtros Superiores (Inicia recolhido por padrão) -->
+  <div id="painel-filtros-chamados" class="painel" style="margin-bottom: 1.25rem; display: none;" hidden>
     <div class="painel-filtros-grid">
       <div style="grid-column: span 2; min-width: 240px;">
         <label for="filtro-busca-chamados" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Buscar chamados</label>
