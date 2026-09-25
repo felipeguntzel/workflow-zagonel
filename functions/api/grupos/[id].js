@@ -1,10 +1,8 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { exigirAdmin, ensureColunaGrupoPai } from "../../_lib/permissoes.js";
+import { exigirAdmin, ensureColunaGrupoPai, ensureTabelaPermissoes, TELAS } from "../../_lib/permissoes.js";
 import { validarDependenciasExclusao, atualizarContadorId } from "../../_lib/dependencias.js";
 import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
-
-const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados", "dashboards", "apontamentos"];
 
 async function carregarMatrizPermissoes(db, grupoId) {
   const linhas = await all(db, "SELECT * FROM permissoes WHERE grupo_id = ?", grupoId);
@@ -31,6 +29,7 @@ export async function onRequestGet(context) {
   const { erro } = await exigirAdmin(context);
   if (erro) return erro;
   await ensureColunaGrupoPai(context.env.DB);
+  await ensureTabelaPermissoes(context.env.DB);
   const grupo = await first(context.env.DB, "SELECT * FROM grupos_permissao WHERE id = ?", context.params.id);
   if (!grupo) return error("Não encontrado", 404);
   grupo.permissoes = await carregarMatrizPermissoes(context.env.DB, grupo.id);
@@ -38,87 +37,94 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPut(context) {
-  const { usuario, erro } = await exigirAdmin(context);
-  if (erro) return erro;
-  await ensureColunaGrupoPai(context.env.DB);
-  const body = await context.request.json();
-  if (!body.nome) return error("Campo obrigatório: nome");
+  try {
+    const { usuario, erro } = await exigirAdmin(context);
+    if (erro) return erro;
+    await ensureColunaGrupoPai(context.env.DB);
+    await ensureTabelaPermissoes(context.env.DB);
+    const body = await context.request.json();
+    if (!body.nome) return error("Campo obrigatório: nome");
 
-  const antes = await first(context.env.DB, "SELECT * FROM grupos_permissao WHERE id = ?", context.params.id);
-  if (!antes) return error("Não encontrado", 404);
+    const antes = await first(context.env.DB, "SELECT * FROM grupos_permissao WHERE id = ?", context.params.id);
+    if (!antes) return error("Não encontrado", 404);
 
-  const grupoPaiId = body.grupo_pai_id !== undefined ? (body.grupo_pai_id ? Number(body.grupo_pai_id) : null) : antes.grupo_pai_id;
-  if (grupoPaiId === Number(context.params.id)) {
-    return error("Um grupo não pode ser pai de si mesmo.");
-  }
+    const grupoPaiId = body.grupo_pai_id !== undefined ? (body.grupo_pai_id ? Number(body.grupo_pai_id) : null) : antes.grupo_pai_id;
+    if (grupoPaiId === Number(context.params.id)) {
+      return error("Um grupo não pode ser pai de si mesmo.");
+    }
 
-  await run(
-    context.env.DB,
-    "UPDATE grupos_permissao SET nome = ?, grupo_pai_id = ? WHERE id = ?",
-    body.nome.trim(),
-    grupoPaiId,
-    context.params.id
-  );
+    await run(
+      context.env.DB,
+      "UPDATE grupos_permissao SET nome = ?, grupo_pai_id = ? WHERE id = ?",
+      body.nome.trim(),
+      grupoPaiId,
+      context.params.id
+    );
 
-  if (body.permissoes) {
-    for (const tela of TELAS) {
-      const valores = body.permissoes[tela] ?? {};
-      const existente = await first(
-        context.env.DB,
-        "SELECT id FROM permissoes WHERE grupo_id = ? AND tela = ?",
-        context.params.id,
-        tela
-      );
-      const visualizar = valores.visualizar ? 1 : 0;
-      const inserir = valores.inserir ? 1 : 0;
-      const editar = valores.editar ? 1 : 0;
-      const excluir = valores.excluir ? 1 : 0;
-      const verTodosSetores = tela === "chamados" && valores.ver_todos_setores ? 1 : 0;
-      if (existente) {
-        await run(
+    if (body.permissoes) {
+      const telasUnicas = Array.from(new Set([...TELAS, ...Object.keys(body.permissoes)]));
+      for (const tela of telasUnicas) {
+        const valores = body.permissoes[tela] ?? {};
+        const existente = await first(
           context.env.DB,
-          `UPDATE permissoes SET visualizar = ?, inserir = ?, editar = ?, excluir = ?, ver_todos_setores = ?
-           WHERE id = ?`,
-          visualizar,
-          inserir,
-          editar,
-          excluir,
-          verTodosSetores,
-          existente.id
-        );
-      } else {
-        await run(
-          context.env.DB,
-          `INSERT INTO permissoes (grupo_id, tela, visualizar, inserir, editar, excluir, ver_todos_setores)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          "SELECT id FROM permissoes WHERE grupo_id = ? AND tela = ?",
           context.params.id,
-          tela,
-          visualizar,
-          inserir,
-          editar,
-          excluir,
-          verTodosSetores
+          tela
         );
+        const visualizar = valores.visualizar ? 1 : 0;
+        const inserir = valores.inserir ? 1 : 0;
+        const editar = valores.editar ? 1 : 0;
+        const excluir = valores.excluir ? 1 : 0;
+        const verTodosSetores = tela === "chamados" && valores.ver_todos_setores ? 1 : 0;
+        if (existente) {
+          await run(
+            context.env.DB,
+            `UPDATE permissoes SET visualizar = ?, inserir = ?, editar = ?, excluir = ?, ver_todos_setores = ?
+             WHERE id = ?`,
+            visualizar,
+            inserir,
+            editar,
+            excluir,
+            verTodosSetores,
+            existente.id
+          );
+        } else {
+          await run(
+            context.env.DB,
+            `INSERT INTO permissoes (grupo_id, tela, visualizar, inserir, editar, excluir, ver_todos_setores)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            context.params.id,
+            tela,
+            visualizar,
+            inserir,
+            editar,
+            excluir,
+            verTodosSetores
+          );
+        }
       }
     }
+
+    const atualizado = await first(context.env.DB, "SELECT * FROM grupos_permissao WHERE id = ?", context.params.id);
+    if (!atualizado) return error("Não encontrado", 404);
+    atualizado.permissoes = await carregarMatrizPermissoes(context.env.DB, atualizado.id);
+
+    await registrarAuditoriaSistema(context.env.DB, {
+      usuario_id: usuario?.id,
+      usuario_nome: usuario?.nome || "Sistema",
+      entidade: "grupos_permissao",
+      entidade_id: Number(context.params.id),
+      acao: "edicao",
+      detalhes: `Grupo de permissão atualizado: ${atualizado.nome}`,
+      dados_antigos: antes,
+      dados_novos: atualizado,
+    });
+
+    return json(atualizado);
+  } catch (err) {
+    console.error("Erro ao salvar grupo de permissao:", err);
+    return error(err.message || "Erro ao salvar alterações no grupo de permissão", 500);
   }
-
-  const atualizado = await first(context.env.DB, "SELECT * FROM grupos_permissao WHERE id = ?", context.params.id);
-  if (!atualizado) return error("Não encontrado", 404);
-  atualizado.permissoes = await carregarMatrizPermissoes(context.env.DB, atualizado.id);
-
-  await registrarAuditoriaSistema(context.env.DB, {
-    usuario_id: usuario?.id,
-    usuario_nome: usuario?.nome || "Sistema",
-    entidade: "grupos_permissao",
-    entidade_id: Number(context.params.id),
-    acao: "edicao",
-    detalhes: `Grupo de permissão atualizado: ${atualizado.nome}`,
-    dados_antigos: antes,
-    dados_novos: atualizado,
-  });
-
-  return json(atualizado);
 }
 
 export async function onRequestDelete(context) {

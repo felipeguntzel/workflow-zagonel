@@ -3,7 +3,7 @@ import { verificarToken } from "./sessao.js";
 import { error } from "./http.js";
 import { ensureColunasUsuario } from "./usuarios.js";
 
-const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados", "dashboards", "apontamentos"];
+export const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados", "dashboards", "apontamentos"];
 
 let colunaGrupoPaiGarantida = false;
 export async function ensureColunaGrupoPai(db) {
@@ -12,6 +12,40 @@ export async function ensureColunaGrupoPai(db) {
     await run(db, "ALTER TABLE grupos_permissao ADD COLUMN grupo_pai_id INTEGER REFERENCES grupos_permissao(id)");
   } catch (_) {}
   colunaGrupoPaiGarantida = true;
+}
+
+let tabelaPermissoesGarantida = false;
+export async function ensureTabelaPermissoes(db) {
+  if (tabelaPermissoesGarantida) return;
+  try {
+    const tableInfo = await first(db, "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'permissoes'");
+    if (tableInfo && tableInfo.sql && tableInfo.sql.includes("CHECK")) {
+      await run(db, "PRAGMA foreign_keys = OFF").catch(() => {});
+      await run(db, `
+        CREATE TABLE IF NOT EXISTS permissoes_nova (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          grupo_id INTEGER NOT NULL REFERENCES grupos_permissao(id),
+          tela TEXT NOT NULL,
+          visualizar INTEGER NOT NULL DEFAULT 0,
+          inserir INTEGER NOT NULL DEFAULT 0,
+          editar INTEGER NOT NULL DEFAULT 0,
+          excluir INTEGER NOT NULL DEFAULT 0,
+          ver_todos_setores INTEGER NOT NULL DEFAULT 0
+        )
+      `).catch(() => {});
+      await run(db, `
+        INSERT OR IGNORE INTO permissoes_nova (id, grupo_id, tela, visualizar, inserir, editar, excluir, ver_todos_setores)
+        SELECT id, grupo_id, tela, visualizar, inserir, editar, excluir, ver_todos_setores FROM permissoes
+      `).catch(() => {});
+      await run(db, "DROP TABLE permissoes").catch(() => {});
+      await run(db, "ALTER TABLE permissoes_nova RENAME TO permissoes").catch(() => {});
+      await run(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_permissoes_grupo_tela ON permissoes(grupo_id, tela)").catch(() => {});
+      await run(db, "PRAGMA foreign_keys = ON").catch(() => {});
+    }
+  } catch (e) {
+    console.error("Falha ao migrar permissoes sem CHECK:", e);
+  }
+  tabelaPermissoesGarantida = true;
 }
 
 export async function obterUsuarioDaRequisicao(request, env) {
