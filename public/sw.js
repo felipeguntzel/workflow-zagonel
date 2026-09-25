@@ -1,5 +1,5 @@
 // Service Worker do WorkFlow Zagonel (PWA)
-const CACHE_NAME = "workflow-zagonel-v2.1.0";
+const CACHE_NAME = "workflow-zagonel-v2.1.1";
 const ARQUIVOS_ESTATICOS = [
   "/",
   "/index.html",

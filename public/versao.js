@@ -1,7 +1,7 @@
 /**
  * Gerenciamento de Versão, Atualização Automática e Limpeza de Cache (WorkFlow Zagonel)
  */
-export const VERSAO_CLIENTE = "2.1.0";
+export const VERSAO_CLIENTE = "2.1.1";
 const CHAVE_VERSAO_LOCAL = "workflow_versao_instalada";
 
 let modalAtualizacaoAberto = false;
