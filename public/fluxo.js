@@ -522,7 +522,7 @@ async function iniciar(container, mensagemErro) {
       btn.addEventListener("click", () => {
         const id = Number(btn.dataset.id);
         const etapa = etapasAtuais.find((x) => x.id === id);
-        if (etapa) abrirModalAcoes(etapa);
+        if (etapa) abrirModalAcoes(etapa, etapasAtuais);
       });
     });
 
@@ -817,7 +817,7 @@ async function iniciar(container, mensagemErro) {
   }
 
   // Modal para gerenciar Ações de uma etapa de aprovação
-  async function abrirModalAcoes(etapa) {
+  async function abrirModalAcoes(etapa, etapasAtuais = []) {
     let detalhesEtapa = null;
     try {
       detalhesEtapa = await api(`/etapas/${etapa.id}`);
@@ -837,7 +837,7 @@ async function iniciar(container, mensagemErro) {
 
       modalAcaoWrap.innerHTML = `
         <div class="modal-fundo modal-fundo--cadastro" role="dialog" aria-modal="true">
-          <div class="modal-cadastro modal-cadastro--complexo" style="max-width: 840px;">
+          <div class="modal-cadastro modal-cadastro--complexo" style="max-width: 880px;">
             <div class="modal-cabecalho">
               <h3>Ações de Aprovação: ${escaparHtml(etapa.nome)}</h3>
               <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
@@ -853,6 +853,7 @@ async function iniciar(container, mensagemErro) {
                       <tr>
                         <th>Rótulo da Ação</th>
                         <th>Setor Destino</th>
+                        <th>Etapa Destino</th>
                         <th>Vínculo</th>
                         <th>Pré-requisito</th>
                         <th>Observação / Instrução</th>
@@ -862,13 +863,20 @@ async function iniciar(container, mensagemErro) {
                     <tbody>
                       ${
                         acoes.length === 0
-                          ? `<tr><td colspan="6" style="text-align: center; padding: 1.25rem; color: var(--cor-texto-secundario);">Nenhuma ação cadastrada nesta etapa de aprovação.</td></tr>`
+                          ? `<tr><td colspan="7" style="text-align: center; padding: 1.25rem; color: var(--cor-texto-secundario);">Nenhuma ação cadastrada nesta etapa de aprovação.</td></tr>`
                           : acoes
                               .map(
                                 (a) => `
                         <tr style="${acaoEditandoId === a.id ? "background: rgba(47, 111, 79, 0.08); font-weight: 600;" : ""}">
                           <td style="font-weight: 600;">${escaparHtml(a.rotulo)}</td>
                           <td>${escaparHtml(setores.find((s) => s.id === a.setor_destino_id)?.nome ?? a.setor_destino_id)}</td>
+                          <td>${
+                            a.etapa_destino_id
+                              ? `<span class="badge badge--sucesso">${escaparHtml(
+                                  etapasAtuais.find((e) => e.id === a.etapa_destino_id)?.nome ?? `#${a.etapa_destino_id}`
+                                )}</span>`
+                              : '<span style="color: var(--cor-texto-secundario); font-size: 0.85rem;">-</span>'
+                          }</td>
                           <td>${a.vinculo === "mae" ? "Chamado mãe" : "Chamado pai"}</td>
                           <td>${a.prerequisito_acao_id ? escaparHtml(acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-") : "-"}</td>
                           <td style="font-size: 0.82rem; color: var(--cor-texto-secundario); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escaparHtml(a.observacao || "")}">
@@ -906,6 +914,23 @@ async function iniciar(container, mensagemErro) {
                     <div>
                       <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Rótulo da Ação *</label>
                       <input type="text" name="rotulo" required placeholder="Ex: Liberar Ferramentaria" value="${escaparHtml(acaoEmEdicao?.rotulo || "")}" style="width: 100%;">
+                    </div>
+                    <div>
+                      <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Etapa Destino (Opcional)</label>
+                      <select name="etapa_destino_id" style="width: 100%;">
+                        <option value="">-- Nenhuma (Execução direta do setor) --</option>
+                        ${etapasAtuais
+                          .filter((e) => e.id !== etapa.id)
+                          .map(
+                            (e) =>
+                              `<option value="${e.id}" ${
+                                acaoEmEdicao && acaoEmEdicao.etapa_destino_id === e.id ? "selected" : ""
+                              } data-setor-id="${e.setor_id || ""}">${escaparHtml(e.nome)} (${escaparHtml(
+                                e.setor_nome || setores.find((s) => s.id === e.setor_id)?.nome || "Setor"
+                              )})</option>`
+                          )
+                          .join("")}
+                      </select>
                     </div>
                     <div>
                       <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Setor destino *</label>
@@ -948,7 +973,7 @@ async function iniciar(container, mensagemErro) {
                       </button>
                     </div>
                     <div style="grid-column: 1 / -1; font-size: 0.8rem; color: var(--cor-texto-secundario); background: var(--cor-fundo); padding: 0.4rem 0.65rem; border-radius: 4px; border: 1px solid var(--cor-borda);">
-                      💡 <strong>Dica de Vínculo:</strong> <em>Mãe</em> atrela o subchamado à raiz do processo (mesmo nível das demandas gerais). <em>Pai</em> atrela como subtarefa dependente exclusivamente desta etapa de aprovação.
+                      💡 <strong>Dica:</strong> Se selecionar uma <em>Etapa Destino</em>, o subchamado herdará todas as configurações dessa etapa (podendo inclusive gerar seus próprios subchamados encadeados). <em>Mãe</em> atrela o subchamado à raiz do processo; <em>Pai</em> atrela como subtarefa da etapa atual.
                     </div>
                   </form>
                 </div>
@@ -974,6 +999,17 @@ async function iniciar(container, mensagemErro) {
           renderConteudoAcoes();
         })
       );
+
+      // Sincronizar setor ao selecionar etapa destino
+      const selectEtapaDestino = fundo.querySelector("select[name='etapa_destino_id']");
+      const selectSetorDestino = fundo.querySelector("select[name='setor_destino_id']");
+      selectEtapaDestino?.addEventListener("change", () => {
+        const opt = selectEtapaDestino.selectedOptions[0];
+        const setorId = opt?.dataset.setorId;
+        if (setorId && selectSetorDestino) {
+          selectSetorDestino.value = setorId;
+        }
+      });
 
       // Editar ação
       fundo.querySelectorAll(".btn-editar-acao").forEach((btn) => {
@@ -1014,6 +1050,9 @@ async function iniciar(container, mensagemErro) {
         const corpo = {
           rotulo: formAcao.elements.rotulo.value.trim(),
           setor_destino_id: Number(formAcao.elements.setor_destino_id.value),
+          etapa_destino_id: formAcao.elements.etapa_destino_id.value
+            ? Number(formAcao.elements.etapa_destino_id.value)
+            : null,
           vinculo: formAcao.elements.vinculo.value,
           prerequisito_acao_id: formAcao.elements.prerequisito_acao_id.value
             ? Number(formAcao.elements.prerequisito_acao_id.value)

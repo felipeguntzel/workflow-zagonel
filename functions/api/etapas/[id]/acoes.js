@@ -13,14 +13,15 @@ export async function onRequestPost(context) {
   await assegurarColunaObservacaoAcoes(context.env.DB);
   const resultado = await run(
     context.env.DB,
-    `INSERT INTO acoes (etapa_id, rotulo, setor_destino_id, vinculo, prerequisito_acao_id, observacao)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO acoes (etapa_id, rotulo, setor_destino_id, vinculo, prerequisito_acao_id, observacao, etapa_destino_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     context.params.id,
     body.rotulo,
     body.setor_destino_id,
     body.vinculo,
     body.prerequisito_acao_id ?? null,
-    body.observacao ? String(body.observacao).trim() : null
+    body.observacao ? String(body.observacao).trim() : null,
+    body.etapa_destino_id ? Number(body.etapa_destino_id) : null
   );
   const nova = await first(context.env.DB, "SELECT * FROM acoes WHERE id = ?", resultado.meta.last_row_id);
   return json(nova, 201);
