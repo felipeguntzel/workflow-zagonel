@@ -185,9 +185,26 @@ export async function onRequestPost(context) {
   }
 
   // Verifica se o chamado existe
-  const chamado = await first(db, "SELECT id, chamado_mae_id, titulo FROM chamados WHERE id = ?", body.chamado_id);
+  const chamado = await first(db, "SELECT id, chamado_mae_id, titulo, responsavel_id FROM chamados WHERE id = ?", body.chamado_id);
   if (!chamado) {
     return error("Chamado não encontrado", 404);
+  }
+
+  // Validação: só permitir apontamento se o usuário for administrador ou for o usuário responsável pela atividade
+  const ehAdmin = usuario.admin === 1 || usuario.admin === true;
+  let ehResponsavel = chamado.responsavel_id === usuario.id;
+  if (!ehResponsavel) {
+    const subAtivo = await first(
+      db,
+      "SELECT id FROM chamados WHERE chamado_mae_id = ? AND data_finalizacao IS NULL AND responsavel_id = ? LIMIT 1",
+      chamado.id,
+      usuario.id
+    );
+    if (subAtivo) ehResponsavel = true;
+  }
+
+  if (!ehAdmin && !ehResponsavel) {
+    return error("Apenas o responsável pela atividade ou um administrador pode realizar apontamentos.", 403);
   }
 
   const usuarioIdAlvo = usuario.admin && body.usuario_id ? Number(body.usuario_id) : usuario.id;

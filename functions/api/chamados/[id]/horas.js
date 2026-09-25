@@ -64,6 +64,26 @@ export async function onRequestPost(context) {
     return error("A quantidade de horas deve ser maior que zero.");
   }
 
+  const chamado = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
+  if (!chamado) return error("Chamado não encontrado", 404);
+
+  // Validação: só permitir apontamento se o usuário for administrador ou for o usuário responsável pela atividade
+  const ehAdmin = usuario.admin === 1 || usuario.admin === true;
+  let ehResponsavel = chamado.responsavel_id === usuario.id;
+  if (!ehResponsavel) {
+    const subAtivo = await first(
+      context.env.DB,
+      "SELECT id FROM chamados WHERE chamado_mae_id = ? AND data_finalizacao IS NULL AND responsavel_id = ? LIMIT 1",
+      chamado.id,
+      usuario.id
+    );
+    if (subAtivo) ehResponsavel = true;
+  }
+
+  if (!ehAdmin && !ehResponsavel) {
+    return error("Apenas o responsável pela atividade ou um administrador pode realizar apontamentos.", 403);
+  }
+
   await run(
     context.env.DB,
     `INSERT INTO apontamentos_horas (chamado_id, usuario_id, data, horas, observacao)
@@ -75,7 +95,6 @@ export async function onRequestPost(context) {
     body.observacao ?? null
   );
 
-  const chamado = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
   const raizId = chamado ? (chamado.chamado_mae_id || chamado.id) : context.params.id;
   await registrarAuditoria(context.env.DB, {
     chamado_mae_id: raizId,

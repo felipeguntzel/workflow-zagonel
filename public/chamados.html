@@ -9,6 +9,64 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="componentes.css">
+<style>
+.painel-consultas-barra {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  background: var(--cor-fundo-elevado);
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+}
+.painel-filtros-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  align-items: flex-end;
+}
+.btn-apontar-tabela {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+.badge-padrao-consulta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  font-weight: 600;
+}
+:root[data-tema="escuro"] .badge-padrao-consulta {
+  background: #064e3b;
+  color: #a7f3d0;
+  border-color: #059669;
+}
+.mensagem-sucesso {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 4px;
+  font-size: 0.88rem;
+}
+:root[data-tema="escuro"] .mensagem-sucesso {
+  background: #064e3b;
+  color: #a7f3d0;
+  border-color: #059669;
+}
+</style>
 <script>
 (function () {
   try {
@@ -38,13 +96,43 @@
     </div>
   </div>
 
+  <!-- Barra de Consultas Personalizadas -->
+  <div class="painel-consultas-barra">
+    <div style="display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap; flex: 1; min-width: 280px;">
+      <label for="seletor-consulta-personalizada" style="font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 0.35rem; white-space: nowrap;">
+        <span>🔍</span> Consulta:
+      </label>
+      <select id="seletor-consulta-personalizada" class="select-padrao" style="min-width: 240px; max-width: 360px; padding: 0.45rem 0.65rem; font-size: 0.88rem;">
+        <option value="">-- Padrão (Sem filtro salvo) --</option>
+        <optgroup label="Minhas consultas (privadas)" id="optgroup-minhas-consultas"></optgroup>
+        <optgroup label="Consultas públicas" id="optgroup-consultas-publicas"></optgroup>
+      </select>
+      <span id="badge-consulta-ativa-padrao" class="badge-padrao-consulta" style="display: none;" title="Esta é sua consulta padrão ao abrir a tela">
+        ⭐ Consulta Padrão
+      </span>
+    </div>
+
+    <div style="display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap;">
+      <button type="button" id="btn-salvar-consulta-abrir" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Salvar os filtros atuais como consulta">
+        <span>💾</span> Salvar consulta
+      </button>
+      <button type="button" id="btn-definir-padrao-consulta" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Definir a consulta selecionada como sua padrão ao abrir a tela" disabled>
+        <span>⭐</span> Tornar padrão
+      </button>
+      <button type="button" id="btn-excluir-consulta" class="btn btn-secundario btn-perigo-outline" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Excluir consulta selecionada" disabled>
+        <span>🗑️</span> Excluir
+      </button>
+    </div>
+  </div>
+
+  <!-- Painel de Filtros Superiores Expandido -->
   <div class="painel" style="margin-bottom: 1.25rem;">
-    <div style="display: flex; gap: 0.85rem; flex-wrap: wrap; align-items: flex-end;">
-      <div style="flex: 2; min-width: 240px;">
+    <div class="painel-filtros-grid">
+      <div style="grid-column: span 2; min-width: 240px;">
         <label for="filtro-busca-chamados" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Buscar chamados</label>
-        <input type="text" id="filtro-busca-chamados" placeholder="Buscar por ID, título, responsável..." class="input-padrao" style="padding: 0.55rem 0.75rem;">
+        <input type="text" id="filtro-busca-chamados" placeholder="Buscar por ID, título, responsável, solicitante..." class="input-padrao" style="width: 100%; padding: 0.55rem 0.75rem;">
       </div>
-      <div style="flex: 1; min-width: 180px;">
+      <div>
         <label for="filtro-status-chamados" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Status</label>
         <select id="filtro-status-chamados" class="select-padrao" style="width: 100%; padding: 0.55rem 0.75rem;">
           <option value="">Todos os status</option>
@@ -53,12 +141,34 @@
         </select>
       </div>
       <div>
-        <button type="button" id="btn-limpar-filtros-chamados" class="btn btn-secundario">Limpar</button>
+        <label for="filtro-empresa-chamados" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Empresa</label>
+        <select id="filtro-empresa-chamados" class="select-padrao" style="width: 100%; padding: 0.55rem 0.75rem;">
+          <option value="">Todas as empresas</option>
+        </select>
+      </div>
+      <div>
+        <label for="filtro-responsavel-chamados" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Responsável</label>
+        <select id="filtro-responsavel-chamados" class="select-padrao" style="width: 100%; padding: 0.55rem 0.75rem;">
+          <option value="">Todos os responsáveis</option>
+          <option value="__meus__">Atribuídos a mim</option>
+          <option value="__sem_responsavel__">Não atribuído</option>
+        </select>
+      </div>
+      <div>
+        <label for="filtro-setor-chamados" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Setor</label>
+        <select id="filtro-setor-chamados" class="select-padrao" style="width: 100%; padding: 0.55rem 0.75rem;">
+          <option value="">Todos os setores</option>
+        </select>
+      </div>
+      <div>
+        <button type="button" id="btn-limpar-filtros-chamados" class="btn btn-secundario" style="width: 100%; padding: 0.55rem 0.75rem;">Limpar</button>
       </div>
     </div>
   </div>
 
   <p id="mensagem-erro" class="erro" hidden></p>
+  <div id="toast-chamados" class="toast-status-rapido" style="margin-bottom: 0.85rem;" hidden></div>
+
   <div class="tabela-wrap">
     <table>
       <thead>
@@ -67,18 +177,106 @@
           <th class="th-ordenavel" data-col="titulo" style="min-width:20ch">Chamado <span class="ordem-indicador" id="ordem-titulo"></span></th>
           <th class="th-ordenavel" data-col="etapa_atual">Etapa Atual <span class="ordem-indicador" id="ordem-etapa_atual"></span></th>
           <th class="th-ordenavel" data-col="status_etapa_nome">Status Etapa <span class="ordem-indicador" id="ordem-status_etapa_nome"></span></th>
+          <th class="th-ordenavel" data-col="responsavel_nome">Responsável <span class="ordem-indicador" id="ordem-responsavel_nome"></span></th>
           <th class="th-ordenavel" data-col="solicitante_nome">Solicitante <span class="ordem-indicador" id="ordem-solicitante_nome"></span></th>
           <th class="th-ordenavel" data-col="setor_nome">Setor <span class="ordem-indicador" id="ordem-setor_nome"></span></th>
           <th class="th-ordenavel" data-col="empresa_nome">Empresa <span class="ordem-indicador" id="ordem-empresa_nome"></span></th>
           <th class="th-ordenavel" data-col="status_geral_texto">Status Geral <span class="ordem-indicador" id="ordem-status_geral_texto"></span></th>
           <th class="th-ordenavel" data-col="prazo">Prazo <span class="ordem-indicador" id="ordem-prazo"></span></th>
           <th class="th-ordenavel" data-col="situacao">Situação <span class="ordem-indicador" id="ordem-situacao"></span></th>
+          <th class="th-fixo" data-col="acoes" style="text-align:center; min-width: 90px;">Ações</th>
         </tr>
       </thead>
       <tbody id="tabela-chamados"></tbody>
     </table>
   </div>
   <div id="paginacao-chamados-wrap"></div>
+
+  <!-- Modal de Apontamento Rápido de Horas -->
+  <div id="modal-apontamento-rapido" class="modal-fundo" hidden style="display: none;">
+    <div class="modal-cadastro" role="dialog" style="max-width: 480px;">
+      <div class="modal-cabecalho">
+        <h3 id="modal-apontamento-titulo" style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.4rem;">
+          <span>⏱️</span> Apontar Horas
+        </h3>
+        <button type="button" class="modal-fechar" id="btn-fechar-modal-apontar">✕</button>
+      </div>
+
+      <form id="form-apontamento-rapido" style="display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem;">
+        <p id="msg-erro-apontamento-rapido" class="erro" hidden></p>
+        <p id="msg-sucesso-apontamento-rapido" class="mensagem-sucesso" hidden></p>
+
+        <div style="background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 6px; padding: 0.65rem 0.85rem;">
+          <div style="font-size: 0.78rem; text-transform: uppercase; font-weight: 700; color: var(--cor-texto-secundario);">Chamado</div>
+          <div id="apontamento-chamado-info" style="font-weight: 700; font-size: 0.95rem; color: var(--cor-primaria); margin-top: 0.15rem;"></div>
+        </div>
+
+        <input type="hidden" id="apontamento-rapido-chamado-id">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+          <div class="campo-grupo" style="margin: 0;">
+            <label class="campo-rotulo" for="apontamento-rapido-data">Data <span style="color: #dc2626;">*</span></label>
+            <input type="date" id="apontamento-rapido-data" required class="input-padrao">
+          </div>
+          <div class="campo-grupo" style="margin: 0;">
+            <label class="campo-rotulo" for="apontamento-rapido-horas">Horas trabalhadas <span style="color: #dc2626;">*</span></label>
+            <input type="number" step="0.25" min="0.25" id="apontamento-rapido-horas" required placeholder="Ex: 1.5" class="input-padrao">
+          </div>
+        </div>
+
+        <div class="campo-grupo" style="margin: 0;">
+          <label class="campo-rotulo" for="apontamento-rapido-obs">Observação / Atividade</label>
+          <textarea id="apontamento-rapido-obs" rows="3" class="input-padrao" placeholder="Descreva o que foi desenvolvido nesta atividade..."></textarea>
+        </div>
+
+        <div class="modal-rodape" style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; padding-top: 0.85rem; border-top: 1px solid var(--cor-borda);">
+          <button type="button" class="btn btn-secundario" id="btn-cancelar-apontamento-rapido">Cancelar</button>
+          <button type="submit" class="btn btn-primario" id="btn-salvar-apontamento-rapido">Lançar horas</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Salvar Consulta Personalizada -->
+  <div id="modal-salvar-consulta" class="modal-fundo" hidden style="display: none;">
+    <div class="modal-cadastro" role="dialog" style="max-width: 480px;">
+      <div class="modal-cabecalho">
+        <h3 id="modal-consulta-titulo" style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.4rem;">
+          <span>💾</span> Salvar Consulta Personalizada
+        </h3>
+        <button type="button" class="modal-fechar" id="btn-fechar-modal-consulta">✕</button>
+      </div>
+
+      <form id="form-salvar-consulta" style="display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem;">
+        <p id="msg-erro-modal-consulta" class="erro" hidden></p>
+
+        <div class="campo-grupo" style="margin: 0;">
+          <label class="campo-rotulo" for="consulta-nome">Nome da consulta <span style="color: #dc2626;">*</span></label>
+          <input type="text" id="consulta-nome" required placeholder="Ex: Meus chamados da Engenharia" class="input-padrao">
+        </div>
+
+        <div id="resumo-filtros-consulta" style="font-size: 0.82rem; color: var(--cor-texto-secundario); background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 6px; padding: 0.65rem 0.85rem; line-height: 1.4;">
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.65rem; margin-top: 0.2rem;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+            <input type="checkbox" id="consulta-publica">
+            <span><strong>Consulta pública</strong> (visível para todos os usuários)</span>
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+            <input type="checkbox" id="consulta-padrao">
+            <span><strong>Definir como minha consulta de preferência</strong> (abre automaticamente ao entrar na tela)</span>
+          </label>
+        </div>
+
+        <div class="modal-rodape" style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; padding-top: 0.85rem; border-top: 1px solid var(--cor-borda);">
+          <button type="button" class="btn btn-secundario" id="btn-cancelar-modal-consulta">Cancelar</button>
+          <button type="submit" class="btn btn-primario" id="btn-salvar-modal-consulta">Salvar consulta</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </main>
 <script type="module" src="chamados.js"></script>
 </body>
