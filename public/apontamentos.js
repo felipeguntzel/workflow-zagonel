@@ -220,6 +220,7 @@ function renderizarResumoEStatus(dados) {
   const cardSubTotal = document.getElementById("card-sub-total");
   const cardTotalLanc = document.getElementById("card-total-lancamentos");
   const cardStatusComp = document.getElementById("card-status-competencia");
+  const cardStatusInfo = document.getElementById("card-status-info");
   const cardAdminAcao = document.getElementById("card-admin-acao-liberar");
 
   const totalHoras = Number(dados.total_horas) || 0;
@@ -235,24 +236,15 @@ function renderizarResumoEStatus(dados) {
   // Status da competência
   if (cardStatusComp) {
     if (dados.mes_liberado) {
-      cardStatusComp.innerHTML = `
-        <span class="badge-status-mes badge-mes-liberado">
-          🔓 Mês liberado pelo Administrador
-        </span>
-      `;
+      cardStatusComp.innerHTML = `<span class="badge badge-alerta" style="font-size: 0.85rem; padding: 0.25rem 0.65rem;">Liberado</span>`;
+      if (cardStatusInfo) cardStatusInfo.textContent = "Liberado pelo Administrador para edição";
     } else if (dados.mes_fechado) {
       const dataFechamento = dados.data_fechamento ? formatarDataBR(dados.data_fechamento) : "dia 01";
-      cardStatusComp.innerHTML = `
-        <span class="badge-status-mes badge-mes-fechado" title="Fechamento automático realizado em ${dataFechamento}">
-          🔒 Fechado em ${dataFechamento}
-        </span>
-      `;
+      cardStatusComp.innerHTML = `<span class="badge badge-vencido" style="font-size: 0.85rem; padding: 0.25rem 0.65rem;">Fechado</span>`;
+      if (cardStatusInfo) cardStatusInfo.textContent = `Encerrado em ${dataFechamento}`;
     } else {
-      cardStatusComp.innerHTML = `
-        <span class="badge-status-mes badge-mes-aberto">
-          🟢 Aberto para edição (fecha no dia 01 do mês seguinte)
-        </span>
-      `;
+      cardStatusComp.innerHTML = `<span class="badge badge-ok" style="font-size: 0.85rem; padding: 0.25rem 0.65rem;">Aberto</span>`;
+      if (cardStatusInfo) cardStatusInfo.textContent = "Fechamento automático no dia 01 do próximo mês";
     }
   }
 
@@ -261,13 +253,13 @@ function renderizarResumoEStatus(dados) {
     if (usuarioAtual?.admin && dados.mes_fechado) {
       if (dados.mes_liberado) {
         cardAdminAcao.innerHTML = `
-          <button type="button" id="btn-toggle-liberar-mes" class="btn btn-secundario btn-pequeno" style="font-size: 0.78rem; padding: 0.25rem 0.5rem;">
+          <button type="button" id="btn-toggle-liberar-mes" class="btn btn-secundario btn-pequeno" style="font-size: 0.78rem; padding: 0.25rem 0.5rem; width: 100%;">
             🔒 Bloquear Mês Novamente
           </button>
         `;
       } else {
         cardAdminAcao.innerHTML = `
-          <button type="button" id="btn-toggle-liberar-mes" class="btn btn-primario btn-pequeno" style="font-size: 0.78rem; padding: 0.25rem 0.5rem;">
+          <button type="button" id="btn-toggle-liberar-mes" class="btn btn-primario btn-pequeno" style="font-size: 0.78rem; padding: 0.25rem 0.5rem; width: 100%;">
             🔓 Liberar Edição do Mês para Usuários
           </button>
         `;
@@ -316,10 +308,10 @@ function renderizarTabela(itens) {
     .map((item) => {
       const podeEditar = Boolean(item.pode_editar);
       const badgePeriodo = item.mes_liberado
-        ? `<span class="badge-status-mes badge-mes-liberado" style="font-size: 0.75rem;">🔓 Liberado</span>`
+        ? `<span class="badge badge-alerta" style="font-size: 0.75rem;">Liberado</span>`
         : item.mes_fechado
-        ? `<span class="badge-status-mes badge-mes-fechado" style="font-size: 0.75rem;">🔒 Fechado</span>`
-        : `<span class="badge-status-mes badge-mes-aberto" style="font-size: 0.75rem;">🟢 Aberto</span>`;
+        ? `<span class="badge badge-vencido" style="font-size: 0.75rem;">Fechado</span>`
+        : `<span class="badge badge-ok" style="font-size: 0.75rem;">Aberto</span>`;
 
       return `
         <tr data-id="${item.id}">
@@ -333,17 +325,17 @@ function renderizarTabela(itens) {
           </td>
           <td style="text-align: right; font-weight: 700; color: var(--cor-primaria);">${Number(item.horas).toFixed(2)}h</td>
           <td>${item.observacao ? escaparHtml(item.observacao) : `<span style="color: var(--cor-texto-secundario); font-style: italic;">Sem observação</span>`}</td>
-          <td>${badgePeriodo}</td>
-          <td class="td-acoes">
+          <td style="text-align: center;">${badgePeriodo}</td>
+          <td class="td-acoes" style="text-align: center;">
             ${
               podeEditar
                 ? `
-              <div style="display: flex; gap: 0.25rem; justify-content: flex-end;">
+              <div style="display: flex; gap: 0.35rem; justify-content: center; align-items: center;">
                 ${botaoIconeEditar(item.id, `btn-editar-apontamento-${item.id}`)}
                 ${botaoIconeExcluir(item.id, `btn-excluir-apontamento-${item.id}`)}
               </div>
             `
-                : `<span style="font-size: 0.75rem; color: var(--cor-texto-secundario);" title="Edição bloqueada">Bloqueado</span>`
+                : `<span style="font-size: 0.78rem; color: var(--cor-texto-secundario); font-weight: 500;" title="Edição bloqueada">Bloqueado</span>`
             }
           </td>
         </tr>

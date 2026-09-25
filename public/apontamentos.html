@@ -8,16 +8,20 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="componentes.css">
 <style>
+/* Regra estrita para elementos exclusivos de impressão */
+.somente-impressao {
+  display: none !important;
+}
+
 @media print {
-  /* Layout otimizado para impressão do relatório de horas em papel A4 */
   body {
     background: #fff !important;
     color: #000 !important;
     font-size: 10pt !important;
   }
   #nav, .sidebar, .sidebar-overlay, .pagina-cabecalho__acoes, .painel-filtros,
-  #btn-abrir-novo-apontamento, .td-acoes, th.td-acoes, .btn-config-colunas,
-  .btn-imprimir, .nao-imprimir, .paginacao-container {
+  #btn-novo-apontamento, .td-acoes, th.td-acoes, .btn-config-colunas,
+  .btn-imprimir, .nao-imprimir, .paginacao-container, .toast-status-rapido {
     display: none !important;
   }
   main {
@@ -25,8 +29,10 @@
     padding: 0 !important;
     max-width: 100% !important;
   }
-  .relatorio-impressao-cabecalho {
+  .somente-impressao {
     display: block !important;
+  }
+  .relatorio-impressao-cabecalho {
     margin-bottom: 1.5rem;
     border-bottom: 2px solid #2f6f4f;
     padding-bottom: 0.75rem;
@@ -41,15 +47,16 @@
     margin: 0;
     color: #555;
   }
-  .cards-resumo-horas {
+  .cards-metricas {
     display: flex !important;
     gap: 1rem !important;
     margin-bottom: 1.25rem !important;
   }
-  .card-resumo-horas {
+  .card-metrica {
     border: 1px solid #ccc !important;
     padding: 0.5rem 0.75rem !important;
     border-radius: 4px !important;
+    box-shadow: none !important;
   }
   table {
     width: 100% !important;
@@ -66,42 +73,46 @@
     font-weight: bold !important;
   }
   .relatorio-impressao-rodape {
-    display: block !important;
     margin-top: 2rem;
     padding-top: 1rem;
     border-top: 1px solid #ccc;
     font-size: 8pt;
     color: #666;
-    display: flex;
+    display: flex !important;
     justify-content: space-between;
   }
 }
-.relatorio-impressao-cabecalho, .relatorio-impressao-rodape {
-  display: none;
+
+.painel-filtros-apontamentos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  align-items: flex-end;
 }
-.badge-status-mes {
+
+.controle-mes {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.controle-mes .btn-nav-mes {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 0.65rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.82rem;
-  font-weight: 600;
+  justify-content: center;
+  font-size: 1.1rem;
+  line-height: 1;
 }
-.badge-mes-aberto {
-  background: #eaf3ee;
-  color: #1d4a35;
-  border: 1px solid #bbf7d0;
-}
-.badge-mes-fechado {
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
-}
-.badge-mes-liberado {
-  background: #eff6ff;
-  color: #1e40af;
-  border: 1px solid #bfdbfe;
+
+.controle-mes input[type="month"] {
+  height: 38px;
+  flex: 1;
+  min-width: 130px;
+  box-sizing: border-box;
+  padding: 0.45rem 0.65rem;
 }
 </style>
 <script>
@@ -118,8 +129,8 @@
 <body>
 <div id="nav"></div>
 <main>
-  <!-- Cabeçalho Exclusivo para Impressão -->
-  <div class="relatorio-impressao-cabecalho">
+  <!-- Cabeçalho Exclusivo para Impressão (Oculto na Tela) -->
+  <div class="relatorio-impressao-cabecalho somente-impressao" hidden style="display: none !important;">
     <h1>WorkFlow Zagonel - Relatório de Apontamento de Horas</h1>
     <p id="print-subtitulo">Período: - | Emitido em: -</p>
   </div>
@@ -132,16 +143,16 @@
       </p>
     </div>
     <div class="pagina-cabecalho__acoes" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-      <button type="button" id="btn-colunas-apontamentos" class="btn btn-secundario btn-pequeno btn-config-colunas" data-tabela="apontamentos" title="Ocultar ou exibir colunas">
+      <button type="button" id="btn-colunas-apontamentos" class="btn btn-secundario btn-cabecalho-acao btn-config-colunas" data-tabela="apontamentos" title="Ocultar ou exibir colunas">
         <span>⚙️</span> Colunas
       </button>
-      <button type="button" id="btn-imprimir-horas" class="btn btn-secundario btn-pequeno" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Imprimir relatório do período">
+      <button type="button" id="btn-imprimir-horas" class="btn btn-secundario btn-cabecalho-acao" title="Imprimir relatório do período">
         <span>🖨️</span> Imprimir
       </button>
-      <button type="button" id="btn-exportar-csv" class="btn btn-secundario btn-pequeno" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Exportar para Excel / CSV">
+      <button type="button" id="btn-exportar-csv" class="btn btn-secundario btn-cabecalho-acao" title="Exportar para Excel / CSV">
         <span>📥</span> Exportar CSV
       </button>
-      <button type="button" id="btn-novo-apontamento" class="btn btn-primario btn-pequeno" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+      <button type="button" id="btn-novo-apontamento" class="btn btn-primario btn-cabecalho-acao">
         <span>⏱️</span> Lançar Horas
       </button>
     </div>
@@ -150,68 +161,69 @@
   <p id="mensagem-erro" class="erro" hidden></p>
   <div id="toast-apontamentos" class="toast-status-rapido" style="margin-bottom: 0.85rem;" hidden></div>
 
-  <!-- Cards de Resumo e Status do Mês -->
-  <div class="cards-resumo-horas" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
-    <div class="painel card-resumo-horas" style="padding: 1rem;">
-      <span style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--cor-texto-secundario);">Total de Horas</span>
-      <div id="card-total-horas" style="font-size: 1.8rem; font-weight: 800; color: var(--cor-primaria); margin-top: 0.3rem;">0.00h</div>
-      <span id="card-sub-total" style="font-size: 0.78rem; color: var(--cor-texto-secundario);">No período filtrado</span>
+  <!-- Cards de Métricas Consolidadas -->
+  <div class="cards-metricas" style="margin-bottom: 1.25rem;">
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Total de Horas</span>
+      <strong class="card-metrica__valor" id="card-total-horas">0.00h</strong>
+      <small style="font-size: 0.78rem; color: var(--cor-texto-secundario);" id="card-sub-total">No período filtrado</small>
     </div>
 
-    <div class="painel card-resumo-horas" style="padding: 1rem;">
-      <span style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--cor-texto-secundario);">Lançamentos</span>
-      <div id="card-total-lancamentos" style="font-size: 1.8rem; font-weight: 800; color: var(--cor-texto); margin-top: 0.3rem;">0</div>
-      <span style="font-size: 0.78rem; color: var(--cor-texto-secundario);">Apontamentos registrados</span>
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Lançamentos</span>
+      <strong class="card-metrica__valor" id="card-total-lancamentos" style="color: var(--cor-texto);">0</strong>
+      <small style="font-size: 0.78rem; color: var(--cor-texto-secundario);">Apontamentos registrados</small>
     </div>
 
-    <div class="painel card-resumo-horas" style="padding: 1rem;">
-      <span style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--cor-texto-secundario);">Status da Competência</span>
-      <div id="card-status-competencia" style="margin-top: 0.5rem;">
-        <span class="badge-status-mes badge-mes-aberto">🟢 Aberto para edição</span>
+    <div class="card-metrica">
+      <span class="card-metrica__rotulo">Status da Competência</span>
+      <div id="card-status-competencia" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.2rem;">
+        <span class="badge badge-ok">Aberto</span>
       </div>
-      <div id="card-admin-acao-liberar" style="margin-top: 0.45rem;"></div>
+      <small style="font-size: 0.78rem; color: var(--cor-texto-secundario);" id="card-status-info">Fechamento automático no dia 01</small>
+      <div id="card-admin-acao-liberar" style="margin-top: 0.35rem;"></div>
     </div>
   </div>
 
-  <!-- Painel de Filtros -->
-  <div class="painel painel-filtros" style="margin-bottom: 1.25rem;">
-    <div style="display: flex; gap: 0.85rem; flex-wrap: wrap; align-items: flex-end;">
-      <div style="min-width: 170px;">
-        <label for="filtro-mes" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Competência (Mês)</label>
-        <div style="display: flex; align-items: center; gap: 0.35rem;">
-          <button type="button" id="btn-mes-anterior" class="btn btn-secundario btn-pequeno" title="Mês anterior">‹</button>
-          <input type="month" id="filtro-mes" class="input-padrao" style="padding: 0.45rem 0.65rem;">
-          <button type="button" id="btn-mes-proximo" class="btn btn-secundario btn-pequeno" title="Próximo mês">›</button>
+  <!-- Painel de Filtros Padronizado -->
+  <div class="painel" style="margin-bottom: 1.25rem;">
+    <div class="painel-filtros-apontamentos">
+      <div>
+        <label for="filtro-mes" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Competência</label>
+        <div class="controle-mes">
+          <button type="button" id="btn-mes-anterior" class="btn btn-secundario btn-nav-mes" title="Mês anterior">‹</button>
+          <input type="month" id="filtro-mes" class="input-padrao">
+          <button type="button" id="btn-mes-proximo" class="btn btn-secundario btn-nav-mes" title="Próximo mês">›</button>
         </div>
       </div>
 
-      <div style="min-width: 150px;">
-        <label for="filtro-dia" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Dia Específico</label>
-        <input type="date" id="filtro-dia" class="input-padrao" style="padding: 0.45rem 0.65rem;">
+      <div>
+        <label for="filtro-dia" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Dia específico</label>
+        <input type="date" id="filtro-dia" class="input-padrao" style="height: 38px; box-sizing: border-box; width: 100%; padding: 0.45rem 0.65rem;">
       </div>
 
-      <div style="min-width: 170px; flex: 1;">
+      <div>
         <label for="filtro-setor" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Setor</label>
-        <select id="filtro-setor" class="select-padrao" style="width: 100%;">
+        <select id="filtro-setor" class="select-padrao" style="height: 38px; box-sizing: border-box; width: 100%; padding: 0.45rem 0.65rem;">
           <option value="">Todos os setores</option>
         </select>
       </div>
 
-      <div style="min-width: 180px; flex: 1;">
+      <div>
         <label for="filtro-usuario" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Usuário</label>
-        <select id="filtro-usuario" class="select-padrao" style="width: 100%;">
+        <select id="filtro-usuario" class="select-padrao" style="height: 38px; box-sizing: border-box; width: 100%; padding: 0.45rem 0.65rem;">
           <option value="">Todos os usuários</option>
         </select>
       </div>
 
-      <div style="min-width: 200px; flex: 1.5;">
+      <div style="grid-column: span 2; min-width: 220px;">
         <label for="filtro-busca" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Buscar</label>
-        <input type="text" id="filtro-busca" placeholder="Buscar por chamado, observação..." class="input-padrao" style="padding: 0.45rem 0.65rem;">
+        <input type="text" id="filtro-busca" placeholder="Buscar por chamado, observação..." class="input-padrao" style="height: 38px; box-sizing: border-box; width: 100%; padding: 0.45rem 0.65rem;">
       </div>
 
-      <div style="display: flex; gap: 0.4rem;">
-        <button type="button" id="btn-filtrar" class="btn btn-primario" style="height: 36px;">Filtrar</button>
-        <button type="button" id="btn-limpar-filtros" class="btn btn-secundario" style="height: 36px;">Limpar</button>
+      <div style="display: flex; gap: 0.5rem;">
+        <button type="button" id="btn-filtrar" class="btn btn-primario" style="height: 38px; min-height: 38px; flex: 1;">Filtrar</button>
+        <button type="button" id="btn-limpar-filtros" class="btn btn-secundario" style="height: 38px; min-height: 38px; flex: 1;">Limpar</button>
       </div>
     </div>
   </div>
@@ -224,11 +236,11 @@
           <th data-col="data" style="min-width: 11ch;">Data</th>
           <th data-col="usuario" style="min-width: 15ch;">Usuário</th>
           <th data-col="setor" style="min-width: 14ch;">Setor</th>
-          <th data-col="chamado">Chamado</th>
+          <th data-col="chamado" style="min-width: 22ch;">Chamado</th>
           <th data-col="horas" style="min-width: 9ch; text-align: right;">Horas</th>
-          <th data-col="observacao">Observação / Atividade</th>
-          <th data-col="status_mes" style="min-width: 12ch;">Período</th>
-          <th class="td-acoes th-fixo" style="min-width: 10ch;">Ações</th>
+          <th data-col="observacao" style="min-width: 20ch;">Observação / Atividade</th>
+          <th data-col="status_mes" style="min-width: 12ch; text-align: center;">Período</th>
+          <th class="td-acoes th-fixo" style="min-width: 9ch; text-align: center;">Ações</th>
         </tr>
       </thead>
       <tbody id="tbody-apontamentos">
@@ -239,8 +251,8 @@
     </table>
   </div>
 
-  <!-- Rodapé Exclusivo para Impressão -->
-  <div class="relatorio-impressao-rodape">
+  <!-- Rodapé Exclusivo para Impressão (Oculto na Tela) -->
+  <div class="relatorio-impressao-rodape somente-impressao" hidden style="display: none !important;">
     <div>Total de horas: <strong id="print-total-horas">0h</strong> | Total de lançamentos: <strong id="print-total-lancamentos">0</strong></div>
     <div>WorkFlow Zagonel - Sistema de Gestão de Processos</div>
   </div>
@@ -258,13 +270,13 @@
       <form id="form-apontamento" style="display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem;">
         <p id="msg-erro-modal-apontamento" class="erro" hidden></p>
         <div id="aviso-bloqueio-mes" style="display: none; padding: 0.65rem 0.85rem; border-radius: 4px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 0.85rem;">
-          🔒 <strong>Mês Fechado:</strong> As horas deste mês já foram encerradas no dia 01. Apenas administradores podem liberar para alteração.
+          🔒 <strong>Mês Fechado:</strong> As horas deste mês foram encerradas no dia 01. Apenas administradores podem liberar para alteração.
         </div>
 
         <input type="hidden" id="apontamento-id">
 
         <div class="campo-grupo" style="margin: 0;">
-          <label class="campo-rotulo" for="apontamento-chamado-id">Chamado *</label>
+          <label class="campo-rotulo" for="apontamento-chamado-id">Chamado <span style="color: #dc2626;">*</span></label>
           <div style="display: flex; gap: 0.5rem; align-items: center;">
             <input type="number" id="apontamento-chamado-id" required placeholder="Ex: 123" class="input-padrao" style="width: 120px;">
             <span id="apontamento-chamado-preview" style="font-size: 0.85rem; color: var(--cor-texto-secundario); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></span>
@@ -273,12 +285,12 @@
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
           <div class="campo-grupo" style="margin: 0;">
-            <label class="campo-rotulo" for="apontamento-data">Data *</label>
+            <label class="campo-rotulo" for="apontamento-data">Data <span style="color: #dc2626;">*</span></label>
             <input type="date" id="apontamento-data" required class="input-padrao">
           </div>
 
           <div class="campo-grupo" style="margin: 0;">
-            <label class="campo-rotulo" for="apontamento-horas">Horas *</label>
+            <label class="campo-rotulo" for="apontamento-horas">Horas <span style="color: #dc2626;">*</span></label>
             <input type="number" step="0.25" min="0.25" id="apontamento-horas" required placeholder="Ex: 1.5" class="input-padrao">
           </div>
         </div>
