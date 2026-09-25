@@ -85,34 +85,99 @@
 
 .painel-filtros-apontamentos {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: 1fr;
+  gap: 1.25rem 1.5rem;
   align-items: flex-end;
 }
 
-.controle-mes {
+@media (min-width: 640px) {
+  .painel-filtros-apontamentos {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .painel-filtros-apontamentos {
+    grid-template-columns: 1.2fr 1fr 1fr 1fr;
+  }
+  .painel-filtros-apontamentos__busca {
+    grid-column: span 3;
+  }
+  .painel-filtros-apontamentos__acoes {
+    grid-column: span 1;
+  }
+}
+
+.filtro-item {
   display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filtro-item label {
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: var(--cor-texto);
+  line-height: 1.2;
+}
+
+.filtro-item .input-padrao,
+.filtro-item .select-padrao {
+  height: 40px;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.controle-mes {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  width: 100% !important;
 }
 
 .controle-mes .btn-nav-mes {
-  height: 38px;
-  min-height: 38px;
-  padding: 0 0.65rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  line-height: 1;
+  flex: 0 0 38px !important;
+  width: 38px !important;
+  height: 40px !important;
+  min-width: 38px !important;
+  min-height: 40px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 1.2rem !important;
+  line-height: 1 !important;
+  border-radius: 0.35rem !important;
 }
 
 .controle-mes input[type="month"] {
-  height: 38px;
-  flex: 1;
-  min-width: 130px;
-  box-sizing: border-box;
-  padding: 0.45rem 0.65rem;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
+  height: 40px !important;
+  box-sizing: border-box !important;
+  padding: 0.5rem 0.65rem !important;
+}
+
+.painel-filtros-apontamentos__acoes {
+  display: flex !important;
+  gap: 0.65rem !important;
+  align-items: flex-end !important;
+}
+
+.painel-filtros-apontamentos__acoes .btn {
+  flex: 1 !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0.5rem 1rem !important;
+  font-size: 0.9rem !important;
 }
 </style>
 <script>
@@ -162,7 +227,8 @@
   <div id="toast-apontamentos" class="toast-status-rapido" style="margin-bottom: 0.85rem;" hidden></div>
 
   <!-- Cards de Métricas Consolidadas -->
-  <div class="cards-metricas" style="margin-bottom: 1.25rem;">
+  <!-- Cards de Métricas Consolidadas -->
+  <div class="cards-metricas" style="margin-bottom: 1.5rem;">
     <div class="card-metrica">
       <span class="card-metrica__rotulo">Total de Horas</span>
       <strong class="card-metrica__valor" id="card-total-horas">0.00h</strong>
@@ -186,10 +252,10 @@
   </div>
 
   <!-- Painel de Filtros Padronizado -->
-  <div class="painel" style="margin-bottom: 1.25rem;">
+  <div class="painel" style="margin-bottom: 1.5rem; padding: 1.5rem 1.75rem;">
     <div class="painel-filtros-apontamentos">
-      <div>
-        <label for="filtro-mes" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Competência</label>
+      <div class="filtro-item">
+        <label for="filtro-mes">Competência</label>
         <div class="controle-mes">
           <button type="button" id="btn-mes-anterior" class="btn btn-secundario btn-nav-mes" title="Mês anterior">‹</button>
           <input type="month" id="filtro-mes" class="input-padrao">
@@ -197,33 +263,33 @@
         </div>
       </div>
 
-      <div>
-        <label for="filtro-dia" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Dia específico</label>
-        <input type="date" id="filtro-dia" class="input-padrao" style="height: 38px; box-sizing: border-box; width: 100%; padding: 0.45rem 0.65rem;">
+      <div class="filtro-item">
+        <label for="filtro-dia">Dia específico</label>
+        <input type="date" id="filtro-dia" class="input-padrao" style="width: 100%;">
       </div>
 
-      <div>
-        <label for="filtro-setor" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Setor</label>
-        <select id="filtro-setor" class="select-padrao" style="height: 38px; box-sizing: border-box; width: 100%; padding: 0.45rem 0.65rem;">
+      <div class="filtro-item">
+        <label for="filtro-setor">Setor</label>
+        <select id="filtro-setor" class="select-padrao" style="width: 100%;">
           <option value="">Todos os setores</option>
         </select>
       </div>
 
-      <div>
-        <label for="filtro-usuario" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Usuário</label>
-        <select id="filtro-usuario" class="select-padrao" style="height: 38px; box-sizing: border-box; width: 100%; padding: 0.45rem 0.65rem;">
+      <div class="filtro-item">
+        <label for="filtro-usuario">Usuário</label>
+        <select id="filtro-usuario" class="select-padrao" style="width: 100%;">
           <option value="">Todos os usuários</option>
         </select>
       </div>
 
-      <div style="grid-column: span 2; min-width: 220px;">
-        <label for="filtro-busca" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Buscar</label>
-        <input type="text" id="filtro-busca" placeholder="Buscar por chamado, observação..." class="input-padrao" style="height: 38px; box-sizing: border-box; width: 100%; padding: 0.45rem 0.65rem;">
+      <div class="filtro-item painel-filtros-apontamentos__busca">
+        <label for="filtro-busca">Buscar</label>
+        <input type="text" id="filtro-busca" placeholder="Buscar por chamado, observação..." class="input-padrao" style="width: 100%;">
       </div>
 
-      <div style="display: flex; gap: 0.5rem;">
-        <button type="button" id="btn-filtrar" class="btn btn-primario" style="height: 38px; min-height: 38px; flex: 1;">Filtrar</button>
-        <button type="button" id="btn-limpar-filtros" class="btn btn-secundario" style="height: 38px; min-height: 38px; flex: 1;">Limpar</button>
+      <div class="filtro-item painel-filtros-apontamentos__acoes">
+        <button type="button" id="btn-filtrar" class="btn btn-primario">Filtrar</button>
+        <button type="button" id="btn-limpar-filtros" class="btn btn-secundario">Limpar</button>
       </div>
     </div>
   </div>
@@ -259,7 +325,7 @@
 
   <!-- Modal de Lançamento / Edição de Horas -->
   <div id="modal-form-apontamento" class="modal-fundo" hidden style="display: none;">
-    <div class="modal-cadastro" role="dialog" style="max-width: 520px;">
+    <div class="modal-cadastro" role="dialog" style="max-width: 540px;">
       <div class="modal-cabecalho">
         <h3 id="modal-apontamento-titulo" style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.4rem;">
           <span>⏱️</span> Lançar Horas
@@ -267,49 +333,49 @@
         <button type="button" class="modal-fechar" id="btn-fechar-modal-apontamento">✕</button>
       </div>
 
-      <form id="form-apontamento" style="display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem;">
+      <form id="form-apontamento" style="display: flex; flex-direction: column; gap: 1.25rem; padding: 1.5rem;">
         <p id="msg-erro-modal-apontamento" class="erro" hidden></p>
-        <div id="aviso-bloqueio-mes" style="display: none; padding: 0.65rem 0.85rem; border-radius: 4px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 0.85rem;">
+        <div id="aviso-bloqueio-mes" style="display: none; padding: 0.75rem 1rem; border-radius: 6px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 0.88rem; line-height: 1.4;">
           🔒 <strong>Mês Fechado:</strong> As horas deste mês foram encerradas no dia 01. Apenas administradores podem liberar para alteração.
         </div>
 
         <input type="hidden" id="apontamento-id">
 
-        <div class="campo-grupo" style="margin: 0;">
+        <div class="campo-grupo" style="margin: 0; gap: 0.45rem;">
           <label class="campo-rotulo" for="apontamento-chamado-id">Chamado <span style="color: #dc2626;">*</span></label>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <input type="number" id="apontamento-chamado-id" required placeholder="Ex: 123" class="input-padrao" style="width: 120px;">
-            <span id="apontamento-chamado-preview" style="font-size: 0.85rem; color: var(--cor-texto-secundario); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></span>
+          <div style="display: flex; gap: 0.65rem; align-items: center;">
+            <input type="number" id="apontamento-chamado-id" required placeholder="Ex: 123" class="input-padrao" style="width: 130px; height: 40px;">
+            <span id="apontamento-chamado-preview" style="font-size: 0.88rem; color: var(--cor-texto-secundario); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></span>
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
-          <div class="campo-grupo" style="margin: 0;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+          <div class="campo-grupo" style="margin: 0; gap: 0.45rem;">
             <label class="campo-rotulo" for="apontamento-data">Data <span style="color: #dc2626;">*</span></label>
-            <input type="date" id="apontamento-data" required class="input-padrao">
+            <input type="date" id="apontamento-data" required class="input-padrao" style="height: 40px;">
           </div>
 
-          <div class="campo-grupo" style="margin: 0;">
+          <div class="campo-grupo" style="margin: 0; gap: 0.45rem;">
             <label class="campo-rotulo" for="apontamento-horas">Horas <span style="color: #dc2626;">*</span></label>
-            <input type="number" step="0.25" min="0.25" id="apontamento-horas" required placeholder="Ex: 1.5" class="input-padrao">
+            <input type="number" step="0.25" min="0.25" id="apontamento-horas" required placeholder="Ex: 1.5" class="input-padrao" style="height: 40px;">
           </div>
         </div>
 
-        <div id="campo-usuario-admin-wrap" class="campo-grupo" style="margin: 0; display: none;">
+        <div id="campo-usuario-admin-wrap" class="campo-grupo" style="margin: 0; gap: 0.45rem; display: none;">
           <label class="campo-rotulo" for="apontamento-usuario-id">Lançar para o usuário (Opção de Administrador)</label>
-          <select id="apontamento-usuario-id" class="select-padrao" style="width: 100%;">
+          <select id="apontamento-usuario-id" class="select-padrao" style="width: 100%; height: 40px;">
             <option value="">Meu próprio usuário</option>
           </select>
         </div>
 
-        <div class="campo-grupo" style="margin: 0;">
+        <div class="campo-grupo" style="margin: 0; gap: 0.45rem;">
           <label class="campo-rotulo" for="apontamento-obs">Observação / Descrição da Atividade</label>
           <textarea id="apontamento-obs" rows="3" class="input-padrao" placeholder="Descreva o trabalho realizado..."></textarea>
         </div>
 
-        <div class="modal-rodape" style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; padding-top: 0.85rem; border-top: 1px solid var(--cor-borda);">
-          <button type="button" class="btn btn-secundario" id="btn-cancelar-modal-apontamento">Cancelar</button>
-          <button type="submit" class="btn btn-primario" id="btn-salvar-modal-apontamento">Salvar apontamento</button>
+        <div class="modal-rodape" style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem; padding-top: 1rem; border-top: 1px solid var(--cor-borda);">
+          <button type="button" class="btn btn-secundario" id="btn-cancelar-modal-apontamento" style="min-width: 100px;">Cancelar</button>
+          <button type="submit" class="btn btn-primario" id="btn-salvar-modal-apontamento" style="min-width: 140px;">Salvar apontamento</button>
         </div>
       </form>
     </div>
