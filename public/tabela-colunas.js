@@ -237,6 +237,9 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
       (chaveIdentificador === "chamados" ? document.getElementById("btn-colunas-chamados") : null);
 
     if (btnPreExistente) {
+      if (btnPreExistente.parentElement) {
+        btnPreExistente.parentElement.appendChild(btnPreExistente);
+      }
       if (!btnPreExistente.dataset.colunasVinculado) {
         btnPreExistente.dataset.colunasVinculado = "1";
         btnPreExistente.addEventListener("click", (e) => {
@@ -260,7 +263,10 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     // Cria botão de colunas se ainda não existir para esta tabela
     const btnId = `btn-config-colunas-${chaveIdentificador}`;
     let btn = document.getElementById(btnId);
-    if (btn) return;
+    if (btn) {
+      if (btn.parentElement) btn.parentElement.appendChild(btn);
+      return;
+    }
 
     btn = document.createElement("button");
     btn.type = "button";
@@ -270,7 +276,8 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     btn.title = "Personalizar exibição de colunas da tabela";
 
     if (containerAcoes) {
-      containerAcoes.insertBefore(btn, containerAcoes.firstChild);
+      // Padronização: botão Colunas sempre por último no canto direito
+      containerAcoes.appendChild(btn);
     } else {
       const barraControle = document.createElement("div");
       barraControle.style.display = "flex";

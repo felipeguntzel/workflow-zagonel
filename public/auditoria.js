@@ -35,11 +35,11 @@ export const inicializarAuditoria = async function () {
         </p>
       </div>
       <div class="pagina-cabecalho__acoes" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-        <button type="button" id="btn-colunas-auditoria" class="btn btn-secundario btn-pequeno btn-config-colunas" data-tabela="auditoria" title="Ocultar ou exibir colunas da tabela">
-          <span>⚙️</span> Colunas
-        </button>
         <button type="button" id="btn-limpar-logs-auditoria" class="btn btn-perigo btn-pequeno" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Excluir logs antigos para liberar espaço no banco de dados">
           <span>🗑️</span> Limpar Logs
+        </button>
+        <button type="button" id="btn-colunas-auditoria" class="btn btn-secundario btn-pequeno btn-config-colunas" data-tabela="auditoria" title="Ocultar ou exibir colunas da tabela">
+          <span>⚙️</span> Colunas
         </button>
       </div>
     </div>
