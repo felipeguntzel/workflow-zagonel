@@ -12,30 +12,22 @@
 <style>
 .painel-consultas-barra {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.85rem 1.25rem;
+  padding: 0.75rem 1.25rem;
   background: var(--cor-fundo-elevado);
   border: 1px solid var(--cor-borda);
   border-radius: 8px;
   margin-bottom: 1.25rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-.painel-consultas-linha-topo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
   flex-wrap: wrap;
-  width: 100%;
 }
 .painel-consultas-grupo-select {
   display: flex;
   align-items: center;
   gap: 0.65rem;
   flex-wrap: wrap;
-  flex: 1;
-  min-width: 260px;
 }
 .painel-consultas-grupo-select label {
   font-weight: 700;
@@ -47,11 +39,20 @@
   margin: 0;
 }
 .painel-consultas-grupo-select select {
-  min-width: 220px;
-  max-width: 320px;
-  flex: 1;
+  min-width: 200px;
+  max-width: 300px;
   padding: 0.45rem 0.65rem;
   font-size: 0.86rem;
+}
+#btn-toggle-filtros {
+  font-size: 0.82rem;
+  padding: 0.42rem 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 6px;
+  white-space: nowrap;
 }
 .painel-consultas-grupo-botoes {
   display: flex;
@@ -68,33 +69,15 @@
   border-radius: 6px;
   white-space: nowrap;
 }
-.painel-consultas-linha-filtros {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  border-top: 1px solid var(--cor-borda);
-  padding-top: 0.75rem;
-  margin-top: 0.25rem;
-  width: 100%;
-}
-.painel-consultas-linha-filtros .btn {
-  font-size: 0.85rem;
-  padding: 0.45rem 0.85rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border-radius: 6px;
-}
 .painel-filtros-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr auto;
+  gap: 0.75rem;
   align-items: flex-end;
 }
-@media (min-width: 1200px) {
+@media (max-width: 1024px) {
   .painel-filtros-grid {
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
 }
 .btn-ativo {
@@ -174,45 +157,38 @@
 
   <!-- Barra de Consultas Personalizadas -->
   <div class="painel-consultas-barra">
-    <!-- Linha 1: Seleção de consulta + Ações (Salvar, Limpar, Editar, Tornar padrão, Excluir) na MESMA LINHA -->
-    <div class="painel-consultas-linha-topo">
-      <div class="painel-consultas-grupo-select">
-        <label for="seletor-consulta-personalizada">
-          <span>🔍</span> Consulta:
-        </label>
-        <select id="seletor-consulta-personalizada" class="select-padrao">
-          <option value="">-- Padrão (Sem filtro salvo) --</option>
-          <optgroup label="Minhas consultas (privadas)" id="optgroup-minhas-consultas"></optgroup>
-          <optgroup label="Consultas públicas" id="optgroup-consultas-publicas"></optgroup>
-        </select>
-        <span id="badge-consulta-ativa-padrao" class="badge-padrao-consulta" style="display: none;" title="Esta é sua consulta padrão ao abrir a tela">
-          ⭐ Padrão
-        </span>
-      </div>
-
-      <div class="painel-consultas-grupo-botoes">
-        <button type="button" id="btn-salvar-consulta-abrir" class="btn btn-secundario" title="Salvar os filtros atuais como nova consulta">
-          <span>💾</span> Salvar consulta
-        </button>
-        <button type="button" id="btn-limpar-filtros-consulta" class="btn btn-secundario btn-limpar-filtros-acao" title="Limpar todos os filtros aplicados e voltar ao padrão">
-          <span>🧹</span> Limpar
-        </button>
-        <button type="button" id="btn-editar-consulta" class="btn btn-secundario" title="Editar consulta selecionada (somente quem criou pode editar)" disabled>
-          <span>✏️</span> Editar
-        </button>
-        <button type="button" id="btn-definir-padrao-consulta" class="btn btn-secundario" title="Definir a consulta selecionada como sua padrão ao abrir a tela" disabled>
-          <span>⭐</span> Tornar padrão
-        </button>
-        <button type="button" id="btn-excluir-consulta" class="btn btn-secundario btn-perigo-outline" title="Excluir consulta selecionada (somente quem criou pode excluir)" disabled>
-          <span>🗑️</span> Excluir
-        </button>
-      </div>
-    </div>
-
-    <!-- Linha 2: Botão Filtros afastado da seleção de consulta com respiro nítido -->
-    <div class="painel-consultas-linha-filtros">
+    <div class="painel-consultas-grupo-select">
+      <label for="seletor-consulta-personalizada">
+        <span>🔍</span> Consulta:
+      </label>
+      <select id="seletor-consulta-personalizada" class="select-padrao">
+        <option value="">-- Padrão (Sem filtro salvo) --</option>
+        <optgroup label="Minhas consultas (privadas)" id="optgroup-minhas-consultas"></optgroup>
+        <optgroup label="Consultas públicas" id="optgroup-consultas-publicas"></optgroup>
+      </select>
+      <span id="badge-consulta-ativa-padrao" class="badge-padrao-consulta" style="display: none;" title="Esta é sua consulta padrão ao abrir a tela">
+        ⭐ Padrão
+      </span>
       <button type="button" id="btn-toggle-filtros" class="btn btn-secundario" title="Expandir ou recolher filtros detalhados">
         <span id="icone-toggle-filtros">▾</span> <span id="texto-toggle-filtros">Filtros</span>
+      </button>
+    </div>
+
+    <div class="painel-consultas-grupo-botoes">
+      <button type="button" id="btn-salvar-consulta-abrir" class="btn btn-secundario" title="Salvar os filtros atuais como nova consulta">
+        <span>💾</span> Salvar consulta
+      </button>
+      <button type="button" id="btn-limpar-filtros-consulta" class="btn btn-secundario btn-limpar-filtros-acao" title="Limpar todos os filtros aplicados e voltar ao padrão">
+        <span>🧹</span> Limpar
+      </button>
+      <button type="button" id="btn-editar-consulta" class="btn btn-secundario" title="Editar consulta selecionada (somente quem criou pode editar)" disabled>
+        <span>✏️</span> Editar
+      </button>
+      <button type="button" id="btn-definir-padrao-consulta" class="btn btn-secundario" title="Definir a consulta selecionada como sua padrão ao abrir a tela" disabled>
+        <span>⭐</span> Tornar padrão
+      </button>
+      <button type="button" id="btn-excluir-consulta" class="btn btn-secundario btn-perigo-outline" title="Excluir consulta selecionada (somente quem criou pode excluir)" disabled>
+        <span>🗑️</span> Excluir
       </button>
     </div>
   </div>
@@ -220,7 +196,7 @@
   <!-- Painel de Filtros Superiores (Inicia recolhido por padrão) -->
   <div id="painel-filtros-chamados" class="painel" style="margin-bottom: 1.25rem; display: none;" hidden>
     <div class="painel-filtros-grid">
-      <div style="grid-column: span 2; min-width: 240px;">
+      <div>
         <label for="filtro-busca-chamados" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Buscar chamados</label>
         <input type="text" id="filtro-busca-chamados" placeholder="Buscar por ID, título, responsável, solicitante..." class="input-padrao" style="width: 100%; padding: 0.55rem 0.75rem;">
       </div>
@@ -253,7 +229,7 @@
         </select>
       </div>
       <div>
-        <button type="button" id="btn-limpar-filtros-chamados" class="btn btn-secundario" style="width: 100%; padding: 0.55rem 0.75rem;">Limpar</button>
+        <button type="button" id="btn-limpar-filtros-chamados" class="btn btn-secundario btn-limpar-filtros-acao" style="width: 100%; padding: 0.55rem 0.9rem; white-space: nowrap;" title="Limpar todos os filtros aplicados">Limpar</button>
       </div>
     </div>
   </div>
