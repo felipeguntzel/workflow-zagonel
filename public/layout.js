@@ -15,6 +15,7 @@ export const TELAS_SISTEMA = [
   // Chamados (em ordem alfabética)
   { numero: "07", codigo: "7", id: "chamados", titulo: "Meus chamados", grupo: "Chamados", href: "/chamados", telaPerm: "chamados" },
   { numero: "08", codigo: "8", id: "novo-chamado", titulo: "Abrir novo chamado", grupo: "Chamados", href: "/novo-chamado", telaPerm: "chamados", acaoPerm: "inserir" },
+  { numero: "08B", codigo: "12", id: "apontamentos", titulo: "Apontamento de horas", grupo: "Chamados", href: "/apontamentos", telaPerm: "apontamentos" },
   // Dashboards
   { numero: "09", codigo: "9", id: "dashboards", titulo: "Dashboards", grupo: "Dashboards", href: "/dashboards", telaPerm: "dashboards" },
   // Administração (apenas admin)
@@ -62,9 +63,11 @@ export function preCarregarTodasTelas() {
     "fluxos",
     "fluxo",
     "dashboards",
+    "apontamentos",
     "auditoria",
     "sql",
     "geral",
+    "manual",
   ];
   rotas.forEach((r) => {
     preCarregarRota(r);
@@ -304,20 +307,19 @@ function construirSidebar(usuario, modalBusca) {
       </button>
       <div class="sidebar__usuario-menu" id="sidebar-usuario-menu" hidden>
         <button type="button" id="btn-instalar-pwa" class="sidebar__usuario-item sidebar__usuario-item--destaque" style="display: none;">
-          <span class="sidebar__usuario-icone">📲</span>
           <span>Instalar Aplicativo</span>
         </button>
+        <a href="/manual" id="link-manual-sistema" class="sidebar__usuario-item">
+          <span>Manual do Sistema</span>
+        </a>
         <a href="#" id="link-preferencias" class="sidebar__usuario-item">
-          <span class="sidebar__usuario-icone">⚙️</span>
           <span>Preferências</span>
         </a>
         <hr class="sidebar__usuario-divisor">
         <a href="#" id="link-logout-todos" class="sidebar__usuario-item sidebar__usuario-item--alerta">
-          <span class="sidebar__usuario-icone">🔒</span>
           <span>Sair de todos os dispositivos</span>
         </a>
         <a href="#" id="link-sair" class="sidebar__usuario-item sidebar__usuario-item--sair">
-          <span class="sidebar__usuario-icone">🚪</span>
           <span>Sair</span>
         </a>
       </div>

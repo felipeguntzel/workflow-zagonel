@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
 import { escaparHtml, mostrarErro, debounce, exportarParaCsv, anunciarA11y } from "./ui.js";
+import { confirmarAcao } from "./modal.js";
 import { tornarTabelaReordenavel } from "./tabela-colunas.js";
 
 export function inicializar() {
@@ -33,7 +34,16 @@ export const inicializarAuditoria = async function () {
           Histórico e rastreabilidade de todas as alterações cadastrais e administrativas
         </p>
       </div>
+      <div class="pagina-cabecalho__acoes" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        <button type="button" id="btn-colunas-auditoria" class="btn btn-secundario btn-pequeno btn-config-colunas" data-tabela="auditoria" title="Ocultar ou exibir colunas da tabela">
+          <span>⚙️</span> Colunas
+        </button>
+        <button type="button" id="btn-limpar-logs-auditoria" class="btn btn-perigo btn-pequeno" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Excluir logs antigos para liberar espaço no banco de dados">
+          <span>🗑️</span> Limpar Logs
+        </button>
+      </div>
     </div>
+    <div id="toast-auditoria-sucesso" class="toast-status-rapido" style="margin-bottom: 0.85rem;" hidden></div>
 
     <div class="painel" style="margin-bottom: 1.5rem;">
       <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
@@ -167,8 +177,80 @@ export const inicializarAuditoria = async function () {
     if (ev.target === modalFundo) fecharModal();
   });
 
+  const btnLimparLogs = document.getElementById("btn-limpar-logs-auditoria");
+  if (btnLimparLogs) {
+    btnLimparLogs.addEventListener("click", abrirModalLimpezaLogs);
+  }
+
   await carregarLogs();
 };
+
+function abrirModalLimpezaLogs() {
+  const fundo = document.createElement("div");
+  fundo.className = "modal-fundo";
+  fundo.innerHTML = `
+    <div class="modal-cadastro" role="dialog" style="max-width: 480px;">
+      <div class="modal-cabecalho">
+        <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.4rem;">
+          <span>🗑️</span> Limpar Logs de Auditoria
+        </h3>
+        <button type="button" class="modal-fechar" id="btn-fechar-modal-limpeza">✕</button>
+      </div>
+      <div style="padding: 1.25rem;">
+        <p style="margin: 0 0 1rem; font-size: 0.9rem; color: var(--cor-texto-secundario); line-height: 1.45;">
+          A exclusão de registros antigos reduz o espaço ocupado no banco de dados SQLite D1 e melhora a velocidade das consultas.
+        </p>
+        <div class="campo-grupo">
+          <label class="campo-rotulo" for="select-periodo-limpeza" style="font-weight: 600;">Selecione os logs que deseja excluir:</label>
+          <select id="select-periodo-limpeza" class="select-padrao" style="width: 100%;">
+            <option value="30">Logs com mais de 30 dias</option>
+            <option value="60">Logs com mais de 60 dias</option>
+            <option value="90">Logs com mais de 90 dias</option>
+            <option value="180">Logs com mais de 180 dias (6 meses)</option>
+            <option value="tudo">Todos os registros de logs (limpeza total)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-rodape" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button type="button" class="btn btn-secundario" id="btn-cancelar-limpeza">Cancelar</button>
+        <button type="button" class="btn btn-perigo" id="btn-confirmar-limpeza">Excluir registros</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(fundo);
+
+  const fechar = () => fundo.remove();
+  fundo.querySelector("#btn-fechar-modal-limpeza").addEventListener("click", fechar);
+  fundo.querySelector("#btn-cancelar-limpeza").addEventListener("click", fechar);
+
+  fundo.querySelector("#btn-confirmar-limpeza").addEventListener("click", async () => {
+    const periodo = fundo.querySelector("#select-periodo-limpeza").value;
+    const desc = periodo === "tudo" ? "TODOS os registros do histórico de auditoria" : `os registros com mais de ${periodo} dias`;
+    const confirmado = await confirmarAcao(
+      "Confirmar exclusão de logs?",
+      `Tem certeza que deseja apagar ${desc}? Esta operação não pode ser desfeita.`
+    );
+    if (!confirmado) return;
+
+    fechar();
+    const toast = document.getElementById("toast-auditoria-sucesso");
+    try {
+      const endpoint = periodo === "tudo" ? "/auditoria?tudo=1" : `/auditoria?dias=${periodo}`;
+      const res = await api(endpoint, { method: "DELETE" });
+      if (toast) {
+        toast.textContent = `✓ ${res.removidos || 0} registro(s) de auditoria excluído(s) com sucesso.`;
+        toast.hidden = false;
+        setTimeout(() => {
+          toast.hidden = true;
+        }, 4000);
+      }
+      paginaAtual = 1;
+      carregarLogs();
+    } catch (e) {
+      mostrarErro(document.getElementById("mensagem-erro"), e);
+    }
+  });
+}
 
 async function exportarAuditoriaCsv() {
   const btn = document.getElementById("btn-exportar-csv");

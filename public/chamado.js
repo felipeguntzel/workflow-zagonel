@@ -109,10 +109,15 @@ function iniciar() {
   }
 
   // Atalho para abrir tela suspensa de horas
-  const btnAbrirModalHoras = document.getElementById("btn-abrir-modal-horas");
-  if (btnAbrirModalHoras) {
-    btnAbrirModalHoras.addEventListener("click", abrirModalHoras);
-  }
+  document.querySelectorAll("#btn-abrir-modal-horas, .btn-abrir-modal-horas").forEach((b) => {
+    b.addEventListener("click", abrirModalHoras);
+  });
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#btn-abrir-modal-horas, .btn-abrir-modal-horas")) {
+      e.preventDefault();
+      abrirModalHoras();
+    }
+  });
 
   // Integração Comentários + Anexos
   configurarFormularioComentariosEAnexos();
@@ -347,7 +352,7 @@ async function carregarDetalhe(chamadoRecebido = null) {
     }
   });
 
-  // Salvar status automaticamente ao alterar a opção no select do topo
+  // Salvar status automaticamente ao alterar a opção no select do topo com resposta instantânea
   const selectStatusTopo = document.getElementById("select-status-topo");
   if (selectStatusTopo) {
     let statusAnterior = Number(selectStatusTopo.value);
@@ -368,7 +373,23 @@ async function carregarDetalhe(chamadoRecebido = null) {
         return;
       }
 
-      selectStatusTopo.disabled = true;
+      // Atualização visual otimista imediata (< 10ms)
+      const badgeLegenda = document.querySelector(".cabecalho-legendas .badge-status");
+      if (badgeLegenda && statusEscolhido) {
+        badgeLegenda.style.background = statusEscolhido.cor ? statusEscolhido.cor + "18" : "var(--cor-fundo)";
+        badgeLegenda.style.color = statusEscolhido.cor || "var(--cor-texto)";
+        badgeLegenda.style.borderColor = statusEscolhido.cor ? statusEscolhido.cor + "55" : "var(--cor-borda)";
+        badgeLegenda.innerHTML = `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${statusEscolhido.cor || "var(--cor-primaria)"};"></span>Status: ${escaparHtml(statusEscolhido.nome)}`;
+      }
+
+      if (toastStatus) {
+        toastStatus.textContent = "✓ Status alterado.";
+        toastStatus.hidden = false;
+        clearTimeout(toastStatus._timeout);
+        toastStatus._timeout = setTimeout(() => {
+          toastStatus.hidden = true;
+        }, 2500);
+      }
 
       try {
         const chamadoAtualizado = await api(`/chamados/${chamado.id}`, { method: "PUT", body: { status_id: statusId } });
@@ -377,48 +398,119 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
         const foiFinalizado = String(statusEscolhido?.nome || "").toLowerCase() === "finalizado";
         if (foiFinalizado) {
-          // Quando finalizado, pode ter gerado novas etapas ou desbloqueado dependências; recarrega completo
+          // Quando finalizado, pode ter avançado fluxo e desbloqueado etapas seguintes
           await carregarTudo();
         } else {
-          // Alteração de status padrão: atualização instantânea sem recarregar desnecessariamente
-          await carregarDetalhe(chamadoAtualizado);
-          carregarAuditoria(); // Atualiza histórico em segundo plano
-        }
-
-        // Exibir toast rápido de confirmação
-        const novoToast = document.getElementById("toast-status-topo");
-        if (novoToast) {
-          novoToast.textContent = "✓ Status alterado.";
-          novoToast.hidden = false;
-          clearTimeout(novoToast._timeout);
-          novoToast._timeout = setTimeout(() => {
-            novoToast.hidden = true;
-          }, 3000);
+          // Apenas atualiza auditoria em background sem recriar todo o DOM
+          carregarAuditoria();
         }
       } catch (e) {
         selectStatusTopo.value = String(statusAnterior);
-        mostrarErro(erroStatus, e);
-      } finally {
-        const selectAtual = document.getElementById("select-status-topo");
-        if (selectAtual) {
-          selectAtual.disabled = false;
+        // Reverte badge em caso de falha
+        const stAntes = statusList.find((s) => s.id === statusAnterior);
+        if (badgeLegenda && stAntes) {
+          badgeLegenda.style.background = stAntes.cor ? stAntes.cor + "18" : "var(--cor-fundo)";
+          badgeLegenda.style.color = stAntes.cor || "var(--cor-texto)";
+          badgeLegenda.style.borderColor = stAntes.cor ? stAntes.cor + "55" : "var(--cor-borda)";
+          badgeLegenda.innerHTML = `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${stAntes.cor || "var(--cor-primaria)"};"></span>Status: ${escaparHtml(stAntes.nome)}`;
         }
+        if (toastStatus) toastStatus.hidden = true;
+        mostrarErro(erroStatus, e);
       }
     });
   }
 
+  // Atualização otimista e ultra rápida de responsável (sem recarregar o chamado inteiro)
   async function definirResponsavel(responsavelId) {
+    const todosUsuarios = await obterUsuarios();
+    const usuarioEscolhido = todosUsuarios.find((u) => u.id === responsavelId);
+    const responsavelAnteriorId = chamado.responsavel_id;
+    const responsavelAnteriorNome = chamado.responsavel_nome;
+
+    // 1. Atualização visual otimista instantânea na tela
+    const containerResp = document.querySelector(".bloco-atribuicao-responsavel");
+    const spanNomeResp = containerResp?.querySelector("span:nth-child(2)");
+    if (spanNomeResp) {
+      spanNomeResp.innerHTML = usuarioEscolhido
+        ? escaparHtml(usuarioEscolhido.nome)
+        : `<em style="color: var(--cor-texto-secundario); font-weight: normal;">Ninguém atribuído</em>`;
+    }
+
+    const selectResp = document.getElementById("select-atribuir-responsavel");
+    if (selectResp) {
+      selectResp.value = responsavelId ? String(responsavelId) : "";
+    }
+
+    const btnAcao = document.getElementById("btn-assumir-responsavel") || document.getElementById("btn-liberar-responsavel");
+    if (btnAcao) {
+      if (responsavelId === usuario.id) {
+        btnAcao.id = "btn-liberar-responsavel";
+        btnAcao.textContent = "Liberar";
+      } else {
+        btnAcao.id = "btn-assumir-responsavel";
+        btnAcao.textContent = "Assumir";
+      }
+    }
+
+    // Exibe toast de confirmação rápido
+    const toastStatus = document.getElementById("toast-status-topo");
+    if (toastStatus) {
+      toastStatus.textContent = "✓ Responsável atualizado.";
+      toastStatus.hidden = false;
+      clearTimeout(toastStatus._timeout);
+      toastStatus._timeout = setTimeout(() => {
+        toastStatus.hidden = true;
+      }, 2500);
+    }
+
+    // 2. Dispara PUT em segundo plano
     try {
       const respAtualizado = await api(`/chamados/${chamado.id}`, { method: "PUT", body: { responsavel_id: responsavelId } });
-      if (respAtualizado) chamadoAtual = respAtualizado;
-      carregarTudo();
+      if (respAtualizado) {
+        chamadoAtual = respAtualizado;
+        chamado.responsavel_id = respAtualizado.responsavel_id;
+        chamado.responsavel_nome = respAtualizado.responsavel_nome;
+        // Se a transição automática mudou para previsto, sincroniza o status no select
+        if (respAtualizado.status_id && respAtualizado.status_id !== chamado.status_id) {
+          chamado.status_id = respAtualizado.status_id;
+          chamado.status_nome = respAtualizado.status_nome;
+          chamado.status_cor = respAtualizado.status_cor;
+          if (selectStatusTopo) selectStatusTopo.value = String(respAtualizado.status_id);
+          const badgeLegenda = document.querySelector(".cabecalho-legendas .badge-status");
+          if (badgeLegenda) {
+            badgeLegenda.style.background = respAtualizado.status_cor ? respAtualizado.status_cor + "18" : "var(--cor-fundo)";
+            badgeLegenda.style.color = respAtualizado.status_cor || "var(--cor-texto)";
+            badgeLegenda.style.borderColor = respAtualizado.status_cor ? respAtualizado.status_cor + "55" : "var(--cor-borda)";
+            badgeLegenda.innerHTML = `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${respAtualizado.status_cor || "var(--cor-primaria)"};"></span>Status: ${escaparHtml(respAtualizado.status_nome)}`;
+          }
+        }
+      }
+      // Atualiza o histórico de auditoria em segundo plano
+      carregarAuditoria();
     } catch (e) {
+      // Reverte em caso de erro
+      chamado.responsavel_id = responsavelAnteriorId;
+      chamado.responsavel_nome = responsavelAnteriorNome;
+      if (spanNomeResp) {
+        spanNomeResp.innerHTML = responsavelAnteriorNome
+          ? escaparHtml(responsavelAnteriorNome)
+          : `<em style="color: var(--cor-texto-secundario); font-weight: normal;">Ninguém atribuído</em>`;
+      }
+      if (selectResp) selectResp.value = responsavelAnteriorId ? String(responsavelAnteriorId) : "";
+      if (toastStatus) toastStatus.hidden = true;
       mostrarErro(document.getElementById("mensagem-erro"), e);
     }
   }
 
-  document.getElementById("btn-assumir-responsavel")?.addEventListener("click", () => definirResponsavel(usuario.id));
-  document.getElementById("btn-liberar-responsavel")?.addEventListener("click", () => definirResponsavel(null));
+  // Delegação de cliques para botões de assumir e liberar responsável
+  document.getElementById("detalhe")?.addEventListener("click", (e) => {
+    if (e.target.closest("#btn-assumir-responsavel")) {
+      definirResponsavel(usuario.id);
+    } else if (e.target.closest("#btn-liberar-responsavel")) {
+      definirResponsavel(null);
+    }
+  });
+
   document.getElementById("select-atribuir-responsavel")?.addEventListener("change", (e) => {
     const val = e.target.value;
     definirResponsavel(val ? Number(val) : null);
@@ -1006,7 +1098,10 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
     listaEl.querySelectorAll(".btn-excluir-anexo").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const anexoId = btn.dataset.id;
-        const confirmado = await confirmarAcao("Excluir este arquivo anexo?");
+        const confirmado = await confirmarAcao(
+          "Excluir este arquivo anexo?",
+          "Tem certeza que deseja remover este anexo? Esta ação não pode ser desfeita."
+        );
         if (!confirmado) return;
         try {
           await api(`/chamados/${id}/anexos?anexo_id=${anexoId}`, { method: "DELETE" });
@@ -1022,7 +1117,10 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
     listaEl.querySelectorAll(".btn-excluir-comentario").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const comentarioId = btn.dataset.id;
-        const confirmado = await confirmarAcao("Excluir este comentário?");
+        const confirmado = await confirmarAcao(
+          "Excluir este comentário?",
+          "Tem certeza que deseja remover este comentário? Esta ação não pode ser desfeita."
+        );
         if (!confirmado) return;
         try {
           await api(`/chamados/${id}/comentarios?comentario_id=${comentarioId}`, { method: "DELETE" });

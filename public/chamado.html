@@ -29,7 +29,12 @@
       <span style="color: var(--cor-borda); margin: 0 0.35rem;">|</span>
       <a id="link-geral" href="#" class="link-sem-sublinhado">Ver chamado geral</a>
     </p>
-    <button type="button" id="btn-excluir-chamado" class="btn btn-perigo btn-pequeno">Excluir chamado</button>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <button type="button" class="btn btn-secundario btn-pequeno btn-abrir-modal-horas" title="Apontamento rápido de horas">
+        ⏱️ Apontar Horas
+      </button>
+      <button type="button" id="btn-excluir-chamado" class="btn btn-perigo btn-pequeno">Excluir chamado</button>
+    </div>
   </div>
   
   <p id="mensagem-erro" class="erro" hidden></p>

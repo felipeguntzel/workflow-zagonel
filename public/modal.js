@@ -42,12 +42,19 @@ export function abrirModal(conteudoElemento, onOutsideClick) {
 
 export function confirmarAcao(titulo, mensagem, opcoes = {}) {
   return new Promise((resolve) => {
+    // Trata caso o segundo argumento seja o objeto de opções
+    if (typeof mensagem === "object" && mensagem !== null && Object.keys(opcoes).length === 0) {
+      opcoes = mensagem;
+      mensagem = "";
+    }
+
+    const textoMensagem = (mensagem != null && mensagem !== undefined) ? String(mensagem).trim() : "";
     const textoCancelar = opcoes.textoCancelar || "Cancelar";
     const textoConfirmar = opcoes.textoConfirmar || "Confirmar";
 
     let tipo = opcoes.tipo;
     if (!tipo) {
-      const textoChecagem = `${titulo} ${mensagem}`.toLowerCase();
+      const textoChecagem = `${titulo} ${textoMensagem}`.toLowerCase();
       if (
         textoChecagem.includes("excluir") ||
         textoChecagem.includes("cancelar") ||
@@ -77,7 +84,7 @@ export function confirmarAcao(titulo, mensagem, opcoes = {}) {
         ${iconeSvg}
       </div>
       <h3 class="modal-confirmacao__titulo">${titulo}</h3>
-      <p class="modal-confirmacao__mensagem">${mensagem}</p>
+      ${textoMensagem ? `<p class="modal-confirmacao__mensagem">${textoMensagem}</p>` : ""}
       <div class="modal-confirmacao__acoes">
         <button type="button" class="btn btn-secundario modal-confirmacao__btn-cancelar">${textoCancelar}</button>
         <button type="button" class="btn ${classeBtnConfirmar} modal-confirmacao__btn-confirmar">${textoConfirmar}</button>

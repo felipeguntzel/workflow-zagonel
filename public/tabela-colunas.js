@@ -222,21 +222,37 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     });
   }
 
-  // Injetar botão "⚙️ Colunas"
+  // Injetar ou vincular botão "⚙️ Colunas"
   function injetarBotaoColunas() {
+    // 1. Procura se já existe botão específico ou padrão na página
+    const btnPreExistente =
+      document.getElementById(`btn-colunas-${chaveIdentificador}`) ||
+      document.getElementById("btn-colunas-chamados") ||
+      document.querySelector(`.btn-config-colunas[data-tabela="${chaveIdentificador}"]`);
+
+    if (btnPreExistente) {
+      btnPreExistente.addEventListener("click", (e) => {
+        e.stopPropagation();
+        abrirPopoverColunas(btnPreExistente);
+      });
+      return;
+    }
+
     const wrap = tabela.closest(".tabela-wrap") || tabela.parentElement;
     if (!wrap) return;
 
     // Procura local no cabeçalho ou acima da tabela
     let containerAcoes =
       document.querySelector(".pagina-cabecalho__acoes") ||
-      wrap.previousElementSibling?.querySelector(".pagina-cabecalho__acoes");
+      wrap.previousElementSibling?.querySelector(".pagina-cabecalho__acoes") ||
+      document.querySelector(".crud-barra-acoes");
 
     // Cria botão de colunas se ainda não existir para esta tabela
     const btnId = `btn-config-colunas-${chaveIdentificador}`;
-    if (document.getElementById(btnId)) return;
+    let btn = document.getElementById(btnId);
+    if (btn) return;
 
-    const btn = document.createElement("button");
+    btn = document.createElement("button");
     btn.type = "button";
     btn.id = btnId;
     btn.className = "btn btn-secundario btn-pequeno btn-config-colunas";
@@ -246,7 +262,6 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     if (containerAcoes) {
       containerAcoes.insertBefore(btn, containerAcoes.firstChild);
     } else {
-      // Se não houver cabeçalho padrão, insere logo antes do wrap da tabela
       const barraControle = document.createElement("div");
       barraControle.style.display = "flex";
       barraControle.style.justifyContent = "flex-end";
@@ -276,14 +291,14 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
 
     const ret = btnElemento.getBoundingClientRect();
     popover.style.top = `${ret.bottom + window.scrollY + 6}px`;
-    popover.style.left = `${Math.max(10, ret.right - 250)}px`;
+    popover.style.left = `${Math.max(10, ret.right - 260)}px`;
 
     let htmlItens = `
       <div class="popover-config-colunas__topo">
         <strong style="font-size: 0.85rem;">Exibir / Ocultar Colunas</strong>
-        <button type="button" class="btn-icone btn-fechar-popover-colunas" style="font-size: 0.8rem;">✕</button>
+        <button type="button" class="btn-icone btn-fechar-popover-colunas" style="font-size: 0.85rem;" aria-label="Fechar">✕</button>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+      <div style="display: flex; flex-direction: column; gap: 0.3rem; max-height: 230px; overflow-y: auto;">
     `;
 
     ths.forEach((th) => {
@@ -300,8 +315,9 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
 
     htmlItens += `
       </div>
-      <div class="popover-config-colunas__rodape">
-        <button type="button" class="btn btn-secundario btn-pequeno btn-resetar-colunas" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">Restaurar padrão</button>
+      <div class="popover-config-colunas__rodape" style="display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--cor-borda);">
+        <button type="button" class="btn btn-secundario btn-pequeno btn-exibir-todas" style="font-size: 0.76rem; padding: 0.25rem 0.5rem;">Exibir todas</button>
+        <button type="button" class="btn btn-secundario btn-pequeno btn-resetar-colunas" style="font-size: 0.76rem; padding: 0.25rem 0.5rem;">Restaurar padrão</button>
       </div>
     `;
 
@@ -323,12 +339,25 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
       popover.remove();
     });
 
+    popover.querySelector(".btn-exibir-todas")?.addEventListener("click", () => {
+      const mapa = {};
+      ths.forEach((th) => {
+        mapa[th.dataset.colId] = true;
+      });
+      salvarVisibilidade(mapa);
+      aplicarVisibilidadeSalva();
+      popover.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+        cb.checked = true;
+      });
+    });
+
     popover.querySelector(".btn-resetar-colunas")?.addEventListener("click", () => {
       localStorage.removeItem(storageKeyOrdem);
       localStorage.removeItem(storageKeyVis);
       cabecalhosIniciais.forEach((th) => theadTr.appendChild(th));
       aplicarVisibilidadeSalva();
       atualizarDraggable();
+      sincronizarTbodyComThead();
       popover.remove();
     });
 
@@ -344,32 +373,36 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     }, 50);
   }
 
-  // Observa inserções no tbody para reaplicar ordem e visibilidade
+  function sincronizarTbodyComThead() {
+    if (!tbody) return;
+    const ths = Array.from(theadTr.children);
+    const ordemThead = ths.map((th) => th.dataset.colId);
+    const thsOriginais = cabecalhosIniciais.map((th) => th.dataset.colId);
+    const mudouOrdem = thsOriginais.some((id, idx) => id !== ordemThead[idx]);
+    const mapaDe = mudouOrdem ? ordemThead.map((id) => thsOriginais.indexOf(id)) : null;
+
+    Array.from(tbody.querySelectorAll("tr")).forEach((tr) => {
+      const tds = Array.from(tr.children);
+      if (tds.length === ths.length && mudouOrdem && !tr.dataset.colsReordenadas) {
+        tr.dataset.colsReordenadas = "1";
+        const reordenados = mapaDe.map((idx) => tds[idx]);
+        reordenados.forEach((td) => {
+          if (td) tr.appendChild(td);
+        });
+      }
+    });
+
+    aplicarVisibilidadeSalva();
+  }
+
+  // Observa inserções no tbody para reaplicar ordem e visibilidade continuamente
   if (tbody && typeof MutationObserver !== "undefined") {
     let processandoMutacao = false;
     const observer = new MutationObserver(() => {
       if (processandoMutacao) return;
       try {
         processandoMutacao = true;
-        const ths = Array.from(theadTr.children);
-        const ordemThead = ths.map((th) => th.dataset.colId);
-        const thsOriginais = cabecalhosIniciais.map((th) => th.dataset.colId);
-        const mudou = thsOriginais.some((id, idx) => id !== ordemThead[idx]);
-
-        if (mudou) {
-          const mapaDe = ordemThead.map((id) => thsOriginais.indexOf(id));
-          Array.from(tbody.querySelectorAll("tr")).forEach((tr) => {
-            const tds = Array.from(tr.children);
-            if (tds.length === ths.length && !tr.dataset.reordenado) {
-              tr.dataset.reordenado = "1";
-              const reordenados = mapaDe.map((idx) => tds[idx]);
-              reordenados.forEach((td) => {
-                if (td) tr.appendChild(td);
-              });
-            }
-          });
-        }
-        aplicarVisibilidadeSalva();
+        sincronizarTbodyComThead();
       } catch (_) {
       } finally {
         processandoMutacao = false;
