@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
 import { escaparHtml, mostrarErro, debounce, exportarParaCsv, anunciarA11y } from "./ui.js";
+import { tornarTabelaReordenavel } from "./tabela-colunas.js";
 
 export function inicializar() {
   const usuario = exigirLogin();
@@ -122,6 +123,11 @@ export const inicializarAuditoria = async function () {
       </div>
     </div>
   `;
+
+  const tabelaAuditoria = container.querySelector("table");
+  if (tabelaAuditoria) {
+    tornarTabelaReordenavel(tabelaAuditoria, "auditoria");
+  }
 
   const inputBusca = document.getElementById("filtro-busca");
   if (inputBusca) {

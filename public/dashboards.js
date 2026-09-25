@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
 import { mostrarErro, escaparHtml, exportarParaCsv } from "./ui.js";
+import { tornarTabelaReordenavel } from "./tabela-colunas.js";
 
 let relatorioAtual = null;
 
@@ -28,6 +29,13 @@ export function inicializar() {
 
   configurarFiltros();
   carregarEmpresas();
+
+  const tabelaSetores = document.querySelector("#tabela-desempenho-setores")?.closest("table");
+  if (tabelaSetores) tornarTabelaReordenavel(tabelaSetores, "dashboards_setores");
+
+  const tabelaStatus = document.querySelector("#tabela-distribuicao-status")?.closest("table");
+  if (tabelaStatus) tornarTabelaReordenavel(tabelaStatus, "dashboards_status");
+
   carregarDashboard();
 }
 

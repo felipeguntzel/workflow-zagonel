@@ -13,6 +13,7 @@ import {
 } from "./ui.js";
 import { permissaoDaTela } from "./auth.js";
 import { confirmarAcao } from "./modal.js";
+import { tornarTabelaReordenavel } from "./tabela-colunas.js";
 
 export function gerarSenhaAleatoria(tamanho = 6) {
   const letras = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -265,6 +266,11 @@ export async function renderCrud(container, config) {
     </div>
     <div class="container-modal-crud"></div>
   `;
+
+  const tabelaCrud = container.querySelector("table");
+  if (tabelaCrud) {
+    tornarTabelaReordenavel(tabelaCrud, `crud_${String(config.tela || config.endpoint || "tabela").replace(/[^a-zA-Z0-9_]/g, "_")}`);
+  }
 
   function verificarPreRequisitos() {
     const faltantes = [];

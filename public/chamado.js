@@ -268,8 +268,8 @@ async function carregarDetalhe(chamadoRecebido = null) {
           : ""
       }
 
-      <!-- Atribuição de Responsável com Visual Padronizado -->
-      <div style="margin-top: 0.85rem; padding-top: 0.65rem; border-top: 1px solid var(--cor-borda); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
+      <!-- Atribuição de Responsável no Canto Esquerdo com Visual Padronizado -->
+      <div class="bloco-atribuicao-responsavel" style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid var(--cor-borda); display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem;">
         <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
           <span style="font-weight: 600; font-size: 0.88rem; color: var(--cor-texto-secundario);">Responsável atual:</span>
           <span style="font-size: 0.9rem; font-weight: 600;">
@@ -281,15 +281,15 @@ async function carregarDetalhe(chamadoRecebido = null) {
         ${
           !finalizado && permissaoChamados.editar
             ? `
-          <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
-            <select id="select-atribuir-responsavel" class="select-padrao" style="min-width: 210px; padding: 0.35rem 0.65rem; font-size: 0.85rem; height: 34px;">
-              <option value="">Carregando usuários...</option>
+          <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; flex-wrap: wrap;">
+            <select id="select-atribuir-responsavel" class="select-padrao" style="min-width: 230px; max-width: 320px; padding: 0.4rem 0.65rem; font-size: 0.85rem; height: 36px; box-sizing: border-box;">
+              <option value="">Atribuir para alguém do setor…</option>
             </select>
-            <button type="button" id="btn-salvar-atribuicao" class="btn btn-primario btn-pequeno" style="height: 34px; padding: 0 0.85rem;">Atribuir</button>
+            <button type="button" id="btn-salvar-atribuicao" class="btn btn-primario" style="height: 36px; padding: 0 1rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Atribuir</button>
             ${
               chamado.responsavel_id === usuario.id
-                ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario btn-pequeno" style="height: 34px; padding: 0 0.85rem;">Liberar</button>`
-                : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario btn-pequeno" style="height: 34px; padding: 0 0.85rem;">Assumir</button>`
+                ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario" style="height: 36px; padding: 0 1rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Liberar</button>`
+                : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario" style="height: 36px; padding: 0 1rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Assumir</button>`
             }
           </div>
         `
@@ -351,22 +351,36 @@ async function carregarDetalhe(chamadoRecebido = null) {
       const selectStatus = document.getElementById("select-status-topo");
       const erroStatus = document.getElementById("erro-status-topo");
       const toastStatus = document.getElementById("toast-status-topo");
-      erroStatus.hidden = true;
+      if (erroStatus) erroStatus.hidden = true;
 
       const statusId = Number(selectStatus.value);
       const statusEscolhido = statusList.find((s) => s.id === statusId);
 
       if (chamado.bloqueado && String(statusEscolhido?.nome || "").toLowerCase() === "finalizado") {
-        erroStatus.textContent = "Não é possível finalizar: chamado bloqueado aguardando pré-requisito.";
-        erroStatus.hidden = false;
+        if (erroStatus) {
+          erroStatus.textContent = "Não é possível finalizar: chamado bloqueado aguardando pré-requisito.";
+          erroStatus.hidden = false;
+        }
         return;
       }
 
       btnSalvarStatusTopo.disabled = true;
+      const textoOriginal = btnSalvarStatusTopo.textContent;
+      btnSalvarStatusTopo.textContent = "Salvando...";
+
       try {
-        await api(`/chamados/${chamado.id}`, { method: "PUT", body: { status_id: statusId } });
-        await carregarTudo();
+        const chamadoAtualizado = await api(`/chamados/${chamado.id}`, { method: "PUT", body: { status_id: statusId } });
         
+        const foiFinalizado = String(statusEscolhido?.nome || "").toLowerCase() === "finalizado";
+        if (foiFinalizado) {
+          // Quando finalizado, pode ter gerado novas etapas ou desbloqueado dependências; recarrega completo
+          await carregarTudo();
+        } else {
+          // Alteração de status padrão: atualização cirúrgica instantânea sem recarregar comentários, anexos e horas
+          await carregarDetalhe(chamadoAtualizado);
+          carregarAuditoria(); // Atualiza histórico em segundo plano
+        }
+
         // Exibir toast rápido de confirmação
         const novoToast = document.getElementById("toast-status-topo");
         if (novoToast) {
@@ -380,7 +394,11 @@ async function carregarDetalhe(chamadoRecebido = null) {
       } catch (e) {
         mostrarErro(erroStatus, e);
       } finally {
-        btnSalvarStatusTopo.disabled = false;
+        const btnAtual = document.getElementById("btn-salvar-status-topo");
+        if (btnAtual) {
+          btnAtual.disabled = false;
+          btnAtual.textContent = textoOriginal;
+        }
       }
     });
   }

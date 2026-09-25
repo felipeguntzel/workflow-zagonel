@@ -28,10 +28,10 @@
       <h1>Meus chamados</h1>
     </div>
     <div class="pagina-cabecalho__acoes" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-      <button type="button" id="btn-exportar-chamados" class="btn btn-secundario" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Exportar chamados em CSV">
+      <button type="button" id="btn-exportar-chamados" class="btn btn-secundario btn-cabecalho-acao" title="Exportar chamados em CSV">
         <span>📥</span> Exportar CSV
       </button>
-      <a href="/novo-chamado" class="btn btn-primario" id="link-novo-chamado">+ Abrir novo chamado</a>
+      <a href="/novo-chamado" class="btn btn-primario btn-cabecalho-acao" id="link-novo-chamado">+ Abrir novo chamado</a>
     </div>
   </div>
 
@@ -63,10 +63,10 @@
           <th class="th-ordenavel th-id" data-col="id">#ID <span class="ordem-indicador" id="ordem-id">▲</span></th>
           <th class="th-ordenavel" data-col="titulo" style="min-width:20ch">Chamado <span class="ordem-indicador" id="ordem-titulo"></span></th>
           <th class="th-ordenavel" data-col="etapa_atual">Etapa Atual <span class="ordem-indicador" id="ordem-etapa_atual"></span></th>
+          <th class="th-ordenavel" data-col="status_etapa_nome">Status Etapa <span class="ordem-indicador" id="ordem-status_etapa_nome"></span></th>
           <th class="th-ordenavel" data-col="solicitante_nome">Solicitante <span class="ordem-indicador" id="ordem-solicitante_nome"></span></th>
           <th class="th-ordenavel" data-col="setor_nome">Setor <span class="ordem-indicador" id="ordem-setor_nome"></span></th>
           <th class="th-ordenavel" data-col="empresa_nome">Empresa <span class="ordem-indicador" id="ordem-empresa_nome"></span></th>
-          <th class="th-ordenavel" data-col="status_etapa_nome">Status Etapa <span class="ordem-indicador" id="ordem-status_etapa_nome"></span></th>
           <th class="th-ordenavel" data-col="status_geral_texto">Status Geral <span class="ordem-indicador" id="ordem-status_geral_texto"></span></th>
           <th class="th-ordenavel" data-col="prazo">Prazo <span class="ordem-indicador" id="ordem-prazo"></span></th>
           <th class="th-ordenavel" data-col="situacao">Situação <span class="ordem-indicador" id="ordem-situacao"></span></th>

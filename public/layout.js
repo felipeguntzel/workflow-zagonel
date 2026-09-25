@@ -303,10 +303,23 @@ function construirSidebar(usuario, modalBusca) {
         <span class="sidebar__usuario-seta">▲</span>
       </button>
       <div class="sidebar__usuario-menu" id="sidebar-usuario-menu" hidden>
-        <button type="button" id="btn-instalar-pwa" class="sidebar__usuario-item" style="display: none; width: 100%; border: none; background: none; text-align: left; cursor: pointer; color: var(--cor-primaria); font-weight: 700; padding: 0.5rem 0.75rem; font-size: 0.85rem;">📲 Instalar Aplicativo</button>
-        <a href="#" id="link-preferencias">Preferências</a>
-        <a href="#" id="link-logout-todos" style="font-size: 0.8rem; color: var(--cor-perigo, #e53935);">Sair de todos os dispositivos</a>
-        <a href="#" id="link-sair">Sair</a>
+        <button type="button" id="btn-instalar-pwa" class="sidebar__usuario-item sidebar__usuario-item--destaque" style="display: none;">
+          <span class="sidebar__usuario-icone">📲</span>
+          <span>Instalar Aplicativo</span>
+        </button>
+        <a href="#" id="link-preferencias" class="sidebar__usuario-item">
+          <span class="sidebar__usuario-icone">⚙️</span>
+          <span>Preferências</span>
+        </a>
+        <hr class="sidebar__usuario-divisor">
+        <a href="#" id="link-logout-todos" class="sidebar__usuario-item sidebar__usuario-item--alerta">
+          <span class="sidebar__usuario-icone">🔒</span>
+          <span>Sair de todos os dispositivos</span>
+        </a>
+        <a href="#" id="link-sair" class="sidebar__usuario-item sidebar__usuario-item--sair">
+          <span class="sidebar__usuario-icone">🚪</span>
+          <span>Sair</span>
+        </a>
       </div>
     </div>
   `;

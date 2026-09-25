@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WorkFlow Zagonel - Chamado Geral</title>
+<title>WorkFlow Zagonel - Visão Geral do Fluxo</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#2f6f4f">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -28,12 +28,31 @@
       <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
         <a href="/chamados" style="font-size: 0.85rem; color: var(--cor-primaria); text-decoration: none; font-weight: 600;">← Meus chamados</a>
         <span style="color: var(--cor-texto-secundario);">/</span>
+        <a id="link-voltar-chamado" href="/chamados" style="font-size: 0.85rem; color: var(--cor-primaria); text-decoration: none; font-weight: 600;">Chamado</a>
+        <span style="color: var(--cor-texto-secundario);">/</span>
         <span style="font-size: 0.85rem; color: var(--cor-texto-secundario);">Visão geral</span>
       </div>
-      <h2>Chamado Geral</h2>
+      <h2 id="titulo-pagina-geral">Visão Geral do Fluxo de Atendimento</h2>
+    </div>
+    <div class="pagina-cabecalho__acoes">
+      <button type="button" id="btn-expandir-tudo" class="btn btn-secundario btn-cabecalho-acao">Expandir etapas</button>
+      <button type="button" id="btn-recolher-tudo" class="btn btn-secundario btn-cabecalho-acao">Recolher etapas</button>
     </div>
   </div>
-  <div id="arvore" class="arvore"></div>
+
+  <p id="mensagem-erro" class="erro" hidden></p>
+
+  <div class="geral-fluxo-container">
+    <!-- Card de Resumo do Fluxo Raiz -->
+    <div id="card-resumo-fluxo" class="geral-resumo-card" hidden></div>
+
+    <!-- Árvore e Linha do Tempo das Etapas -->
+    <div id="arvore" class="geral-arvore-container">
+      <div style="text-align: center; padding: 2.5rem; color: var(--cor-texto-secundario);">
+        Carregando fluxo completo do chamado...
+      </div>
+    </div>
+  </div>
 </main>
 <script type="module" src="geral.js"></script>
 </body>

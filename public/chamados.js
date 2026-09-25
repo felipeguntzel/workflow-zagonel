@@ -2,6 +2,7 @@ import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
 import { mostrarErro, escaparAtributo, escaparHtml, debounce, exportarParaCsv, anunciarA11y, formatarDataBR } from "./ui.js";
 import { api } from "./api.js";
+import { tornarTabelaReordenavel } from "./tabela-colunas.js";
 
 export function inicializar() {
   const usuario = exigirLogin();
@@ -13,6 +14,10 @@ export function inicializar() {
   }
   configurarEventosFiltros();
   configurarOrdenacao();
+  const tabela = document.querySelector(".tabela-wrap table");
+  if (tabela) {
+    tornarTabelaReordenavel(tabela, "chamados", usuario.id);
+  }
   carregarChamados().catch((e) => mostrarErro(document.getElementById("mensagem-erro"), e));
 }
 
@@ -45,15 +50,9 @@ function badgeStatusColorido(nome, cor) {
   return `<span class="badge-status" style="background: ${cor}18; color: ${cor}; border: 1px solid ${cor}55; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${cor};"></span>${escaparHtml(nome)}</span>`;
 }
 
-function badgeStatusGeral(texto, tipo) {
+function badgeStatusGeral(texto) {
   if (!texto) return "-";
-  if (tipo === "finalizado") {
-    return `<span class="badge-status" style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #16a34a;"></span>${escaparHtml(texto)}</span>`;
-  }
-  if (tipo === "suspenso") {
-    return `<span class="badge-status" style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #d97706;"></span>${escaparHtml(texto)}</span>`;
-  }
-  return `<span class="badge-status" style="background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #0284c7;"></span>${escaparHtml(texto)}</span>`;
+  return `<span style="color: var(--cor-texto); font-weight: 500;">${escaparHtml(texto)}</span>`;
 }
 
 function filtrarDados() {
@@ -133,11 +132,11 @@ function renderizarTabela() {
                 <td class="td-id">#${c.id}</td>
                 <td title="${escaparAtributo(c.titulo)}"><a href="/chamado?id=${c.id}" class="link-sem-sublinhado">${escaparHtml(c.titulo)}</a></td>
                 <td>${escaparHtml(c.etapa_atual || "-")}</td>
+                <td>${badgeStatusColorido(c.status_etapa_nome || c.status_nome, c.status_etapa_cor || c.status_cor)}</td>
                 <td>${escaparHtml(c.solicitante_nome || "-")}</td>
                 <td>${escaparHtml(c.setor_nome || "-")}</td>
                 <td>${escaparHtml(c.empresa_nome || "-")}</td>
-                <td>${badgeStatusColorido(c.status_etapa_nome || c.status_nome, c.status_etapa_cor || c.status_cor)}</td>
-                <td>${badgeStatusGeral(c.status_geral_texto, c.status_geral_tipo)}</td>
+                <td>${badgeStatusGeral(c.status_geral_texto)}</td>
                 <td>${c.prazo ? escaparHtml(formatarDataBR(c.prazo)) : "-"}</td>
                 <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
               </tr>`

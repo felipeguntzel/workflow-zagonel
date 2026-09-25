@@ -11,11 +11,20 @@ export function hojeISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const cacheStatusId = new Map();
 async function statusIdPorNome(db, nome) {
+  const chave = String(nome).toLowerCase();
+  if (cacheStatusId.has(chave)) return cacheStatusId.get(chave);
   const row = await first(db, "SELECT id FROM status WHERE LOWER(nome) = LOWER(?)", nome);
-  if (row) return row.id;
+  if (row) {
+    cacheStatusId.set(chave, row.id);
+    return row.id;
+  }
   const fallback = await first(db, "SELECT id FROM status ORDER BY id ASC LIMIT 1");
-  if (fallback) return fallback.id;
+  if (fallback) {
+    cacheStatusId.set(chave, fallback.id);
+    return fallback.id;
+  }
   throw new Error(`Status não encontrado no sistema: ${nome}`);
 }
 
