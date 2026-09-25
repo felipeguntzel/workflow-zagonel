@@ -826,11 +826,18 @@ async function iniciar(container, mensagemErro) {
       return;
     }
 
+    let acaoEditandoId = null;
+
     function renderConteudoAcoes() {
       const acoes = detalhesEtapa.acoes || [];
+      const acaoEmEdicao = acaoEditandoId ? acoes.find((a) => a.id === acaoEditandoId) : null;
+      if (acaoEditandoId && !acaoEmEdicao) {
+        acaoEditandoId = null;
+      }
+
       modalAcaoWrap.innerHTML = `
         <div class="modal-fundo modal-fundo--cadastro" role="dialog" aria-modal="true">
-          <div class="modal-cadastro modal-cadastro--complexo" style="max-width: 780px;">
+          <div class="modal-cadastro modal-cadastro--complexo" style="max-width: 840px;">
             <div class="modal-cabecalho">
               <h3>Ações de Aprovação: ${escaparHtml(etapa.nome)}</h3>
               <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
@@ -840,7 +847,7 @@ async function iniciar(container, mensagemErro) {
               
               <div style="margin-bottom: 1.25rem;">
                 <h4 style="margin: 0 0 0.5rem; font-size: 0.95rem;">Ações cadastradas</h4>
-                <div class="tabela-wrap" style="max-height: 220px; overflow-y: auto;">
+                <div class="tabela-wrap" style="max-height: 240px; overflow-y: auto;">
                   <table style="margin: 0;">
                     <thead>
                       <tr>
@@ -848,22 +855,27 @@ async function iniciar(container, mensagemErro) {
                         <th>Setor Destino</th>
                         <th>Vínculo</th>
                         <th>Pré-requisito</th>
+                        <th>Observação / Instrução</th>
                         <th class="td-acoes">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       ${
                         acoes.length === 0
-                          ? `<tr><td colspan="5" style="text-align: center; padding: 1.25rem; color: var(--cor-texto-secundario);">Nenhuma ação cadastrada nesta etapa de aprovação.</td></tr>`
+                          ? `<tr><td colspan="6" style="text-align: center; padding: 1.25rem; color: var(--cor-texto-secundario);">Nenhuma ação cadastrada nesta etapa de aprovação.</td></tr>`
                           : acoes
                               .map(
                                 (a) => `
-                        <tr>
+                        <tr style="${acaoEditandoId === a.id ? "background: rgba(47, 111, 79, 0.08); font-weight: 600;" : ""}">
                           <td style="font-weight: 600;">${escaparHtml(a.rotulo)}</td>
                           <td>${escaparHtml(setores.find((s) => s.id === a.setor_destino_id)?.nome ?? a.setor_destino_id)}</td>
                           <td>${a.vinculo === "mae" ? "Chamado mãe" : "Chamado pai"}</td>
                           <td>${a.prerequisito_acao_id ? escaparHtml(acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-") : "-"}</td>
+                          <td style="font-size: 0.82rem; color: var(--cor-texto-secundario); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escaparHtml(a.observacao || "")}">
+                            ${a.observacao ? escaparHtml(a.observacao) : "-"}
+                          </td>
                           <td class="td-acoes">
+                            ${permissaoFluxos.editar ? botaoIconeEditar("btn-editar-acao", a.id) : ""}
                             ${permissaoFluxos.excluir ? botaoIconeExcluir("btn-excluir-acao", a.id) : ""}
                           </td>
                         </tr>
@@ -877,38 +889,63 @@ async function iniciar(container, mensagemErro) {
               </div>
 
               ${
-                permissaoFluxos.inserir
+                permissaoFluxos.inserir || (acaoEmEdicao && permissaoFluxos.editar)
                   ? `
                 <div style="border-top: 1px solid var(--cor-borda); padding-top: 1rem;">
-                  <h4 style="margin: 0 0 0.6rem; font-size: 0.95rem;">Adicionar nova ação</h4>
-                  <form class="form-nova-acao" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; align-items: end;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                    <h4 style="margin: 0; font-size: 0.95rem;">
+                      ${acaoEmEdicao ? `✏️ Editar Ação: "${escaparHtml(acaoEmEdicao.rotulo)}"` : "Adicionar nova ação"}
+                    </h4>
+                    ${
+                      acaoEmEdicao
+                        ? `<button type="button" class="btn btn-secundario btn-cancelar-edicao-acao" style="padding: 0.25rem 0.65rem; font-size: 0.8rem;">✕ Cancelar Edição</button>`
+                        : ""
+                    }
+                  </div>
+                  <form class="form-acao" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; align-items: end;">
                     <div>
                       <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Rótulo da Ação *</label>
-                      <input type="text" name="rotulo" required placeholder="Ex: Liberar Ferramentaria" style="width: 100%;">
+                      <input type="text" name="rotulo" required placeholder="Ex: Liberar Ferramentaria" value="${escaparHtml(acaoEmEdicao?.rotulo || "")}" style="width: 100%;">
                     </div>
                     <div>
                       <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Setor destino *</label>
                       <select name="setor_destino_id" required style="width: 100%;">
                         <option value="">Selecione…</option>
-                        ${setores.map((s) => `<option value="${s.id}">${escaparHtml(s.nome)}</option>`).join("")}
+                        ${setores.map((s) => `<option value="${s.id}" ${acaoEmEdicao && acaoEmEdicao.setor_destino_id === s.id ? "selected" : ""}>${escaparHtml(s.nome)}</option>`).join("")}
                       </select>
                     </div>
                     <div>
                       <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Vínculo *</label>
                       <select name="vinculo" required style="width: 100%;">
-                        <option value="mae">Chamado mãe (raiz)</option>
-                        <option value="pai">Chamado pai (imediato)</option>
+                        <option value="mae" ${acaoEmEdicao && acaoEmEdicao.vinculo === "mae" ? "selected" : ""}>Chamado mãe (raiz)</option>
+                        <option value="pai" ${acaoEmEdicao && acaoEmEdicao.vinculo === "pai" ? "selected" : ""}>Chamado pai (imediato)</option>
                       </select>
                     </div>
                     <div>
                       <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Pré-requisito</label>
                       <select name="prerequisito_acao_id" style="width: 100%;">
                         <option value="">Nenhum</option>
-                        ${acoes.map((a) => `<option value="${a.id}">${escaparHtml(a.rotulo)}</option>`).join("")}
+                        ${acoes
+                          .filter((a) => !acaoEmEdicao || a.id !== acaoEmEdicao.id)
+                          .map((a) => `<option value="${a.id}" ${acaoEmEdicao && acaoEmEdicao.prerequisito_acao_id === a.id ? "selected" : ""}>${escaparHtml(a.rotulo)}</option>`)
+                          .join("")}
                       </select>
                     </div>
-                    <div>
-                      <button type="submit" class="btn btn-primario" style="width: 100%;">+ Adicionar Ação</button>
+                    <div style="grid-column: 1 / -1;">
+                      <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">
+                        Observação / Orientação de como fazer esta ação
+                      </label>
+                      <textarea name="observacao" rows="2" class="textarea-padrao" placeholder="Instruções ou orientações de execução desta ação..." style="width: 100%; font-size: 0.85rem;">${escaparHtml(acaoEmEdicao?.observacao || "")}</textarea>
+                    </div>
+                    <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+                      ${
+                        acaoEmEdicao
+                          ? `<button type="button" class="btn btn-secundario btn-cancelar-edicao-acao">Cancelar</button>`
+                          : ""
+                      }
+                      <button type="submit" class="btn btn-primario" style="min-width: 160px;">
+                        ${acaoEmEdicao ? "💾 Salvar Alterações" : "+ Adicionar Ação"}
+                      </button>
                     </div>
                     <div style="grid-column: 1 / -1; font-size: 0.8rem; color: var(--cor-texto-secundario); background: var(--cor-fundo); padding: 0.4rem 0.65rem; border-radius: 4px; border: 1px solid var(--cor-borda);">
                       💡 <strong>Dica de Vínculo:</strong> <em>Mãe</em> atrela o subchamado à raiz do processo (mesmo nível das demandas gerais). <em>Pai</em> atrela como subtarefa dependente exclusivamente desta etapa de aprovação.
@@ -931,10 +968,22 @@ async function iniciar(container, mensagemErro) {
 
       fundo.querySelector(".modal-fechar").addEventListener("click", fechar);
       fundo.querySelector(".btn-fechar-modal-acao").addEventListener("click", fechar);
-      fundo.addEventListener("click", (e) => {
-        if (e.target === fundo) {
-          // Evita fechamento acidental ao clicar fora
-        }
+      fundo.querySelectorAll(".btn-cancelar-edicao-acao").forEach((b) =>
+        b.addEventListener("click", () => {
+          acaoEditandoId = null;
+          renderConteudoAcoes();
+        })
+      );
+
+      // Editar ação
+      fundo.querySelectorAll(".btn-editar-acao").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          acaoEditandoId = Number(btn.dataset.id);
+          renderConteudoAcoes();
+          const form = fundo.querySelector(".form-acao");
+          form?.scrollIntoView({ behavior: "smooth" });
+          form?.elements.rotulo?.focus();
+        });
       });
 
       // Excluir ação
@@ -944,6 +993,9 @@ async function iniciar(container, mensagemErro) {
           if (!confirmado) return;
           try {
             await api(`/acoes/${btn.dataset.id}`, { method: "DELETE" });
+            if (acaoEditandoId === Number(btn.dataset.id)) {
+              acaoEditandoId = null;
+            }
             detalhesEtapa = await api(`/etapas/${etapa.id}`);
             renderConteudoAcoes();
           } catch (err) {
@@ -952,8 +1004,8 @@ async function iniciar(container, mensagemErro) {
         });
       });
 
-      // Adicionar ação
-      const formAcao = fundo.querySelector(".form-nova-acao");
+      // Salvar (Adicionar ou Editar) ação
+      const formAcao = fundo.querySelector(".form-acao");
       formAcao?.addEventListener("submit", async (e) => {
         e.preventDefault();
         const erroEl = fundo.querySelector(".erro-modal-acao");
@@ -966,10 +1018,16 @@ async function iniciar(container, mensagemErro) {
           prerequisito_acao_id: formAcao.elements.prerequisito_acao_id.value
             ? Number(formAcao.elements.prerequisito_acao_id.value)
             : null,
+          observacao: formAcao.elements.observacao ? formAcao.elements.observacao.value.trim() || null : null,
         };
 
         try {
-          await api(`/etapas/${etapa.id}/acoes`, { method: "POST", body: corpo });
+          if (acaoEditandoId) {
+            await api(`/acoes/${acaoEditandoId}`, { method: "PUT", body: corpo });
+            acaoEditandoId = null;
+          } else {
+            await api(`/etapas/${etapa.id}/acoes`, { method: "POST", body: corpo });
+          }
           detalhesEtapa = await api(`/etapas/${etapa.id}`);
           renderConteudoAcoes();
         } catch (err) {

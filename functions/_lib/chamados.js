@@ -138,7 +138,7 @@ export async function criarChamado(db, spec) {
   return first(db, "SELECT * FROM chamados WHERE id = ?", resultado.meta.last_row_id);
 }
 
-export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}) {
+export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}, observacoesAcoes = {}) {
   const especificacoes = resolverProximosChamados(
     etapa,
     { id: chamado.id, chamado_mae_id: chamado.chamado_mae_id },
@@ -146,6 +146,12 @@ export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}) {
   );
   const criados = [];
   for (const spec of especificacoes) {
+    const acaoDef = etapa?.acoes?.find((a) => a.id === spec.acao_origem_id);
+    const obsAcao = (observacoesAcoes && observacoesAcoes[spec.acao_origem_id]) ||
+                    (typeof decisoesAcoes[spec.acao_origem_id] === "object" ? decisoesAcoes[spec.acao_origem_id]?.observacao : null) ||
+                    acaoDef?.observacao ||
+                    chamado.observacao;
+
     const criado = await criarChamado(db, {
       fluxo_template_id: chamado.fluxo_template_id,
       etapa_id: spec.etapa_id,
@@ -156,8 +162,25 @@ export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}) {
       solicitante_id: chamado.solicitante_id,
       titulo: chamado.titulo,
       prioridade: chamado.prioridade,
-      observacao: chamado.observacao,
+      observacao: obsAcao,
     });
+
+    const textoObs = (observacoesAcoes && observacoesAcoes[spec.acao_origem_id]) ||
+                     (typeof decisoesAcoes[spec.acao_origem_id] === "object" ? decisoesAcoes[spec.acao_origem_id]?.observacao : null) ||
+                     acaoDef?.observacao;
+    if (textoObs && String(textoObs).trim()) {
+      const hoje = hojeISO();
+      await run(
+        db,
+        `INSERT INTO comentarios (chamado_id, usuario_id, data, texto, eh_justificativa, eh_privado)
+         VALUES (?, ?, ?, ?, 0, 0)`,
+        criado.id,
+        chamado.solicitante_id,
+        hoje,
+        `📌 Observação/Orientação da Ação:\n${String(textoObs).trim()}`
+      ).catch(() => {});
+    }
+
     criados.push(criado);
   }
   return criados;

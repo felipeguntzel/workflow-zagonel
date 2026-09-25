@@ -1410,18 +1410,37 @@ async function renderAprovacao(chamado) {
     ${
       acoesList.length > 0
         ? `
-        <div style="margin-bottom: 1rem;">
-          <label class="campo-rotulo" style="font-weight: 600; margin-bottom: 0.4rem; color: var(--cor-texto);">
+        <div style="margin-bottom: 1.25rem;">
+          <label class="campo-rotulo" style="font-weight: 600; margin-bottom: 0.35rem; color: var(--cor-texto);">
             Ações a executar se aprovado:
           </label>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.5rem;">
+          <p style="font-size: 0.82rem; color: var(--cor-texto-secundario); margin: 0 0 0.65rem;">
+            Marque as ações desejadas e, se necessário, informe uma observação ou orientação de como executar cada uma:
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.65rem;">
             ${acoesList
               .map(
                 (a) => `
-                <label class="acao-checkbox-item">
-                  <input type="checkbox" name="acao-${a.id}" value="${a.id}">
-                  <span>${escaparHtml(a.rotulo)}</span>
-                </label>
+                <div class="card-acao-decisao" style="background: var(--cor-fundo-elevado); border: 1px solid var(--cor-borda); border-radius: 6px; padding: 0.65rem 0.85rem;">
+                  <label class="acao-checkbox-item" style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-weight: 600; font-size: 0.92rem; margin: 0;">
+                    <input type="checkbox" name="acao-${a.id}" value="${a.id}" class="check-acao-decisao" style="width: 17px; height: 17px; cursor: pointer;">
+                    <span>${escaparHtml(a.rotulo)}</span>
+                    <span style="font-size: 0.75rem; color: var(--cor-texto-secundario); font-weight: normal; margin-left: auto;">${a.vinculo === "mae" ? "Vínculo: Chamado mãe" : "Vínculo: Chamado pai"}</span>
+                  </label>
+                  ${a.observacao ? `<div style="font-size: 0.8rem; color: var(--cor-texto-secundario); margin: 0.25rem 0 0 1.65rem;">💡 <em>Orientação pré-definida: ${escaparHtml(a.observacao)}</em></div>` : ""}
+                  <div class="wrap-obs-acao" id="wrap-obs-acao-${a.id}" style="margin-top: 0.45rem; margin-left: 1.65rem;" hidden>
+                    <label style="font-size: 0.78rem; font-weight: 600; color: var(--cor-texto-secundario); display: block; margin-bottom: 0.2rem;">
+                      Observação / Orientação de como fazer esta ação:
+                    </label>
+                    <textarea 
+                      name="obs-acao-${a.id}" 
+                      rows="2" 
+                      class="textarea-padrao" 
+                      placeholder="Instruções ou orientações de como fazer esta ação..."
+                      style="width: 100%; font-size: 0.85rem;"
+                    >${escaparHtml(a.observacao || "")}</textarea>
+                  </div>
+                </div>
               `
               )
               .join("")}
@@ -1455,6 +1474,20 @@ async function renderAprovacao(chamado) {
     <p id="erro-decisao" class="erro" style="margin-top: 0.65rem;" hidden></p>
   `;
 
+  // Toggle da área de observação ao marcar/desmarcar cada ação
+  acoesList.forEach((a) => {
+    const cb = acaoContainer.querySelector(`[name="acao-${a.id}"]`);
+    const wrapObs = acaoContainer.querySelector(`#wrap-obs-acao-${a.id}`);
+    cb?.addEventListener("change", () => {
+      if (wrapObs) {
+        wrapObs.hidden = !cb.checked;
+        if (cb.checked) {
+          wrapObs.querySelector("textarea")?.focus();
+        }
+      }
+    });
+  });
+
   async function enviarDecisao(corpo, botaoAcionado) {
     const erro = document.getElementById("erro-decisao");
     const btnAprovar = document.getElementById("btn-aprovar");
@@ -1482,11 +1515,20 @@ async function renderAprovacao(chamado) {
 
   document.getElementById("btn-aprovar")?.addEventListener("click", (e) => {
     const acoes = {};
+    const observacoesAcoes = {};
     acoesList.forEach((a) => {
       const cb = acaoContainer.querySelector(`[name="acao-${a.id}"]`);
-      if (cb) acoes[a.id] = cb.checked;
+      if (cb && cb.checked) {
+        acoes[a.id] = true;
+        const campoObs = acaoContainer.querySelector(`[name="obs-acao-${a.id}"]`);
+        if (campoObs && campoObs.value.trim()) {
+          observacoesAcoes[a.id] = campoObs.value.trim();
+        }
+      } else {
+        acoes[a.id] = false;
+      }
     });
-    enviarDecisao({ decisao: "aprovado", acoes }, e.currentTarget);
+    enviarDecisao({ decisao: "aprovado", acoes, observacoes_acoes: observacoesAcoes }, e.currentTarget);
   });
 
   document.getElementById("btn-reprovar")?.addEventListener("click", (e) => {
