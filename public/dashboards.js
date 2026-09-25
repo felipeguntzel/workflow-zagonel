@@ -35,9 +35,6 @@ export function inicializar() {
   const tabelaSetores = document.querySelector("#tabela-desempenho-setores")?.closest("table");
   if (tabelaSetores) tornarTabelaReordenavel(tabelaSetores, "dashboards_setores");
 
-  const tabelaStatus = document.querySelector("#tabela-distribuicao-status")?.closest("table");
-  if (tabelaStatus) tornarTabelaReordenavel(tabelaStatus, "dashboards_status");
-
   carregarDashboard();
 }
 

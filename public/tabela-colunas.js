@@ -275,7 +275,7 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     btn.innerHTML = `<span>⚙️</span> Colunas`;
     btn.title = "Personalizar exibição de colunas da tabela";
 
-    if (containerAcoes) {
+    if (containerAcoes && !containerAcoes.querySelector(".btn-config-colunas")) {
       // Padronização: botão Colunas sempre por último no canto direito
       containerAcoes.appendChild(btn);
     } else {
