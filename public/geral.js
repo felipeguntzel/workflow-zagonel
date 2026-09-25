@@ -3,7 +3,12 @@ import { aplicarLayout } from "./layout.js";
 import { escaparHtml, formatarDataBR, mostrarErro } from "./ui.js";
 import { api } from "./api.js";
 
+let nosAtuais = [];
+let modoVisualizacao = (typeof localStorage !== "undefined" && localStorage.getItem("workflow_visao_geral_orientacao")) || "horizontal";
+let etapasExpandidas = false; // Por padrão, ao abrir, etapas vêm recolhidas (somente título, aprovação, status)
+
 export function inicializar() {
+  if (typeof window === "undefined") return;
   const usuario = exigirLogin();
   const id = new URLSearchParams(window.location.search).get("id");
   if (usuario && id) {
@@ -13,11 +18,13 @@ export function inicializar() {
       linkVoltar.href = `/chamado?id=${id}`;
       linkVoltar.textContent = `Chamado #${id}`;
     }
+
+    configurarControlesTopo();
     carregarFluxoCompleto(id);
   }
 }
 
-function situacaoPrazoBadge(prazo, dataFinalizacao, statusNome) {
+export function situacaoPrazoBadge(prazo, dataFinalizacao, statusNome) {
   const nomeNorm = String(statusNome || "").toLowerCase();
   if (dataFinalizacao || nomeNorm === "finalizado") {
     return `<span class="badge badge-ok" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0;">✓ Concluído</span>`;
@@ -34,26 +41,26 @@ function situacaoPrazoBadge(prazo, dataFinalizacao, statusNome) {
   return `<span class="badge badge-ok">No prazo</span>`;
 }
 
-function badgeStatus(nome, cor) {
+export function badgeStatus(nome, cor) {
   if (!nome) return "";
   const corBase = cor || "#64748b";
   return `
-    <span class="badge-status" style="background: ${corBase}15; color: ${corBase}; border: 1px solid ${corBase}40; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; border-radius: 4px; font-size: 0.82rem;">
+    <span class="badge-status" style="background: ${corBase}15; color: ${corBase}; border: 1px solid ${corBase}40; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px; font-size: 0.8rem;">
       <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: ${corBase};"></span>
       ${escaparHtml(nome)}
     </span>
   `;
 }
 
-function badgeEtapaTipo(tipo) {
+export function badgeEtapaTipo(tipo) {
   const t = String(tipo || "").toLowerCase();
   if (t === "aprovacao") {
-    return `<span class="badge-status badge-legenda" style="background: #fdf4ff; color: #a21caf; border: 1px solid #f0abfc; font-weight: 700; font-size: 0.78rem; height: 26px; line-height: 26px; padding: 0 0.5rem;">⚖️ Aprovação</span>`;
+    return `<span class="bpmn-gateway-badge" title="Etapa de Decisão / Aprovação">⚖️ Aprovação</span>`;
   }
-  return `<span class="badge-status badge-legenda" style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; font-weight: 600; font-size: 0.78rem; height: 26px; line-height: 26px; padding: 0 0.5rem;">📋 Tarefa</span>`;
+  return `<span class="badge-status badge-legenda" style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; font-weight: 600; font-size: 0.78rem; padding: 0.15rem 0.45rem;">📋 Tarefa</span>`;
 }
 
-function construirArvore(nos) {
+export function construirArvore(nos) {
   const porId = new Map(nos.map((n) => [n.id, { ...n, filhos: [] }]));
   const raizes = [];
   for (const no of porId.values()) {
@@ -66,77 +73,385 @@ function construirArvore(nos) {
   return raizes;
 }
 
-function renderCardEtapa(no) {
+export function calcularEstruturaBpmn(nos) {
+  if (!nos || nos.length === 0) {
+    return { setores: [], totalFases: 0, nosProcessados: [], raizId: null };
+  }
+
+  const porId = new Map(nos.map((n) => [n.id, { ...n, filhos: [] }]));
+  for (const n of porId.values()) {
+    if (n.chamado_pai_id && porId.has(n.chamado_pai_id)) {
+      porId.get(n.chamado_pai_id).filhos.push(n);
+    }
+  }
+
+  const raiz = nos.find((n) => !n.chamado_pai_id && !n.chamado_mae_id) || nos[0];
+
+  function atribuirNivel(no, nivel) {
+    no.nivel = nivel;
+    for (const f of no.filhos) {
+      atribuirNivel(f, nivel + 1);
+    }
+  }
+
+  if (porId.has(raiz.id)) {
+    atribuirNivel(porId.get(raiz.id), 0);
+  } else {
+    for (const n of porId.values()) {
+      if (!n.chamado_pai_id) atribuirNivel(n, 0);
+    }
+  }
+
+  const nosProcessados = Array.from(porId.values());
+  const maxNivel = Math.max(0, ...nosProcessados.map((n) => n.nivel ?? 0));
+  const totalFases = maxNivel + 1;
+
+  const mapaSetores = new Map();
+  const setorRaizId = raiz.setor_id || 0;
+  const setorRaizNome = raiz.setor_nome || "Setor Solicitante";
+  mapaSetores.set(setorRaizId, { id: setorRaizId, nome: setorRaizNome, icone: "🏢" });
+
+  for (const n of nosProcessados) {
+    const sId = n.setor_id || 0;
+    const sNome = n.setor_nome || "Sem Setor";
+    if (!mapaSetores.has(sId)) {
+      mapaSetores.set(sId, { id: sId, nome: sNome, icone: "🏢" });
+    }
+  }
+
+  return {
+    setores: Array.from(mapaSetores.values()),
+    totalFases,
+    nosProcessados,
+    raizId: raiz.id,
+  };
+}
+
+export function renderHtmlCardEtapa(no, options = {}) {
   const corBorda = no.status_cor || "var(--cor-primaria)";
-  const finalizado = Boolean(no.data_finalizacao || String(no.status_nome || "").toLowerCase() === "finalizado");
+  const estaRecolhido = options.expandido !== undefined ? !options.expandido : !etapasExpandidas;
 
   let tagResultado = "";
   if (no.resultado) {
     const resNorm = String(no.resultado).toLowerCase();
     const ehAprovado = resNorm.includes("aprovad");
     tagResultado = `
-      <span class="badge-status" style="background: ${ehAprovado ? '#dcfce7' : '#fee2e2'}; color: ${ehAprovado ? '#166534' : '#991b1b'}; border: 1px solid ${ehAprovado ? '#86efac' : '#fca5a5'}; font-weight: 700; font-size: 0.8rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
-        ${ehAprovado ? '✓' : '✕'} ${escaparHtml(no.resultado)}
+      <span class="badge-status" style="background: ${ehAprovado ? "#dcfce7" : "#fee2e2"}; color: ${
+      ehAprovado ? "#166534" : "#991b1b"
+    }; border: 1px solid ${ehAprovado ? "#86efac" : "#fca5a5"}; font-weight: 700; font-size: 0.78rem; padding: 0.15rem 0.45rem; border-radius: 4px;">
+        ${ehAprovado ? "✓" : "✕"} ${escaparHtml(no.resultado)}
       </span>
     `;
   }
 
+  const ehBpmn = Boolean(options.bpmn);
+
   return `
-    <li class="geral-arvore-item" data-id="${no.id}">
-      <div class="card-etapa-geral" style="border-left-color: ${corBorda};">
-        <div class="card-etapa-geral__cabecalho">
-          <div class="card-etapa-geral__titulo">
-            <span style="font-family: monospace; color: var(--cor-texto-secundario); font-size: 0.95rem;">#${no.id}</span>
-            <span>${escaparHtml(no.titulo || no.etapa_nome || "Etapa")}</span>
-            ${badgeEtapaTipo(no.etapa_tipo)}
-            ${badgeStatus(no.status_nome, no.status_cor)}
-            ${tagResultado}
-          </div>
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <a href="/chamado?id=${no.id}" class="btn btn-secundario" style="height: 32px; padding: 0 0.75rem; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 0.35rem; text-decoration: none;" title="Abrir detalhes deste chamado">
-              Ver chamado →
-            </a>
-          </div>
+    <div class="card-etapa-geral ${ehBpmn ? "bpmn-card-etapa" : ""} ${estaRecolhido ? "card-etapa-geral--recolhido" : ""}" data-id="${no.id}" style="border-left-color: ${corBorda};">
+      <div class="card-etapa-geral__cabecalho">
+        <div class="card-etapa-geral__titulo">
+          <span style="font-family: monospace; color: var(--cor-texto-secundario); font-size: 0.92rem; font-weight: 700;">#${no.id}</span>
+          <span style="font-weight: 700;">${escaparHtml(no.titulo || no.etapa_nome || "Etapa")}</span>
+          ${badgeEtapaTipo(no.etapa_tipo)}
+          ${badgeStatus(no.status_nome, no.status_cor)}
+          ${tagResultado}
         </div>
-
-        <div class="card-etapa-geral__detalhes">
-          <div>
-            <strong>🏢 Setor:</strong> ${escaparHtml(no.setor_nome || "Não definido")}
-          </div>
-          <div>
-            <strong>👤 Responsável:</strong> ${no.responsavel_nome ? escaparHtml(no.responsavel_nome) : '<em style="color: var(--cor-texto-secundario);">Ninguém atribuído</em>'}
-          </div>
-          <div>
-            <strong>📅 Prazo:</strong> ${formatarDataBR(no.prazo)}
-          </div>
-          <div>
-            ${situacaoPrazoBadge(no.prazo, no.data_finalizacao, no.status_nome)}
-          </div>
-          ${
-            no.data_finalizacao
-              ? `<div><strong style="color: var(--cor-primaria);">✓ Concluído em:</strong> ${formatarDataBR(no.data_finalizacao)}</div>`
-              : ""
-          }
+        <div style="display: flex; align-items: center; gap: 0.35rem;">
+          <button type="button" class="btn-toggle-card-etapa" title="Alternar detalhes">
+            ${estaRecolhido ? "▼ Expandir" : "▲ Recolher"}
+          </button>
+          <a href="/chamado?id=${no.id}" class="btn btn-secundario" style="height: 28px; padding: 0 0.55rem; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.25rem; text-decoration: none;" title="Abrir chamado #${no.id}">
+            Ver →
+          </a>
         </div>
-
-        <!-- Comentários da Etapa -->
-        <details class="comentarios-etapa-wrap" data-chamado-id="${no.id}" style="margin-top: 0.65rem; border-top: 1px dashed var(--cor-borda); padding-top: 0.5rem;">
-          <summary style="cursor: pointer; font-size: 0.84rem; font-weight: 600; color: var(--cor-primaria); user-select: none;">
-            💬 Ver comentários da etapa
-          </summary>
-          <div class="comentarios-conteudo" style="margin-top: 0.65rem; padding-left: 0.25rem;">
-            <div style="font-size: 0.82rem; color: var(--cor-texto-secundario);">Carregando comentários...</div>
-          </div>
-        </details>
       </div>
 
+      <div class="card-etapa-geral__detalhes">
+        <div>
+          <strong>🏢 Setor:</strong> ${escaparHtml(no.setor_nome || "Não definido")}
+        </div>
+        <div>
+          <strong>👤 Responsável:</strong> ${no.responsavel_nome ? escaparHtml(no.responsavel_nome) : '<em style="color: var(--cor-texto-secundario);">Ninguém atribuído</em>'}
+        </div>
+        <div>
+          <strong>📅 Prazo:</strong> ${formatarDataBR(no.prazo)}
+        </div>
+        <div>
+          ${situacaoPrazoBadge(no.prazo, no.data_finalizacao, no.status_nome)}
+        </div>
+        ${
+          no.data_finalizacao
+            ? `<div><strong style="color: var(--cor-primaria);">✓ Concluído em:</strong> ${formatarDataBR(no.data_finalizacao)}</div>`
+            : ""
+        }
+      </div>
+
+      <!-- Comentários da Etapa -->
+      <details class="comentarios-etapa-wrap" data-chamado-id="${no.id}" style="margin-top: 0.5rem; border-top: 1px dashed var(--cor-borda); padding-top: 0.45rem;">
+        <summary style="cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--cor-primaria); user-select: none;">
+          💬 Comentários da etapa
+        </summary>
+        <div class="comentarios-conteudo" style="margin-top: 0.5rem; padding-left: 0.25rem;">
+          <div style="font-size: 0.8rem; color: var(--cor-texto-secundario);">Carregando comentários...</div>
+        </div>
+      </details>
+    </div>
+  `;
+}
+
+// Renderização na Visão Vertical (Árvore Hierárquica)
+function renderItemArvoreVertical(no) {
+  return `
+    <li class="geral-arvore-item" data-id="${no.id}">
+      ${renderHtmlCardEtapa(no, { bpmn: false })}
       ${
         no.filhos && no.filhos.length > 0
-          ? `<ul class="geral-arvore-filhos">${no.filhos.map(renderCardEtapa).join("")}</ul>`
+          ? `<ul class="geral-arvore-filhos">${no.filhos.map(renderItemArvoreVertical).join("")}</ul>`
           : ""
       }
     </li>
   `;
+}
+
+function renderizarVisaoVertical(container, nos) {
+  const raizes = construirArvore(nos);
+  container.innerHTML = `
+    <div style="margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--cor-texto-secundario); display: flex; align-items: center; justify-content: space-between;">
+      <span>Visualização Hierárquica em Árvore (${nos.length} etapa${nos.length > 1 ? "s" : ""})</span>
+      <span style="font-size: 0.8rem;">Modo: ↕️ Vertical</span>
+    </div>
+    <ul class="geral-arvore-lista">${raizes.map(renderItemArvoreVertical).join("")}</ul>
+  `;
+}
+
+// Renderização na Visão Horizontal (BPMN / Swimlanes por Setor)
+function renderizarVisaoHorizontal(container, nos) {
+  const { setores, totalFases, nosProcessados, raizId } = calcularEstruturaBpmn(nos);
+
+  let html = `
+    <div style="margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--cor-texto-secundario); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+        <span><strong>Fluxo Horizontal (BPMN):</strong> Tarefas encadeadas da esquerda para a direita por raia de setor</span>
+        <span style="font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.5rem;">
+          <span>🟢 Início</span>
+          <span>•</span>
+          <span>⚖️ Decisão / Aprovação</span>
+          <span>•</span>
+          <span>🔴 Fim</span>
+        </span>
+      </div>
+      <span style="font-size: 0.8rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.2rem 0.5rem; border-radius: 4px;">
+        ↔️ Arraste para o lado para navegar no fluxo
+      </span>
+    </div>
+
+    <div class="geral-bpmn-wrap">
+      <table class="geral-bpmn-tabela">
+        <thead class="bpmn-fases-cabecalho">
+          <tr>
+            <th class="bpmn-fase-th">Setor / Raia</th>
+            ${Array.from({ length: totalFases })
+              .map((_, i) => `<th class="bpmn-fase-th">${i === 0 ? "Fase 1 (Início)" : `Fase ${i + 1}`}</th>`)
+              .join("")}
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  for (const setor of setores) {
+    html += `
+      <tr class="bpmn-raia-linha">
+        <td class="bpmn-raia-setor">
+          <div class="bpmn-raia-setor-conteudo">
+            <span class="bpmn-raia-setor-icone">${setor.icone}</span>
+            <span class="bpmn-raia-setor-nome">${escaparHtml(setor.nome)}</span>
+          </div>
+        </td>
+    `;
+
+    for (let fase = 0; fase < totalFases; fase++) {
+      const etapasNaCelula = nosProcessados.filter(
+        (n) => (n.setor_id || 0) === setor.id && (n.nivel ?? 0) === fase
+      );
+
+      html += `<td class="bpmn-celula-fase">`;
+
+      if (etapasNaCelula.length > 0) {
+        html += `<div class="bpmn-celula-etapas">`;
+        for (const no of etapasNaCelula) {
+          // Se for o início do processo (raiz na fase 0)
+          if (fase === 0 && no.id === raizId) {
+            html += `<div class="bpmn-marcador-inicio">🟢 Início da Solicitação</div>`;
+          }
+
+          html += renderHtmlCardEtapa(no, { bpmn: true });
+
+          // Se for uma folha finalizada
+          const finalizado = Boolean(no.data_finalizacao || String(no.status_nome || "").toLowerCase() === "finalizado");
+          if (finalizado && (!no.filhos || no.filhos.length === 0)) {
+            html += `<div class="bpmn-marcador-fim">🔴 Conclusão da Etapa</div>`;
+          } else if (no.filhos && no.filhos.length > 0) {
+            html += `
+              <div class="bpmn-conector-linha" title="Gera ${no.filhos.length} subchamado(s)">
+                <span>➔ Desdobra em ${no.filhos.length} subetapa${no.filhos.length > 1 ? "s" : ""}</span>
+              </div>
+            `;
+          }
+        }
+        html += `</div>`;
+      } else {
+        html += `
+          <div style="height: 100%; min-height: 50px; display: flex; align-items: center; justify-content: center; opacity: 0.35;">
+            <div style="width: 100%; border-top: 1px dashed var(--cor-borda);"></div>
+          </div>
+        `;
+      }
+
+      html += `</td>`;
+    }
+
+    html += `</tr>`;
+  }
+
+  html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+function renderizarFluxoAtivo() {
+  const container = document.getElementById("arvore");
+  if (!container || nosAtuais.length === 0) return;
+
+  if (modoVisualizacao === "horizontal") {
+    renderizarVisaoHorizontal(container, nosAtuais);
+  } else {
+    renderizarVisaoVertical(container, nosAtuais);
+  }
+
+  vincularEventosInterativos(container);
+}
+
+function vincularEventosInterativos(container) {
+  // 1. Alternar expansão individual do card de etapa
+  container.querySelectorAll(".btn-toggle-card-etapa").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const card = btn.closest(".card-etapa-geral");
+      if (!card) return;
+      const estaRecolhido = card.classList.toggle("card-etapa-geral--recolhido");
+      btn.textContent = estaRecolhido ? "▼ Expandir" : "▲ Recolher";
+    });
+  });
+
+  // 2. Carregar comentários assincronamente sob demanda
+  container.querySelectorAll("details.comentarios-etapa-wrap").forEach((detalhe) => {
+    detalhe.addEventListener(
+      "toggle",
+      async () => {
+        if (!detalhe.open) return;
+        const cid = detalhe.dataset.chamadoId;
+        const conteudo = detalhe.querySelector(".comentarios-conteudo");
+        if (!conteudo) return;
+
+        try {
+          const comentarios = await api(`/chamados/${cid}/comentarios`).catch(() => []);
+          if (comentarios.length === 0) {
+            conteudo.innerHTML = `<div style="font-size: 0.8rem; color: var(--cor-texto-secundario); font-style: italic;">Nenhum comentário registrado nesta etapa.</div>`;
+            return;
+          }
+
+          conteudo.innerHTML = comentarios
+            .map(
+              (c) => `
+              <div class="comentario-balao">
+                <div class="comentario-balao__topo">
+                  <strong style="color: var(--cor-primaria); font-size: 0.82rem;">${escaparHtml(c.usuario_nome || "Sistema")}</strong>
+                  <span>${formatarDataBR(c.data)}</span>
+                </div>
+                <div style="line-height: 1.4; color: var(--cor-texto); font-size: 0.84rem; white-space: pre-wrap;">${escaparHtml(c.texto)}</div>
+              </div>
+            `
+            )
+            .join("");
+        } catch (_) {
+          conteudo.innerHTML = `<div style="font-size: 0.8rem; color: var(--cor-texto-secundario);">Não foi possível carregar os comentários.</div>`;
+        }
+      },
+      { once: true }
+    );
+  });
+}
+
+function configurarControlesTopo() {
+  const btnHorizontal = document.getElementById("btn-visao-horizontal");
+  const btnVertical = document.getElementById("btn-visao-vertical");
+  const btnExpandir = document.getElementById("btn-expandir-tudo");
+  const btnRecolher = document.getElementById("btn-recolher-tudo");
+
+  const atualizarBotoesOrientacao = () => {
+    if (btnHorizontal) btnHorizontal.classList.toggle("ativo", modoVisualizacao === "horizontal");
+    if (btnVertical) btnVertical.classList.toggle("ativo", modoVisualizacao === "vertical");
+  };
+
+  btnHorizontal?.addEventListener("click", () => {
+    if (modoVisualizacao === "horizontal") return;
+    modoVisualizacao = "horizontal";
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("workflow_visao_geral_orientacao", "horizontal");
+    }
+    atualizarBotoesOrientacao();
+    renderizarFluxoAtivo();
+  });
+
+  btnVertical?.addEventListener("click", () => {
+    if (modoVisualizacao === "vertical") return;
+    modoVisualizacao = "vertical";
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("workflow_visao_geral_orientacao", "vertical");
+    }
+    atualizarBotoesOrientacao();
+    renderizarFluxoAtivo();
+  });
+
+  // Botão Expandir Tudo (abre todas as etapas e comentários)
+  btnExpandir?.addEventListener("click", () => {
+    etapasExpandidas = true;
+    const container = document.getElementById("arvore");
+    if (!container) return;
+
+    container.querySelectorAll(".card-etapa-geral").forEach((c) => {
+      c.classList.remove("card-etapa-geral--recolhido");
+    });
+    container.querySelectorAll(".btn-toggle-card-etapa").forEach((b) => {
+      b.textContent = "▲ Recolher";
+    });
+    container.querySelectorAll("details.comentarios-etapa-wrap").forEach((d) => {
+      d.open = true;
+    });
+  });
+
+  // Botão Recolher Tudo (deixa recolhido: somente título, aprovação, status)
+  btnRecolher?.addEventListener("click", () => {
+    etapasExpandidas = false;
+    const container = document.getElementById("arvore");
+    if (!container) return;
+
+    container.querySelectorAll(".card-etapa-geral").forEach((c) => {
+      c.classList.add("card-etapa-geral--recolhido");
+    });
+    container.querySelectorAll(".btn-toggle-card-etapa").forEach((b) => {
+      b.textContent = "▼ Expandir";
+    });
+    container.querySelectorAll("details.comentarios-etapa-wrap").forEach((d) => {
+      d.open = false;
+    });
+  });
+
+  atualizarBotoesOrientacao();
 }
 
 async function carregarFluxoCompleto(chamadoId) {
@@ -148,14 +463,18 @@ async function carregarFluxoCompleto(chamadoId) {
   try {
     const nos = await api(`/chamados/${chamadoId}/arvore`);
     if (!nos || nos.length === 0) {
-      container.innerHTML = `<p style="padding: 2rem; text-align: center; color: var(--cor-texto-secundario);">Nenhuma etapa encontrada para este chamado.</p>`;
+      container.innerHTML = `<p style="padding: 2.5rem; text-align: center; color: var(--cor-texto-secundario);">Nenhuma etapa encontrada para este chamado.</p>`;
       return;
     }
+
+    nosAtuais = nos;
 
     // Identificar o chamado raiz da solicitação
     const raiz = nos.find((n) => !n.chamado_pai_id && !n.chamado_mae_id) || nos[0];
     const totalEtapas = nos.length;
-    const finalizadas = nos.filter((n) => n.data_finalizacao || String(n.status_nome || "").toLowerCase() === "finalizado").length;
+    const finalizadas = nos.filter(
+      (n) => n.data_finalizacao || String(n.status_nome || "").toLowerCase() === "finalizado"
+    ).length;
     const pct = Math.round((finalizadas / totalEtapas) * 100);
 
     // Renderizar Card de Resumo do Fluxo no Padrão do App
@@ -218,66 +537,12 @@ async function carregarFluxoCompleto(chamadoId) {
       cardResumo.hidden = false;
     }
 
-    // Renderizar Árvore Hierárquica
-    const raizes = construirArvore(nos);
-    container.innerHTML = `<ul class="geral-arvore-lista">${raizes.map(renderCardEtapa).join("")}</ul>`;
-
-    // Carregar comentários quando expandir o <details>
-    container.querySelectorAll("details.comentarios-etapa-wrap").forEach((detalhe) => {
-      detalhe.addEventListener(
-        "toggle",
-        async () => {
-          if (!detalhe.open) return;
-          const cid = detalhe.dataset.chamadoId;
-          const conteudo = detalhe.querySelector(".comentarios-conteudo");
-          if (!conteudo) return;
-
-          try {
-            const comentarios = await api(`/chamados/${cid}/comentarios`).catch(() => []);
-            if (comentarios.length === 0) {
-              conteudo.innerHTML = `<div style="font-size: 0.82rem; color: var(--cor-texto-secundario); font-style: italic;">Nenhum comentário registrado nesta etapa.</div>`;
-              return;
-            }
-
-            conteudo.innerHTML = comentarios
-              .map(
-                (c) => `
-                <div class="comentario-balao">
-                  <div class="comentario-balao__topo">
-                    <strong style="color: var(--cor-primaria); font-size: 0.84rem;">${escaparHtml(c.usuario_nome || "Sistema")}</strong>
-                    <span>${formatarDataBR(c.data)}</span>
-                  </div>
-                  <div style="line-height: 1.45; color: var(--cor-texto); font-size: 0.86rem; white-space: pre-wrap;">${escaparHtml(c.texto)}</div>
-                </div>
-              `
-              )
-              .join("");
-          } catch (_) {
-            conteudo.innerHTML = `<div style="font-size: 0.82rem; color: var(--cor-texto-secundario);">Não foi possível carregar os comentários.</div>`;
-          }
-        },
-        { once: true }
-      );
-    });
-
-    // Configurar botões de Expandir e Recolher todas as etapas
-    const btnExpandir = document.getElementById("btn-expandir-tudo");
-    const btnRecolher = document.getElementById("btn-recolher-tudo");
-
-    btnExpandir?.addEventListener("click", () => {
-      container.querySelectorAll("details.comentarios-etapa-wrap").forEach((d) => {
-        d.open = true;
-      });
-    });
-
-    btnRecolher?.addEventListener("click", () => {
-      container.querySelectorAll("details.comentarios-etapa-wrap").forEach((d) => {
-        d.open = false;
-      });
-    });
+    renderizarFluxoAtivo();
   } catch (e) {
     if (erroEl) mostrarErro(erroEl, e);
   }
 }
 
-inicializar();
+if (typeof window !== "undefined") {
+  inicializar();
+}
