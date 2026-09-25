@@ -111,3 +111,45 @@ export async function onRequestPost(context) {
 
   return json(await listarComentarios(context.env.DB, context.params.id, podeVerPrivados), 201);
 }
+
+export async function onRequestDelete(context) {
+  const usuario = await obterUsuarioDaRequisicao(context.request, context.env);
+  if (!usuario) return error("Não autenticado", 401);
+
+  const url = new URL(context.request.url);
+  const comentarioId = url.searchParams.get("comentario_id");
+  if (!comentarioId) return error("Parâmetro comentario_id obrigatório");
+
+  const comentario = await first(context.env.DB, "SELECT * FROM comentarios WHERE id = ?", comentarioId);
+  if (!comentario || String(comentario.chamado_id) !== String(context.params.id)) {
+    return error("Comentário não encontrado", 404);
+  }
+
+  const chamado = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
+  if (!chamado) return error("Chamado não encontrado", 404);
+
+  // Regra: Somente pode remover se a atividade não foi finalizada ainda
+  if (chamado.data_finalizacao != null) {
+    return error("Não é possível remover comentários de uma atividade já finalizada.", 403);
+  }
+
+  // Regra: Somente quem adicionou o comentário pode remover
+  const ehDono = comentario.usuario_id === usuario.id;
+  if (!ehDono && usuario.admin !== 1) {
+    return error("Somente quem adicionou este comentário pode removê-lo.", 403);
+  }
+
+  await run(context.env.DB, "DELETE FROM comentarios WHERE id = ?", comentarioId);
+
+  const raizId = chamado.chamado_mae_id || chamado.id;
+  await registrarAuditoria(context.env.DB, {
+    chamado_mae_id: raizId,
+    chamado_id: chamado.id,
+    usuario_id: usuario.id,
+    usuario_nome: usuario.nome,
+    acao: "exclusao_comentario",
+    detalhes: `Removeu comentário #${comentarioId}`
+  });
+
+  return json({ ok: true });
+}

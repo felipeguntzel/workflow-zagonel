@@ -1,12 +1,13 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { info, mostrarErro, escaparHtml, linkWhatsApp, formatarDataBR } from "./ui.js";
+import { info, mostrarErro, escaparHtml, escaparAtributo, linkWhatsApp, formatarDataBR } from "./ui.js";
 import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
 
 let id = new URLSearchParams(window.location.search).get("id");
 let permissaoChamados = { visualizar: false, inserir: false, editar: false, excluir: false };
 let usuario = null;
+let chamadoAtual = null;
 
 let estadoRecolhimento = {
   detalhe: false,
@@ -172,7 +173,11 @@ async function carregarTudo() {
 
 async function carregarDetalhe(chamadoRecebido = null) {
   const chamado = chamadoRecebido || (await api(`/chamados/${id}`));
-  const finalizado = String(chamado.status_nome || "").toLowerCase() === "finalizado";
+  chamadoAtual = chamado;
+  const finalizado = Boolean(
+    chamado.data_finalizacao ||
+    String(chamado.status_nome || "").toLowerCase() === "finalizado"
+  );
 
   const statusList = await obterStatusList();
 
@@ -211,7 +216,7 @@ async function carregarDetalhe(chamadoRecebido = null) {
       </div>
 
       <div class="cabecalho-lado-direito">
-        <!-- Atualizar Status no Topo da Tela -->
+        <!-- Atualizar Status no Topo da Tela (Salva automaticamente ao selecionar) -->
         ${
           podeEditarStatus && !ehEtapaAprovacao
             ? `
@@ -224,7 +229,6 @@ async function carregarDetalhe(chamadoRecebido = null) {
                 )
                 .join("")}
             </select>
-            <button type="button" id="btn-salvar-status-topo" class="btn btn-primario btn-acao-cabecalho">Salvar status</button>
           </div>
         `
             : ""
@@ -282,10 +286,9 @@ async function carregarDetalhe(chamadoRecebido = null) {
           !finalizado && permissaoChamados.editar
             ? `
           <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; flex-wrap: wrap;">
-            <select id="select-atribuir-responsavel" class="select-padrao" style="min-width: 230px; max-width: 320px; padding: 0.4rem 0.65rem; font-size: 0.85rem; height: 36px; box-sizing: border-box;">
+            <select id="select-atribuir-responsavel" class="select-padrao" style="min-width: 230px; max-width: 320px; padding: 0.4rem 0.65rem; font-size: 0.85rem; height: 36px; box-sizing: border-box;" title="Selecione um responsável para atribuir imediatamente">
               <option value="">Atribuir para alguém do setor…</option>
             </select>
-            <button type="button" id="btn-salvar-atribuicao" class="btn btn-primario" style="height: 36px; padding: 0 1rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Atribuir</button>
             ${
               chamado.responsavel_id === usuario.id
                 ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario" style="height: 36px; padding: 0 1rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Liberar</button>`
@@ -344,16 +347,16 @@ async function carregarDetalhe(chamadoRecebido = null) {
     }
   });
 
-  // Handler do botão Atualizar Status no Topo
-  const btnSalvarStatusTopo = document.getElementById("btn-salvar-status-topo");
-  if (btnSalvarStatusTopo) {
-    btnSalvarStatusTopo.addEventListener("click", async () => {
-      const selectStatus = document.getElementById("select-status-topo");
+  // Salvar status automaticamente ao alterar a opção no select do topo
+  const selectStatusTopo = document.getElementById("select-status-topo");
+  if (selectStatusTopo) {
+    let statusAnterior = Number(selectStatusTopo.value);
+    selectStatusTopo.addEventListener("change", async () => {
       const erroStatus = document.getElementById("erro-status-topo");
       const toastStatus = document.getElementById("toast-status-topo");
       if (erroStatus) erroStatus.hidden = true;
 
-      const statusId = Number(selectStatus.value);
+      const statusId = Number(selectStatusTopo.value);
       const statusEscolhido = statusList.find((s) => s.id === statusId);
 
       if (chamado.bloqueado && String(statusEscolhido?.nome || "").toLowerCase() === "finalizado") {
@@ -361,22 +364,23 @@ async function carregarDetalhe(chamadoRecebido = null) {
           erroStatus.textContent = "Não é possível finalizar: chamado bloqueado aguardando pré-requisito.";
           erroStatus.hidden = false;
         }
+        selectStatusTopo.value = String(statusAnterior);
         return;
       }
 
-      btnSalvarStatusTopo.disabled = true;
-      const textoOriginal = btnSalvarStatusTopo.textContent;
-      btnSalvarStatusTopo.textContent = "Salvando...";
+      selectStatusTopo.disabled = true;
 
       try {
         const chamadoAtualizado = await api(`/chamados/${chamado.id}`, { method: "PUT", body: { status_id: statusId } });
-        
+        statusAnterior = statusId;
+        chamadoAtual = chamadoAtualizado;
+
         const foiFinalizado = String(statusEscolhido?.nome || "").toLowerCase() === "finalizado";
         if (foiFinalizado) {
           // Quando finalizado, pode ter gerado novas etapas ou desbloqueado dependências; recarrega completo
           await carregarTudo();
         } else {
-          // Alteração de status padrão: atualização cirúrgica instantânea sem recarregar comentários, anexos e horas
+          // Alteração de status padrão: atualização instantânea sem recarregar desnecessariamente
           await carregarDetalhe(chamadoAtualizado);
           carregarAuditoria(); // Atualiza histórico em segundo plano
         }
@@ -392,12 +396,12 @@ async function carregarDetalhe(chamadoRecebido = null) {
           }, 3000);
         }
       } catch (e) {
+        selectStatusTopo.value = String(statusAnterior);
         mostrarErro(erroStatus, e);
       } finally {
-        const btnAtual = document.getElementById("btn-salvar-status-topo");
-        if (btnAtual) {
-          btnAtual.disabled = false;
-          btnAtual.textContent = textoOriginal;
+        const selectAtual = document.getElementById("select-status-topo");
+        if (selectAtual) {
+          selectAtual.disabled = false;
         }
       }
     });
@@ -405,7 +409,8 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
   async function definirResponsavel(responsavelId) {
     try {
-      await api(`/chamados/${chamado.id}`, { method: "PUT", body: { responsavel_id: responsavelId } });
+      const respAtualizado = await api(`/chamados/${chamado.id}`, { method: "PUT", body: { responsavel_id: responsavelId } });
+      if (respAtualizado) chamadoAtual = respAtualizado;
       carregarTudo();
     } catch (e) {
       mostrarErro(document.getElementById("mensagem-erro"), e);
@@ -414,8 +419,8 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
   document.getElementById("btn-assumir-responsavel")?.addEventListener("click", () => definirResponsavel(usuario.id));
   document.getElementById("btn-liberar-responsavel")?.addEventListener("click", () => definirResponsavel(null));
-  document.getElementById("btn-salvar-atribuicao")?.addEventListener("click", () => {
-    const val = document.getElementById("select-atribuir-responsavel")?.value;
+  document.getElementById("select-atribuir-responsavel")?.addEventListener("change", (e) => {
+    const val = e.target.value;
     definirResponsavel(val ? Number(val) : null);
   });
 
@@ -784,11 +789,100 @@ function configurarFormularioComentariosEAnexos() {
   }
 }
 
+// Helper para verificar se o anexo é uma imagem visualizável diretamente
+function ehArquivoImagem(nomeArquivo, mimeType = "") {
+  const mime = String(mimeType || "").toLowerCase();
+  if (mime.startsWith("image/")) return true;
+  const extensoes = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"];
+  const nome = String(nomeArquivo || "").toLowerCase();
+  return extensoes.some((ext) => nome.endsWith(ext));
+}
+
+// Modal / Lightbox para pré-visualização direta de imagens anexadas
+async function abrirModalVisualizarImagem(anexoId, nomeArquivo) {
+  let container = document.getElementById("modal-imagem-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "modal-imagem-container";
+    document.body.appendChild(container);
+  }
+
+  container.innerHTML = `
+    <div class="modal-imagem-overlay" id="overlay-imagem" role="dialog" aria-modal="true">
+      <div class="modal-imagem-dialog">
+        <div class="modal-imagem-header">
+          <strong style="font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65vw;">
+            🖼️ ${escaparHtml(nomeArquivo)}
+          </strong>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <button type="button" class="btn btn-secundario btn-pequeno" id="btn-baixar-imagem-modal">📥 Baixar</button>
+            <button type="button" class="btn-icone" id="btn-fechar-modal-imagem" aria-label="Fechar visualização">✕</button>
+          </div>
+        </div>
+        <div class="modal-imagem-body">
+          <div id="modal-imagem-loading" style="padding: 2.5rem; color: var(--cor-texto-secundario); font-size: 0.9rem;">
+            Carregando imagem...
+          </div>
+          <img id="modal-imagem-tag" class="modal-imagem-preview" src="" alt="${escaparAtributo(nomeArquivo)}" style="display: none;" />
+        </div>
+      </div>
+    </div>
+  `;
+
+  const fechar = () => {
+    container.innerHTML = "";
+    document.removeEventListener("keydown", onKeyDown);
+  };
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") fechar();
+  };
+  document.addEventListener("keydown", onKeyDown);
+
+  document.getElementById("btn-fechar-modal-imagem")?.addEventListener("click", fechar);
+  document.getElementById("overlay-imagem")?.addEventListener("click", (e) => {
+    if (e.target.id === "overlay-imagem") fechar();
+  });
+
+  try {
+    const dados = await api(`/chamados/${id}/anexos?anexo_id=${anexoId}`);
+    const imgEl = document.getElementById("modal-imagem-tag");
+    const loadingEl = document.getElementById("modal-imagem-loading");
+    const btnBaixar = document.getElementById("btn-baixar-imagem-modal");
+
+    if (imgEl && loadingEl) {
+      const src = `data:${dados.mime_type || "image/png"};base64,${dados.conteudo_base64}`;
+      imgEl.src = src;
+      imgEl.style.display = "block";
+      loadingEl.style.display = "none";
+
+      if (btnBaixar) {
+        btnBaixar.onclick = () => {
+          const link = document.createElement("a");
+          link.href = src;
+          link.download = dados.nome_arquivo || nomeArquivo;
+          link.click();
+        };
+      }
+    }
+  } catch (e) {
+    const loadingEl = document.getElementById("modal-imagem-loading");
+    if (loadingEl) {
+      loadingEl.textContent = "Erro ao carregar pré-visualização da imagem.";
+    }
+  }
+}
+
 // Carregar feed integrado de Comentários e Anexos
-async function carregarComentariosEAnexos() {
+async function carregarComentariosEAnexos(chamadoRecebido = null) {
   const listaEl = document.getElementById("lista-comentarios");
   const resumoEl = document.getElementById("resumo-anexos");
   if (!listaEl) return;
+
+  const chamadoInfo = chamadoRecebido || chamadoAtual;
+  const finalizado = Boolean(
+    chamadoInfo?.data_finalizacao ||
+    String(chamadoInfo?.status_nome || "").toLowerCase() === "finalizado"
+  );
 
   try {
     const [comentarios, anexos] = await Promise.all([
@@ -812,9 +906,6 @@ async function carregarComentariosEAnexos() {
       return;
     }
 
-    // Mapa de anexos para anexar ações de download diretamente quando citados
-    const mapaAnexos = new Map(anexos.map((a) => [a.nome_arquivo, a]));
-
     let htmlItens = "";
 
     // Exibir primeiro a barra de anexos disponíveis caso existam
@@ -827,13 +918,22 @@ async function carregarComentariosEAnexos() {
           <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
             ${anexos
               .map((a) => {
+                const ehImagem = ehArquivoImagem(a.nome_arquivo, a.mime_type);
+                // Regra: Somente quem adicionou o anexo pode remover, e somente pode remover se a atividade NÃO foi finalizada ainda
+                const podeRemoverAnexo = !finalizado && a.usuario_id === usuario.id;
+
                 return `
                   <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.25rem 0.55rem; border-radius: 4px; font-size: 0.82rem;">
-                    <span>📄 <strong>${escaparHtml(a.nome_arquivo)}</strong> <small style="color: var(--cor-texto-secundario);">(${formatarTamanho(a.tamanho_bytes)})</small></span>
+                    <span>${ehImagem ? "🖼️" : "📄"} <strong>${escaparHtml(a.nome_arquivo)}</strong> <small style="color: var(--cor-texto-secundario);">(${formatarTamanho(a.tamanho_bytes)})</small></span>
+                    ${
+                      ehImagem
+                        ? `<button type="button" class="btn btn-primario btn-pequeno btn-ver-imagem-anexo" data-id="${a.id}" data-nome="${escaparAtributo(a.nome_arquivo)}" style="padding: 0.15rem 0.5rem; font-size: 0.78rem;">👁️ Ver</button>`
+                        : ""
+                    }
                     <button type="button" class="btn btn-secundario btn-pequeno btn-baixar-anexo" data-id="${a.id}" style="padding: 0.15rem 0.45rem; font-size: 0.78rem;">Baixar</button>
                     ${
-                      a.usuario_id === usuario.id || usuario.admin === 1
-                        ? `<button type="button" class="btn btn-perigo btn-pequeno btn-excluir-anexo" data-id="${a.id}" style="padding: 0.15rem 0.45rem; font-size: 0.78rem;">✕</button>`
+                      podeRemoverAnexo
+                        ? `<button type="button" class="btn btn-perigo btn-pequeno btn-excluir-anexo" data-id="${a.id}" title="Excluir anexo" style="padding: 0.15rem 0.45rem; font-size: 0.78rem;">✕</button>`
                         : ""
                     }
                   </div>
@@ -852,13 +952,23 @@ async function carregarComentariosEAnexos() {
           ? `<span class="badge-status" style="background: #fee2e2; color: #991b1b; font-size: 0.72rem; margin-left: 0.4rem;">🔒 Privado</span>`
           : "";
 
+        // Regra: Comentários só podem ser excluídos se a atividade ainda NÃO finalizou, e somente pelo autor
+        const podeRemoverComentario = !finalizado && c.usuario_id === usuario.id;
+
         return `
           <li style="padding: 0.65rem 0.85rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 0.35rem; font-size: 0.9rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
               <strong>${escaparHtml(c.usuario_nome ?? "Sistema")}${ehPrivadoBadge}</strong>
-              <span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">
-                ${formatarDataBR(c.data)}${c.eh_justificativa ? " - justificativa" : ""}
-              </span>
+              <div style="display: flex; align-items: center; gap: 0.4rem;">
+                <span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">
+                  ${formatarDataBR(c.data)}${c.eh_justificativa ? " - justificativa" : ""}
+                </span>
+                ${
+                  podeRemoverComentario
+                    ? `<button type="button" class="btn-icone btn-icone--excluir btn-excluir-comentario" data-id="${c.id}" title="Excluir comentário" style="font-size: 0.8rem; padding: 0.1rem 0.3rem;">✕</button>`
+                    : ""
+                }
+              </div>
             </div>
             <div style="line-height: 1.45; white-space: pre-wrap;">${escaparHtml(c.texto)}</div>
           </li>
@@ -867,6 +977,15 @@ async function carregarComentariosEAnexos() {
       .join("");
 
     listaEl.innerHTML = htmlItens;
+
+    // Listeners para visualização direta de imagens em tela cheia / lightbox
+    listaEl.querySelectorAll(".btn-ver-imagem-anexo").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const anexoId = btn.dataset.id;
+        const nomeArquivo = btn.dataset.nome || "Imagem";
+        abrirModalVisualizarImagem(anexoId, nomeArquivo);
+      });
+    });
 
     // Listeners de download e exclusão de anexo
     listaEl.querySelectorAll(".btn-baixar-anexo").forEach((btn) => {
@@ -891,6 +1010,22 @@ async function carregarComentariosEAnexos() {
         if (!confirmado) return;
         try {
           await api(`/chamados/${id}/anexos?anexo_id=${anexoId}`, { method: "DELETE" });
+          await carregarComentariosEAnexos();
+          carregarAuditoria();
+        } catch (e) {
+          mostrarErro(document.getElementById("mensagem-erro"), e);
+        }
+      });
+    });
+
+    // Listeners para exclusão de comentário
+    listaEl.querySelectorAll(".btn-excluir-comentario").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const comentarioId = btn.dataset.id;
+        const confirmado = await confirmarAcao("Excluir este comentário?");
+        if (!confirmado) return;
+        try {
+          await api(`/chamados/${id}/comentarios?comentario_id=${comentarioId}`, { method: "DELETE" });
           await carregarComentariosEAnexos();
           carregarAuditoria();
         } catch (e) {
@@ -925,8 +1060,12 @@ async function atualizarResumoHoras() {
 
 // Abrir tela suspensa (modal flutuante) para apontamento rápido de horas
 export async function abrirModalHoras() {
-  const container = document.getElementById("modal-horas-container");
-  if (!container) return;
+  let container = document.getElementById("modal-horas-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "modal-horas-container";
+    document.body.appendChild(container);
+  }
 
   const chamadoId = id || new URLSearchParams(window.location.search).get("id");
   const hoje = new Date().toISOString().slice(0, 10);
@@ -1267,3 +1406,9 @@ async function renderAprovacao(chamado) {
     enviarDecisao({ decisao: "reprovado", justificativa }, e.currentTarget);
   });
 }
+
+// Expõe globalmente para acionamento por botões no cabeçalho ou inline
+if (typeof window !== "undefined") {
+  window.abrirModalHoras = abrirModalHoras;
+}
+

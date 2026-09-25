@@ -1968,5 +1968,131 @@ th.th-drop-alvo {
   color: var(--cor-texto-secundario);
 }
 
+/* ==========================================================================
+   Visibilidade de Colunas (Ocultar / Exibir)
+   ========================================================================== */
+.coluna-oculta {
+  display: none !important;
+}
+
+.btn-config-colunas {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+}
+
+.coluna-oculta {
+  display: none !important;
+}
+
+.popover-config-colunas {
+  position: fixed;
+  z-index: 99999;
+  background: var(--cor-fundo-elevado);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  padding: 0.85rem;
+  width: 250px;
+  max-height: 380px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+  animation: modalScaleIn 0.12s ease-out;
+}
+
+.popover-config-colunas__topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--cor-borda);
+  padding-bottom: 0.45rem;
+  margin-bottom: 0.35rem;
+}
+
+.popover-config-colunas__item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  user-select: none;
+  transition: background 0.1s ease;
+}
+
+.popover-config-colunas__item:hover {
+  background: var(--cor-fundo);
+}
+
+.popover-config-colunas__rodape {
+  border-top: 1px solid var(--cor-borda);
+  padding-top: 0.45rem;
+  margin-top: 0.35rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* ==========================================================================
+   Modal / Lightbox para Visualização Direta de Imagens
+   ========================================================================== */
+.modal-imagem-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  padding: 1.25rem;
+  box-sizing: border-box;
+}
+
+.modal-imagem-dialog {
+  background: var(--cor-fundo-elevado);
+  border-radius: 8px;
+  border: 1px solid var(--cor-borda);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScaleIn 0.18s ease-out;
+}
+
+.modal-imagem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.15rem;
+  border-bottom: 1px solid var(--cor-borda);
+  gap: 1rem;
+}
+
+.modal-imagem-body {
+  padding: 1rem;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.modal-imagem-preview {
+  max-width: 85vw;
+  max-height: 75vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+
 
 

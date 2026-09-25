@@ -1,7 +1,8 @@
 /**
- * Módulo de Reordenação e Persistência de Colunas de Tabelas por Usuário
- * Permite arrastar os cabeçalhos das colunas (drag-and-drop) e salva
- * as preferências do usuário no localStorage.
+ * Módulo de Reordenação e Visibilidade de Colunas de Tabelas por Usuário
+ * - Permite arrastar os cabeçalhos das colunas (drag-and-drop)
+ * - Permite ocultar e exibir colunas sob demanda
+ * - Salva as preferências de ordem e visibilidade do usuário no localStorage
  */
 
 export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = null) {
@@ -12,7 +13,8 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
   if (!theadTr) return;
 
   const uid = usuarioId || obterUsuarioIdAtual() || "anon";
-  const storageKey = `workflow_cols_${uid}_${chaveIdentificador}`;
+  const storageKeyOrdem = `workflow_cols_${uid}_${chaveIdentificador}`;
+  const storageKeyVis = `workflow_cols_vis_${uid}_${chaveIdentificador}`;
 
   // Obter identificador único para cada th
   function obterIdColuna(th, idx) {
@@ -25,23 +27,31 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     );
   }
 
-  // Configura identificadores fixos nos th
+  // Configura identificadores fixos e labels originais nos th
   const cabecalhosIniciais = Array.from(theadTr.children);
   cabecalhosIniciais.forEach((th, idx) => {
     if (!th.dataset.colId) {
       th.dataset.colId = obterIdColuna(th, idx);
+    }
+    if (!th.dataset.colLabel) {
+      th.dataset.colLabel = (th.textContent || "").replace(/[▲▼]/g, "").trim() || th.dataset.colId;
     }
   });
 
   // Aplica ordem salva anteriormente, se existir
   aplicarOrdemSalva();
 
+  // Aplica visibilidade salva anteriormente, se existir
+  aplicarVisibilidadeSalva();
+
+  // Injeta botão "⚙️ Colunas"
+  injetarBotaoColunas();
+
   // Ativa eventos de drag-and-drop em cada th
   let arrastandoIdx = null;
 
   function atualizarDraggable() {
     Array.from(theadTr.children).forEach((th, idx) => {
-      // Não permite arrastar colunas de ações puras se explicitamente marcado
       if (th.classList.contains("th-fixo")) {
         th.removeAttribute("draggable");
         return;
@@ -117,25 +127,25 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     }
 
     salvarOrdemAtual();
+    aplicarVisibilidadeSalva();
     atualizarDraggable();
   }
 
   function salvarOrdemAtual() {
     try {
       const ids = Array.from(theadTr.children).map((th) => th.dataset.colId);
-      localStorage.setItem(storageKey, JSON.stringify(ids));
+      localStorage.setItem(storageKeyOrdem, JSON.stringify(ids));
     } catch (_) {}
   }
 
   function aplicarOrdemSalva() {
     try {
-      const salva = JSON.parse(localStorage.getItem(storageKey) || "null");
+      const salva = JSON.parse(localStorage.getItem(storageKeyOrdem) || "null");
       if (!Array.isArray(salva) || salva.length === 0) return;
 
       const thsAtuais = Array.from(theadTr.children);
       const mapaThs = new Map(thsAtuais.map((th) => [th.dataset.colId, th]));
 
-      // Verifica se todos ou maioria dos itens coincidem
       const reordenados = [];
       salva.forEach((id) => {
         if (mapaThs.has(id)) {
@@ -143,16 +153,11 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
           mapaThs.delete(id);
         }
       });
-      // Adiciona quaisquer colunas novas que não estavam salvas
       mapaThs.forEach((th) => reordenados.push(th));
 
-      // Mapeia índices antigos para os novos
       const mapaIndices = reordenados.map((th) => thsAtuais.indexOf(th));
-
-      // Aplica no thead
       reordenados.forEach((th) => theadTr.appendChild(th));
 
-      // Aplica no tbody caso já haja linhas renderizadas
       if (tbody) {
         reordenarLinhasTbody(mapaIndices);
       }
@@ -172,23 +177,182 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
     });
   }
 
-  // Observa inserções no tbody para reaplicar a ordem salva automaticamente
-  // quando novos dados são carregados via AJAX / paginação
+  // ==========================================
+  // Controle de Visibilidade (Ocultar / Exibir)
+  // ==========================================
+  function obterVisibilidadeSalva() {
+    try {
+      return JSON.parse(localStorage.getItem(storageKeyVis) || "{}");
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function salvarVisibilidade(mapaVis) {
+    try {
+      localStorage.setItem(storageKeyVis, JSON.stringify(mapaVis));
+    } catch (_) {}
+  }
+
+  function aplicarVisibilidadeSalva() {
+    const mapaVis = obterVisibilidadeSalva();
+    const ths = Array.from(theadTr.children);
+
+    ths.forEach((th, idx) => {
+      const id = th.dataset.colId;
+      const visivel = mapaVis[id] !== false; // Padrão é visível se não especificado
+      if (visivel) {
+        th.classList.remove("coluna-oculta");
+      } else {
+        th.classList.add("coluna-oculta");
+      }
+
+      if (tbody) {
+        Array.from(tbody.querySelectorAll("tr")).forEach((tr) => {
+          const td = tr.children[idx];
+          if (td) {
+            if (visivel) {
+              td.classList.remove("coluna-oculta");
+            } else {
+              td.classList.add("coluna-oculta");
+            }
+          }
+        });
+      }
+    });
+  }
+
+  // Injetar botão "⚙️ Colunas"
+  function injetarBotaoColunas() {
+    const wrap = tabela.closest(".tabela-wrap") || tabela.parentElement;
+    if (!wrap) return;
+
+    // Procura local no cabeçalho ou acima da tabela
+    let containerAcoes =
+      document.querySelector(".pagina-cabecalho__acoes") ||
+      wrap.previousElementSibling?.querySelector(".pagina-cabecalho__acoes");
+
+    // Cria botão de colunas se ainda não existir para esta tabela
+    const btnId = `btn-config-colunas-${chaveIdentificador}`;
+    if (document.getElementById(btnId)) return;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = btnId;
+    btn.className = "btn btn-secundario btn-pequeno btn-config-colunas";
+    btn.innerHTML = `<span>⚙️</span> Colunas`;
+    btn.title = "Personalizar exibição de colunas da tabela";
+
+    if (containerAcoes) {
+      containerAcoes.insertBefore(btn, containerAcoes.firstChild);
+    } else {
+      // Se não houver cabeçalho padrão, insere logo antes do wrap da tabela
+      const barraControle = document.createElement("div");
+      barraControle.style.display = "flex";
+      barraControle.style.justifyContent = "flex-end";
+      barraControle.style.marginBottom = "0.5rem";
+      barraControle.appendChild(btn);
+      wrap.parentElement.insertBefore(barraControle, wrap);
+    }
+
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      abrirPopoverColunas(btn);
+    });
+  }
+
+  function abrirPopoverColunas(btnElemento) {
+    const existente = document.querySelector(".popover-config-colunas");
+    if (existente) {
+      existente.remove();
+      return;
+    }
+
+    const mapaVis = obterVisibilidadeSalva();
+    const ths = Array.from(theadTr.children);
+
+    const popover = document.createElement("div");
+    popover.className = "popover-config-colunas";
+
+    const ret = btnElemento.getBoundingClientRect();
+    popover.style.top = `${ret.bottom + window.scrollY + 6}px`;
+    popover.style.left = `${Math.max(10, ret.right - 250)}px`;
+
+    let htmlItens = `
+      <div class="popover-config-colunas__topo">
+        <strong style="font-size: 0.85rem;">Exibir / Ocultar Colunas</strong>
+        <button type="button" class="btn-icone btn-fechar-popover-colunas" style="font-size: 0.8rem;">✕</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+    `;
+
+    ths.forEach((th) => {
+      const id = th.dataset.colId;
+      const label = th.dataset.colLabel || id;
+      const visivel = mapaVis[id] !== false;
+      htmlItens += `
+        <label class="popover-config-colunas__item">
+          <input type="checkbox" data-col-id="${id}" ${visivel ? "checked" : ""}>
+          <span>${label}</span>
+        </label>
+      `;
+    });
+
+    htmlItens += `
+      </div>
+      <div class="popover-config-colunas__rodape">
+        <button type="button" class="btn btn-secundario btn-pequeno btn-resetar-colunas" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">Restaurar padrão</button>
+      </div>
+    `;
+
+    popover.innerHTML = htmlItens;
+    document.body.appendChild(popover);
+
+    // Eventos dentro do popover
+    popover.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+      cb.addEventListener("change", () => {
+        const id = cb.dataset.colId;
+        const atual = obterVisibilidadeSalva();
+        atual[id] = cb.checked;
+        salvarVisibilidade(atual);
+        aplicarVisibilidadeSalva();
+      });
+    });
+
+    popover.querySelector(".btn-fechar-popover-colunas")?.addEventListener("click", () => {
+      popover.remove();
+    });
+
+    popover.querySelector(".btn-resetar-colunas")?.addEventListener("click", () => {
+      localStorage.removeItem(storageKeyOrdem);
+      localStorage.removeItem(storageKeyVis);
+      cabecalhosIniciais.forEach((th) => theadTr.appendChild(th));
+      aplicarVisibilidadeSalva();
+      atualizarDraggable();
+      popover.remove();
+    });
+
+    // Fechar ao clicar fora
+    const fecharAoClicarFora = (ev) => {
+      if (!popover.contains(ev.target) && ev.target !== btnElemento) {
+        popover.remove();
+        document.removeEventListener("click", fecharAoClicarFora);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener("click", fecharAoClicarFora);
+    }, 50);
+  }
+
+  // Observa inserções no tbody para reaplicar ordem e visibilidade
   if (tbody && typeof MutationObserver !== "undefined") {
     let processandoMutacao = false;
     const observer = new MutationObserver(() => {
       if (processandoMutacao) return;
       try {
-        const salva = JSON.parse(localStorage.getItem(storageKey) || "null");
-        if (!Array.isArray(salva) || salva.length === 0) return;
-
         processandoMutacao = true;
-        // Obter ordem atual do thead
         const ths = Array.from(theadTr.children);
         const ordemThead = ths.map((th) => th.dataset.colId);
-
-        // Se o thead já está na ordem certa, garante que linhas adicionadas sigam
-        // Caso as linhas tenham vindo com a ordem original do template HTML:
         const thsOriginais = cabecalhosIniciais.map((th) => th.dataset.colId);
         const mudou = thsOriginais.some((id, idx) => id !== ordemThead[idx]);
 
@@ -196,7 +360,6 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
           const mapaDe = ordemThead.map((id) => thsOriginais.indexOf(id));
           Array.from(tbody.querySelectorAll("tr")).forEach((tr) => {
             const tds = Array.from(tr.children);
-            // Verifica se precisa de reordenação (tamanho igual ao cabeçalho e ainda na ordem original)
             if (tds.length === ths.length && !tr.dataset.reordenado) {
               tr.dataset.reordenado = "1";
               const reordenados = mapaDe.map((idx) => tds[idx]);
@@ -206,6 +369,7 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
             }
           });
         }
+        aplicarVisibilidadeSalva();
       } catch (_) {
       } finally {
         processandoMutacao = false;
@@ -217,8 +381,10 @@ export function tornarTabelaReordenavel(tabela, chaveIdentificador, usuarioId = 
 
   return {
     redefinirPadrao() {
-      localStorage.removeItem(storageKey);
+      localStorage.removeItem(storageKeyOrdem);
+      localStorage.removeItem(storageKeyVis);
       cabecalhosIniciais.forEach((th) => theadTr.appendChild(th));
+      aplicarVisibilidadeSalva();
       atualizarDraggable();
     },
   };
