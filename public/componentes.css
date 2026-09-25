@@ -1970,6 +1970,312 @@ th.th-drop-alvo {
 }
 
 /* ==========================================================================
+   Controles de Orientação e Visualização do Fluxo
+   ========================================================================== */
+.grupo-botoes-orientacao {
+  display: inline-flex;
+  background: var(--cor-fundo);
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.btn-visao-modo {
+  border: none;
+  background: transparent;
+  color: var(--cor-texto-secundario);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  user-select: none;
+}
+
+.btn-visao-modo:hover {
+  color: var(--cor-texto);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.btn-visao-modo.ativo {
+  background: var(--cor-primaria);
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+/* Estado Recolhido dos Cards de Etapa */
+.card-etapa-geral--recolhido {
+  padding: 0.65rem 1rem;
+}
+
+.card-etapa-geral--recolhido .card-etapa-geral__cabecalho {
+  margin-bottom: 0;
+}
+
+.card-etapa-geral--recolhido .card-etapa-geral__conteudo-expandido,
+.card-etapa-geral--recolhido .card-etapa-geral__detalhes,
+.card-etapa-geral--recolhido .comentarios-etapa-wrap {
+  display: none !important;
+}
+
+.btn-toggle-card-etapa {
+  background: transparent;
+  border: 1px solid var(--cor-borda);
+  color: var(--cor-texto-secundario);
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.15s ease;
+}
+
+.btn-toggle-card-etapa:hover {
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  border-color: var(--cor-texto-secundario);
+}
+
+/* ==========================================================================
+   Visão Horizontal BPMN (Swimlanes / Raias por Setor)
+   ========================================================================== */
+.geral-bpmn-wrap {
+  background: var(--cor-fundo-elevado);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0;
+  position: relative;
+}
+
+.geral-bpmn-tabela {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.bpmn-fases-cabecalho {
+  background: var(--cor-fundo);
+  border-bottom: 2px solid var(--cor-borda);
+}
+
+.bpmn-fase-th {
+  padding: 0.65rem 1rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cor-texto-secundario);
+  text-align: center;
+  border-left: 1px dashed var(--cor-borda);
+}
+
+.bpmn-fase-th:first-child {
+  border-left: none;
+  width: 160px;
+  max-width: 180px;
+  text-align: left;
+}
+
+.bpmn-raia-linha {
+  border-bottom: 1px solid var(--cor-borda);
+  transition: background 0.15s ease;
+}
+
+.bpmn-raia-linha:last-child {
+  border-bottom: none;
+}
+
+.bpmn-raia-linha:nth-child(even) {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-tema="escuro"] .bpmn-raia-linha:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.bpmn-raia-setor {
+  background: var(--cor-fundo);
+  border-right: 2px solid var(--cor-borda);
+  padding: 1rem 0.85rem;
+  width: 160px;
+  max-width: 180px;
+  vertical-align: middle;
+}
+
+.bpmn-raia-setor-conteudo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.35rem;
+}
+
+.bpmn-raia-setor-icone {
+  font-size: 1.25rem;
+}
+
+.bpmn-raia-setor-nome {
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: var(--cor-texto);
+  line-height: 1.25;
+}
+
+.bpmn-celula-fase {
+  padding: 1rem 1.25rem;
+  border-left: 1px dashed var(--cor-borda);
+  vertical-align: middle;
+  min-width: 260px;
+}
+
+.bpmn-celula-etapas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.bpmn-card-etapa {
+  background: var(--cor-fundo);
+  border: 1px solid var(--cor-borda);
+  border-left-width: 5px;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  max-width: 320px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: max-width 0.2s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+
+.bpmn-card-etapa:hover {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  border-color: var(--cor-primaria);
+}
+
+.bpmn-card-etapa .card-etapa-geral__cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+}
+
+/* Na Visão Horizontal, quando expandido, utilizar a área horizontal e não vertical */
+.bpmn-card-etapa:not(.card-etapa-geral--recolhido) {
+  min-width: 560px;
+  max-width: 780px;
+  width: max-content;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.bpmn-card-etapa:not(.card-etapa-geral--recolhido) .card-etapa-geral__conteudo-expandido {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 0.75rem;
+  align-items: stretch;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--cor-borda);
+}
+
+.bpmn-card-etapa:not(.card-etapa-geral--recolhido) .card-etapa-geral__detalhes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+  margin-bottom: 0;
+  background: var(--cor-fundo-elevado);
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+}
+
+.bpmn-card-etapa:not(.card-etapa-geral--recolhido) .comentarios-etapa-wrap {
+  margin-top: 0 !important;
+  border-top: none !important;
+  padding-top: 0 !important;
+  background: var(--cor-fundo-elevado);
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.bpmn-card-etapa:not(.card-etapa-geral--recolhido) .comentarios-conteudo {
+  max-height: 120px;
+  overflow-y: auto;
+  margin-top: 0.35rem;
+}
+
+[data-tema="escuro"] .bpmn-card-etapa:not(.card-etapa-geral--recolhido) .card-etapa-geral__detalhes,
+[data-tema="escuro"] .bpmn-card-etapa:not(.card-etapa-geral--recolhido) .comentarios-etapa-wrap {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.bpmn-conector-linha {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  color: var(--cor-texto-secundario);
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin: 0.25rem 0;
+}
+
+.bpmn-marcador-inicio,
+.bpmn-marcador-fim {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.3rem 0.65rem;
+  border-radius: 20px;
+  margin-bottom: 0.5rem;
+}
+
+.bpmn-marcador-inicio {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.bpmn-marcador-fim {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.bpmn-gateway-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* ==========================================================================
    Visibilidade de Colunas (Ocultar / Exibir)
    ========================================================================== */
 .coluna-oculta {

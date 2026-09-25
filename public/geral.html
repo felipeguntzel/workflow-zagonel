@@ -34,9 +34,26 @@
       </div>
       <h2 id="titulo-pagina-geral">Visão Geral do Fluxo de Atendimento</h2>
     </div>
-    <div class="pagina-cabecalho__acoes">
-      <button type="button" id="btn-expandir-tudo" class="btn btn-secundario btn-cabecalho-acao">Expandir etapas</button>
-      <button type="button" id="btn-recolher-tudo" class="btn btn-secundario btn-cabecalho-acao">Recolher etapas</button>
+    <div class="pagina-cabecalho__acoes" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <!-- Alternador de Orientação: Horizontal / Vertical -->
+      <div class="grupo-botoes-orientacao" role="group" aria-label="Modo de visualização">
+        <button type="button" id="btn-visao-horizontal" class="btn-visao-modo ativo" title="Visão Horizontal com Raias por Setor (BPMN)">
+          ↔️ Horizontal
+        </button>
+        <button type="button" id="btn-visao-vertical" class="btn-visao-modo" title="Visão Vertical em Árvore Hierárquica">
+          ↕️ Vertical
+        </button>
+      </div>
+
+      <!-- Controles de Expansão / Recolhimento -->
+      <div style="display: flex; gap: 0.4rem;">
+        <button type="button" id="btn-expandir-tudo" class="btn btn-secundario btn-cabecalho-acao" title="Expandir detalhes e comentários de todas as etapas">
+          ▼ Expandir tudo
+        </button>
+        <button type="button" id="btn-recolher-tudo" class="btn btn-secundario btn-cabecalho-acao" title="Recolher para mostrar somente título, aprovação e status">
+          ▲ Recolher tudo
+        </button>
+      </div>
     </div>
   </div>
 

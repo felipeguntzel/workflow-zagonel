@@ -14,71 +14,73 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  row-gap: 1rem;
-  column-gap: 1.5rem;
-  padding: 0.85rem 1.25rem;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
   background: var(--cor-fundo-elevado);
   border: 1px solid var(--cor-borda);
   border-radius: 8px;
   margin-bottom: 1.25rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-.painel-consultas-barra__seletor {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
   flex-wrap: wrap;
 }
-.painel-consultas-barra__seletor label {
+.painel-consultas-grupo-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.painel-consultas-grupo-select label {
   font-weight: 700;
   font-size: 0.88rem;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   white-space: nowrap;
+  margin: 0;
 }
-.painel-consultas-barra__seletor select {
-  min-width: 250px;
-  max-width: 340px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.88rem;
+.painel-consultas-grupo-select select {
+  width: 220px;
+  max-width: 280px;
+  padding: 0.42rem 0.65rem;
+  font-size: 0.86rem;
 }
-.painel-consultas-barra__acoes {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  flex-wrap: wrap;
-}
-.painel-consultas-barra__acoes .btn {
-  font-size: 0.85rem;
-  padding: 0.5rem 0.85rem;
+#btn-toggle-filtros {
+  font-size: 0.82rem;
+  padding: 0.42rem 0.75rem;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.painel-consultas-grupo-botoes {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.painel-consultas-grupo-botoes .btn {
+  font-size: 0.82rem;
+  padding: 0.42rem 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   border-radius: 6px;
   white-space: nowrap;
 }
-.divisor-barra-consultas {
-  width: 1px;
-  height: 22px;
-  background: var(--cor-borda);
-  margin: 0 0.25rem;
-}
-@media (max-width: 768px) {
-  .divisor-barra-consultas {
-    display: none;
-  }
-}
 .painel-filtros-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr auto;
+  gap: 0.75rem;
   align-items: flex-end;
 }
-@media (min-width: 1200px) {
+@media (max-width: 1024px) {
   .painel-filtros-grid {
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
 }
 .btn-ativo {
@@ -158,7 +160,7 @@
 
   <!-- Barra de Consultas Personalizadas -->
   <div class="painel-consultas-barra">
-    <div class="painel-consultas-barra__seletor">
+    <div class="painel-consultas-grupo-select">
       <label for="seletor-consulta-personalizada">
         <span>🔍</span> Consulta:
       </label>
@@ -167,20 +169,20 @@
         <optgroup label="Minhas consultas (privadas)" id="optgroup-minhas-consultas"></optgroup>
         <optgroup label="Consultas públicas" id="optgroup-consultas-publicas"></optgroup>
       </select>
-      <span id="badge-consulta-ativa-padrao" class="badge-padrao-consulta" style="display: none;" title="Esta é sua consulta padrão ao abrir a tela">
-        ⭐ Consulta Padrão
-      </span>
-    </div>
-
-    <div class="painel-consultas-barra__acoes">
       <button type="button" id="btn-toggle-filtros" class="btn btn-secundario" title="Expandir ou recolher filtros detalhados">
         <span id="icone-toggle-filtros">▾</span> <span id="texto-toggle-filtros">Filtros</span>
       </button>
+      <span id="badge-consulta-ativa-padrao" class="badge-padrao-consulta" style="display: none;" title="Esta é sua consulta padrão ao abrir a tela">
+        ⭐ Padrão
+      </span>
+    </div>
 
-      <div class="divisor-barra-consultas" aria-hidden="true"></div>
-
+    <div class="painel-consultas-grupo-botoes">
       <button type="button" id="btn-salvar-consulta-abrir" class="btn btn-secundario" title="Salvar os filtros atuais como nova consulta">
         <span>💾</span> Salvar consulta
+      </button>
+      <button type="button" id="btn-limpar-filtros-consulta" class="btn btn-secundario btn-limpar-filtros-acao" title="Limpar todos os filtros aplicados e voltar ao padrão">
+        <span>🧹</span> Limpar
       </button>
       <button type="button" id="btn-editar-consulta" class="btn btn-secundario" title="Editar consulta selecionada (somente quem criou pode editar)" disabled>
         <span>✏️</span> Editar
@@ -197,7 +199,7 @@
   <!-- Painel de Filtros Superiores (Inicia recolhido por padrão) -->
   <div id="painel-filtros-chamados" class="painel" style="margin-bottom: 1.25rem; display: none;" hidden>
     <div class="painel-filtros-grid">
-      <div style="grid-column: span 2; min-width: 240px;">
+      <div>
         <label for="filtro-busca-chamados" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Buscar chamados</label>
         <input type="text" id="filtro-busca-chamados" placeholder="Buscar por ID, título, responsável, solicitante..." class="input-padrao" style="width: 100%; padding: 0.55rem 0.75rem;">
       </div>
@@ -230,7 +232,7 @@
         </select>
       </div>
       <div>
-        <button type="button" id="btn-limpar-filtros-chamados" class="btn btn-secundario" style="width: 100%; padding: 0.55rem 0.75rem;">Limpar</button>
+        <button type="button" id="btn-limpar-filtros-chamados" class="btn btn-secundario btn-limpar-filtros-acao" style="width: 100%; padding: 0.55rem 0.9rem; white-space: nowrap;" title="Limpar todos os filtros aplicados">Limpar</button>
       </div>
     </div>
   </div>

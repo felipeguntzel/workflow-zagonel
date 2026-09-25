@@ -8,7 +8,7 @@ export async function onRequestPut(context) {
   if (erro) return erro;
   const body = await context.request.json();
   await assegurarColunaObservacaoAcoes(context.env.DB);
-  const campos = ["rotulo", "setor_destino_id", "vinculo", "prerequisito_acao_id", "observacao"];
+  const campos = ["rotulo", "setor_destino_id", "vinculo", "prerequisito_acao_id", "observacao", "etapa_destino_id"];
   const colunas = campos.filter((c) => body[c] !== undefined);
   if (colunas.length === 0) return error("Nenhum campo para atualizar");
   const set = colunas.map((c) => `${c} = ?`).join(", ");

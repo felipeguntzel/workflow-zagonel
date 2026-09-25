@@ -93,3 +93,26 @@ test("resolverProximosChamados creates chamados when acao is passed as object wi
   assert.equal(resultado[0].acao_origem_id, 1);
 });
 
+test("resolverProximosChamados propagates etapa_destino_id as etapa_id for acao", () => {
+  const etapa = {
+    id: 1,
+    etapa_proxima_id: null,
+    acoes: [
+      { id: 10, setor_destino_id: 2, vinculo: "mae", etapa_destino_id: 5 },
+      { id: 11, setor_destino_id: 3, vinculo: "pai", etapa_destino_id: null },
+    ],
+  };
+  const triggering = { id: 100, chamado_mae_id: null };
+  const resultado = resolverProximosChamados(etapa, triggering, { 10: true, 11: true });
+  assert.equal(resultado.length, 2);
+  assert.equal(resultado[0].etapa_id, 5);
+  assert.equal(resultado[0].acao_origem_id, 10);
+  assert.equal(resultado[0].setor_id, 2);
+  assert.equal(resultado[0].chamado_pai_id, 100);
+  assert.equal(resultado[0].chamado_mae_id, 100);
+
+  assert.equal(resultado[1].etapa_id, null);
+  assert.equal(resultado[1].acao_origem_id, 11);
+  assert.equal(resultado[1].chamado_pai_id, 100);
+});
+

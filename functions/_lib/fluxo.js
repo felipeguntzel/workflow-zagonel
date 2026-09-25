@@ -8,7 +8,7 @@ export function resolverProximosChamados(etapa, triggering, decisoesAcoes = {}) 
         return val === true || (val && typeof val === "object" && (val.marcado === true || val.selecionado === true));
       })
       .map((acao) => ({
-        etapa_id: null,
+        etapa_id: acao.etapa_destino_id || null,
         acao_origem_id: acao.id,
         setor_id: acao.setor_destino_id,
         chamado_pai_id: acao.vinculo === "mae" ? raizId : triggering.id,

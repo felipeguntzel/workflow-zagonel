@@ -410,28 +410,29 @@ function configurarEventosFiltros() {
     });
   }
 
-  const btnLimpar = document.getElementById("btn-limpar-filtros-chamados");
-  if (btnLimpar) {
-    btnLimpar.addEventListener("click", () => {
-      if (inputBusca) inputBusca.value = "";
-      const selectStatus = document.getElementById("filtro-status-chamados");
-      if (selectStatus) selectStatus.value = "ativos";
-      const selectEmp = document.getElementById("filtro-empresa-chamados");
-      if (selectEmp) selectEmp.value = "";
-      const selectResp = document.getElementById("filtro-responsavel-chamados");
-      if (selectResp) selectResp.value = "";
-      const selectSetor = document.getElementById("filtro-setor-chamados");
-      if (selectSetor) selectSetor.value = "";
+  const acaoLimparFiltros = () => {
+    if (inputBusca) inputBusca.value = "";
+    const selectStatus = document.getElementById("filtro-status-chamados");
+    if (selectStatus) selectStatus.value = "ativos";
+    const selectEmp = document.getElementById("filtro-empresa-chamados");
+    if (selectEmp) selectEmp.value = "";
+    const selectResp = document.getElementById("filtro-responsavel-chamados");
+    if (selectResp) selectResp.value = "";
+    const selectSetor = document.getElementById("filtro-setor-chamados");
+    if (selectSetor) selectSetor.value = "";
 
-      const seletorConsulta = document.getElementById("seletor-consulta-personalizada");
-      if (seletorConsulta) seletorConsulta.value = "";
-      atualizarEstadoBotoesConsulta(null);
-      atualizarEstadoBotaoFiltros();
+    const seletorConsulta = document.getElementById("seletor-consulta-personalizada");
+    if (seletorConsulta) seletorConsulta.value = "";
+    atualizarEstadoBotoesConsulta(null);
+    atualizarEstadoBotaoFiltros();
 
-      paginaAtual = 1;
-      renderizarTabela();
-    });
-  }
+    paginaAtual = 1;
+    renderizarTabela();
+  };
+
+  document.querySelectorAll("#btn-limpar-filtros-chamados, #btn-limpar-filtros-consulta, .btn-limpar-filtros-acao").forEach((btn) => {
+    btn.addEventListener("click", acaoLimparFiltros);
+  });
 
   const btnExportar = document.getElementById("btn-exportar-chamados");
   if (btnExportar) {

@@ -123,6 +123,21 @@ test("formatarDataBR converte YYYY-MM-DD para DD/MM/AAAA", async () => {
   assert.equal(formatarDataBR(""), "-");
 });
 
+test("todos os arquivos JS em public possuem sintaxe valida", async () => {
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const { execFileSync } = await import("node:child_process");
+
+  const dir = path.resolve("public");
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".js"));
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    assert.doesNotThrow(() => {
+      execFileSync(process.execPath, ["-c", fullPath]);
+    }, `Arquivo com erro de sintaxe: ${file}`);
+  }
+});
+
 
 
 
