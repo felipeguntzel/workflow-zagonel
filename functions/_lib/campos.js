@@ -102,7 +102,9 @@ async function obterColunasTabela(db, tabela) {
   }
 }
 
+const bancosValoresGarantidos = new WeakSet();
 export async function garantirTabelaValores(db) {
+  if (db && typeof db === "object" && bancosValoresGarantidos.has(db)) return;
   try {
     await run(
       db,
@@ -147,6 +149,9 @@ export async function garantirTabelaValores(db) {
       db,
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_chamado_campos_valores_chamado_campo ON chamado_campos_valores(chamado_id, campo_id)"
     ).catch(() => {});
+    if (db && typeof db === "object") {
+      bancosValoresGarantidos.add(db);
+    }
   } catch (err) {
     console.error("Falha ao sincronizar esquema de chamado_campos_valores:", err);
   }
@@ -341,9 +346,10 @@ export async function carregarCamposEValoresDoChamado(db, chamadoId, etapaId = n
   await garantirTabelaValores(db);
 
   let idEtapa = etapaId;
+  let chamadoRow = null;
   if (!idEtapa) {
-    const chamado = await first(db, "SELECT etapa_id FROM chamados WHERE id = ?", chamadoId);
-    idEtapa = chamado?.etapa_id;
+    chamadoRow = await first(db, "SELECT etapa_id, chamado_mae_id FROM chamados WHERE id = ?", chamadoId);
+    idEtapa = chamadoRow?.etapa_id;
   }
   if (!idEtapa) return [];
 
@@ -357,35 +363,58 @@ export async function carregarCamposEValoresDoChamado(db, chamadoId, etapaId = n
       "SELECT campo_id, valor FROM chamado_campos_valores WHERE chamado_id = ?",
       chamadoId
     );
-    if (valores && valores.length > 0 && valores.every((v) => v.campo_id == null)) {
-      throw new Error("fallback");
-    }
   } catch (_) {
-    valores = await all(
-      db,
-      `SELECT 
-         COALESCE(campo_id, etapa_campo_id, campo_etapa_id) AS campo_id, 
-         valor 
-       FROM chamado_campos_valores 
-       WHERE chamado_id = ?`,
-      chamadoId
-    ).catch(() => []);
+    valores = [];
   }
 
-  const mapaValores = new Map((valores || []).map((v) => [v.campo_id, v.valor]));
+  const mapaValores = new Map();
+  for (const v of valores || []) {
+    if (v.campo_id != null) {
+      mapaValores.set(Number(v.campo_id), v.valor);
+      mapaValores.set(String(v.campo_id), v.valor);
+    }
+  }
 
-  return campos.map((c) => ({
-    ...c,
-    valor: mapaValores.has(c.id) ? mapaValores.get(c.id) : null,
-    opcoes_parsed: (c.opcoes || c.opcoes_json) ? (() => {
-      try {
-        const parsed = JSON.parse(c.opcoes || c.opcoes_json);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
+  // Fallback para valores gravados no chamado_mae_id se este chamado ainda não possui valores próprios
+  if (valores.length === 0) {
+    if (!chamadoRow) {
+      chamadoRow = await first(db, "SELECT chamado_mae_id FROM chamados WHERE id = ?", chamadoId).catch(() => null);
+    }
+    if (chamadoRow?.chamado_mae_id) {
+      const valoresMae = await all(
+        db,
+        "SELECT campo_id, valor FROM chamado_campos_valores WHERE chamado_id = ?",
+        chamadoRow.chamado_mae_id
+      ).catch(() => []);
+      for (const v of valoresMae || []) {
+        if (v.campo_id != null) {
+          mapaValores.set(Number(v.campo_id), v.valor);
+          mapaValores.set(String(v.campo_id), v.valor);
+        }
       }
-    })() : []
-  }));
+    }
+  }
+
+  return campos.map((c) => {
+    const valEncontrado = mapaValores.has(c.id)
+      ? mapaValores.get(c.id)
+      : (mapaValores.has(String(c.id))
+          ? mapaValores.get(String(c.id))
+          : (mapaValores.has(Number(c.id)) ? mapaValores.get(Number(c.id)) : null));
+
+    return {
+      ...c,
+      valor: valEncontrado,
+      opcoes_parsed: (c.opcoes || c.opcoes_json) ? (() => {
+        try {
+          const parsed = JSON.parse(c.opcoes || c.opcoes_json);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      })() : []
+    };
+  });
 }
 
 /**
@@ -453,61 +482,32 @@ export async function salvarValoresCamposChamado(db, chamadoId, valoresObjeto, e
     }
   } catch (_) {}
 
+  // Deduplica as entradas por campo_id para evitar operações duplicadas
+  const mapaEntradas = new Map();
   for (const item of entradas) {
-    if (!item.campo_id) continue;
-    const valorStr = item.valor != null ? String(item.valor) : null;
+    if (item.campo_id && item.valor !== undefined && item.valor !== null) {
+      mapaEntradas.set(Number(item.campo_id), String(item.valor));
+    }
+  }
 
-    const camposParaGravar = ["chamado_id"];
-    const valoresParaGravar = [chamadoId];
-
-    if (colNomes.has("campo_id")) {
-      camposParaGravar.push("campo_id");
-      valoresParaGravar.push(item.campo_id);
-    }
-    if (colNomes.has("etapa_campo_id")) {
-      camposParaGravar.push("etapa_campo_id");
-      valoresParaGravar.push(item.campo_id);
-    }
-    if (colNomes.has("campo_etapa_id")) {
-      camposParaGravar.push("campo_etapa_id");
-      valoresParaGravar.push(item.campo_id);
-    }
-    if (colNomes.has("valor")) {
-      camposParaGravar.push("valor");
-      valoresParaGravar.push(valorStr);
-    }
-
+  for (const [campoId, valorStr] of mapaEntradas.entries()) {
     try {
-      if (colNomes.has("campo_id")) {
-        await run(
-          db,
-          `INSERT INTO chamado_campos_valores (${camposParaGravar.join(", ")})
-           VALUES (${camposParaGravar.map(() => "?").join(", ")})
-           ON CONFLICT(chamado_id, campo_id) DO UPDATE SET valor = excluded.valor`,
-          ...valoresParaGravar
-        );
-      } else {
-        throw new Error("fallback");
-      }
-    } catch (_) {
-      try {
-        await run(
-          db,
-          "DELETE FROM chamado_campos_valores WHERE chamado_id = ? AND (campo_id = ? OR etapa_campo_id = ? OR campo_etapa_id = ?)",
-          chamadoId,
-          item.campo_id,
-          item.campo_id,
-          item.campo_id
-        ).catch(() => {});
-        await run(
-          db,
-          `INSERT INTO chamado_campos_valores (${camposParaGravar.join(", ")})
-           VALUES (${camposParaGravar.map(() => "?").join(", ")})`,
-          ...valoresParaGravar
-        );
-      } catch (err) {
-        console.error("Falha ao gravar campo personalizado:", err);
-      }
+      await run(
+        db,
+        "DELETE FROM chamado_campos_valores WHERE chamado_id = ? AND campo_id = ?",
+        chamadoId,
+        campoId
+      ).catch(() => {});
+
+      await run(
+        db,
+        "INSERT INTO chamado_campos_valores (chamado_id, campo_id, valor) VALUES (?, ?, ?)",
+        chamadoId,
+        campoId,
+        valorStr
+      );
+    } catch (err) {
+      console.error(`Falha ao gravar campo personalizado ${campoId} para chamado ${chamadoId}:`, err);
     }
   }
 }

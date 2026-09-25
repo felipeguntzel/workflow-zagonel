@@ -12,6 +12,7 @@ const TELAS = [
   { chave: "status", label: "Status", dica: "Acesso aos status de chamados" },
   { chave: "fluxos", label: "Fluxos", dica: "Acesso à criação de fluxos de processo e suas etapas" },
   { chave: "chamados", label: "Chamados", dica: "Acesso à visualização e abertura de chamados" },
+  { chave: "dashboards", label: "Dashboards", dica: "Acesso aos dashboards e indicadores operacionais de desempenho" },
 ];
 
 const ACOES = [

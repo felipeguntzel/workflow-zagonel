@@ -12,12 +12,25 @@ export async function onRequestGet(context) {
   if (!chamado) return error("Chamado não encontrado", 404);
 
   let camposComValores = await carregarCamposEValoresDoChamado(context.env.DB, chamado.id, chamado.etapa_id);
-  if ((!camposComValores || camposComValores.length === 0) && chamado.chamado_mae_id) {
+
+  if (chamado.chamado_mae_id) {
     const mae = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", chamado.chamado_mae_id);
     if (mae && mae.etapa_id) {
-      camposComValores = await carregarCamposEValoresDoChamado(context.env.DB, mae.id, mae.etapa_id);
+      const camposMae = await carregarCamposEValoresDoChamado(context.env.DB, mae.id, mae.etapa_id);
+      if (camposMae && camposMae.length > 0) {
+        if (!camposComValores || camposComValores.length === 0) {
+          camposComValores = camposMae.map((c) => ({ ...c, da_solicitacao: true, somente_leitura: 1 }));
+        } else {
+          const idsAtuais = new Set(camposComValores.map((c) => c.id));
+          const camposMaeFormatados = camposMae
+            .filter((c) => !idsAtuais.has(c.id))
+            .map((c) => ({ ...c, da_solicitacao: true, somente_leitura: 1 }));
+          camposComValores = [...camposMaeFormatados, ...camposComValores];
+        }
+      }
     }
   }
+
   return json(camposComValores);
 }
 

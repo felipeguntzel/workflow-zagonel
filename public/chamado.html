@@ -39,11 +39,13 @@
 
   <!-- Card 2: Campos Dinâmicos do Chamado -->
   <section id="secao-campos-dinamicos" class="painel painel-chamado" hidden>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.45rem; flex-wrap: wrap; gap: 0.5rem;">
-      <h2 style="font-size: 1.15rem; margin: 0;">📋 Campos da Solicitação / Etapa</h2>
-      <div style="display: flex; gap: 0.5rem; align-items: center;">
-        <button type="button" id="btn-salvar-campos-dinamicos" class="btn btn-primario btn-pequeno" hidden>Salvar alterações</button>
-        <button type="button" id="btn-recolher-campos" class="btn btn-secundario btn-recolher-card" title="Recolher / Expandir">▲ Recolher</button>
+    <div id="cabecalho-campos-dinamicos" class="painel-chamado-cabecalho">
+      <div class="cabecalho-lado-esquerdo">
+        <h2 class="cabecalho-titulo">📋 Campos da Solicitação / Etapa</h2>
+      </div>
+      <div class="cabecalho-lado-direito">
+        <button type="button" id="btn-salvar-campos-dinamicos" class="btn btn-primario btn-acao-cabecalho" hidden>Salvar alterações</button>
+        <button type="button" id="btn-recolher-campos" class="btn btn-secundario btn-acao-cabecalho btn-recolher-card" title="Recolher / Expandir">▲ Recolher</button>
       </div>
     </div>
     <p id="msg-erro-campos" class="erro" hidden></p>
@@ -56,14 +58,16 @@
 
   <!-- Card 4: Comentários e Anexos Unificados (com atalho para tela suspensa de horas) -->
   <section id="card-comentarios-anexos" class="painel painel-chamado">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.45rem; flex-wrap: wrap; gap: 0.5rem;">
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <h2 style="font-size: 1.15rem; margin: 0;">💬 Comentários e Anexos</h2>
-        <span id="resumo-anexos" style="font-size: 0.85rem; color: var(--cor-texto-secundario); font-weight: normal;"></span>
+    <div class="painel-chamado-cabecalho">
+      <div class="cabecalho-lado-esquerdo">
+        <h2 class="cabecalho-titulo">💬 Comentários e Anexos</h2>
+        <div class="cabecalho-legendas">
+          <span id="resumo-anexos" class="badge-status badge-legenda badge-legenda-secundaria" hidden></span>
+          <span id="indicador-horas-topo" class="badge-status badge-legenda badge-legenda-secundaria" hidden></span>
+        </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span id="indicador-horas-topo" style="font-size: 0.85rem; color: var(--cor-texto-secundario); font-weight: 600;"></span>
-        <button type="button" id="btn-abrir-modal-horas" class="btn btn-secundario btn-pequeno" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Abrir tela suspensa para apontamento rápido de horas">
+      <div class="cabecalho-lado-direito">
+        <button type="button" id="btn-abrir-modal-horas" class="btn btn-secundario btn-acao-cabecalho" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Abrir tela suspensa para apontamento rápido de horas">
           ⏱️ Apontar Horas
         </button>
       </div>
@@ -113,8 +117,10 @@
 
   <!-- Histórico Unificado de Auditoria -->
   <section class="painel painel-chamado">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid var(--cor-borda); padding-bottom: 0.45rem;">
-      <h2 style="font-size: 1.15rem; margin: 0;">📜 Histórico Unificado de Ações</h2>
+    <div class="painel-chamado-cabecalho">
+      <div class="cabecalho-lado-esquerdo">
+        <h2 class="cabecalho-titulo">📜 Histórico Unificado de Ações</h2>
+      </div>
     </div>
     <div id="historico-auditoria-wrap" style="max-height: 280px; overflow-y: auto; padding-right: 0.5rem;">
       <ul id="lista-historico-auditoria" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;"></ul>

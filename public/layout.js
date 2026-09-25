@@ -16,7 +16,7 @@ export const TELAS_SISTEMA = [
   { numero: "07", codigo: "7", id: "chamados", titulo: "Meus chamados", grupo: "Chamados", href: "/chamados", telaPerm: "chamados" },
   { numero: "08", codigo: "8", id: "novo-chamado", titulo: "Abrir novo chamado", grupo: "Chamados", href: "/novo-chamado", telaPerm: "chamados", acaoPerm: "inserir" },
   // Dashboards
-  { numero: "09", codigo: "9", id: "dashboards", titulo: "Dashboards", grupo: "Dashboards", href: "/dashboards" },
+  { numero: "09", codigo: "9", id: "dashboards", titulo: "Dashboards", grupo: "Dashboards", href: "/dashboards", telaPerm: "dashboards" },
   // Administração (apenas admin)
   { numero: "10", codigo: "10", id: "sql", titulo: "Editor SQL", grupo: "Administração", href: "/sql", adminApenas: true },
   { numero: "11", codigo: "11", id: "auditoria", titulo: "Auditoria do Sistema", grupo: "Administração", href: "/auditoria", adminApenas: true },

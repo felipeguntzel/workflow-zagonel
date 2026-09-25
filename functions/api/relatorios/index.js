@@ -6,7 +6,7 @@ import { situacaoPrazo } from "../../_lib/prazos.js";
 const DIA_MS = 24 * 60 * 60 * 1000;
 
 export async function onRequestGet(context) {
-  const { usuario, permissoes, erro } = await exigirPermissao(context, "chamados", "visualizar");
+  const { usuario, permissoes, erro } = await exigirPermissao(context, "dashboards", "visualizar");
   if (erro) return erro;
 
   const url = new URL(context.request.url);

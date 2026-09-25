@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { exigirLogin } from "./auth.js";
+import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
 import { mostrarErro, escaparHtml, exportarParaCsv } from "./ui.js";
 
@@ -9,6 +9,22 @@ export function inicializar() {
   const usuario = exigirLogin();
   if (!usuario) return;
   aplicarLayout(usuario);
+
+  const perm = permissaoDaTela("dashboards");
+  if (!perm.visualizar) {
+    const main = document.querySelector("main");
+    if (main) {
+      main.innerHTML = `
+        <div class="pagina-cabecalho">
+          <h2>Dashboards & Indicadores Operacionais</h2>
+        </div>
+        <p style="padding: 1.5rem; background: var(--cor-fundo-elevado); border: 1px solid var(--cor-borda); border-radius: 8px;">
+          Você não tem permissão para visualizar os relatórios e dashboards operacionais.
+        </p>
+      `;
+    }
+    return;
+  }
 
   configurarFiltros();
   carregarEmpresas();
