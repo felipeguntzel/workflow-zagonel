@@ -280,7 +280,7 @@ function renderizarTabela() {
                 <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
                 <td style="text-align: center; white-space: nowrap;">
                   <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: center;">
-                    <a href="/geral?id=${idChamadoGeral}" class="btn btn-secundario btn-pequeno" title="Ver andamento geral de todas as etapas" style="padding: 0.35rem 0.55rem; font-size: 0.8rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">📊 Geral</a>
+                    <a href="/geral?id=${idChamadoGeral}" class="btn btn-secundario btn-pequeno" title="Ver andamento geral de todas as etapas" style="padding: 0.2rem 0.45rem; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 4px; line-height: 1.2;">📊 Geral</a>
                     ${btnApontarHtml}
                   </div>
                 </td>
