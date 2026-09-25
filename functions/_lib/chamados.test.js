@@ -72,3 +72,101 @@ test("chamadoComDetalhes utiliza tabela fluxo_templates e consulta status_cor", 
   assert.ok(!sqlExecutado.includes("fluxos_template"));
   assert.equal(res.status_cor, "#2563eb");
 });
+
+test("sincronizarProgressoChamadoMae mantém mãe em andamento se houver subchamados pendentes", async () => {
+  const { sincronizarProgressoChamadoMae } = await import("./chamados.js");
+  const sqlExecutados = [];
+
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM chamados WHERE id = ?")) {
+            return { id: 2, chamado_mae_id: 1 };
+          }
+          if (sql.includes("FROM status")) {
+            return { id: 2 };
+          }
+          return null;
+        },
+        async all() {
+          if (sql.includes("WHERE chamado_mae_id = ?")) {
+            return {
+              results: [
+                { id: 2, status_id: 3, data_finalizacao: "2026-09-25" },
+                { id: 3, status_id: 1, data_finalizacao: null },
+              ],
+            };
+          }
+          return { results: [] };
+        },
+        async run() {
+          sqlExecutados.push({ sql, params: this.params });
+          return { meta: {} };
+        },
+      };
+    },
+  };
+
+  await sincronizarProgressoChamadoMae(mockDb, 2, "2026-09-25");
+
+  assert.ok(
+    sqlExecutados.some(
+      (e) => e.sql.includes("UPDATE chamados SET status_id = ?, data_finalizacao = NULL WHERE id = ?")
+    ),
+    "Deveria manter chamado mãe em andamento"
+  );
+});
+
+test("sincronizarProgressoChamadoMae finaliza mãe quando todos subchamados estão concluídos", async () => {
+  const { sincronizarProgressoChamadoMae } = await import("./chamados.js");
+  const sqlExecutados = [];
+
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM chamados WHERE id = ?")) {
+            return { id: 3, chamado_mae_id: 1 };
+          }
+          if (sql.includes("FROM status WHERE LOWER(nome) = LOWER(?)")) {
+            return { id: 3 };
+          }
+          return null;
+        },
+        async all() {
+          if (sql.includes("WHERE chamado_mae_id = ?")) {
+            return {
+              results: [
+                { id: 2, status_id: 3, data_finalizacao: "2026-09-24" },
+                { id: 3, status_id: 3, data_finalizacao: "2026-09-25" },
+              ],
+            };
+          }
+          return { results: [] };
+        },
+        async run() {
+          sqlExecutados.push({ sql, params: this.params });
+          return { meta: {} };
+        },
+      };
+    },
+  };
+
+  await sincronizarProgressoChamadoMae(mockDb, 3, "2026-09-25");
+
+  assert.ok(
+    sqlExecutados.some(
+      (e) => e.sql.includes("UPDATE chamados SET status_id = ?, data_finalizacao = COALESCE(data_finalizacao, ?) WHERE id = ?")
+    ),
+    "Deveria finalizar o chamado mãe quando todos os subchamados terminarem"
+  );
+});

@@ -8,6 +8,7 @@ import {
   avancarFluxo,
   aplicarCascataAtraso,
   hojeISO,
+  sincronizarProgressoChamadoMae,
 } from "../../../_lib/chamados.js";
 import { registrarAuditoria } from "../../../_lib/auditoria.js";
 
@@ -51,6 +52,7 @@ export async function onRequestPost(context) {
     await finalizarComCascata(context.env.DB, chamado.id, { hoje, resultadoOrigem: "reprovado" });
     const atualizado = await chamadoComDetalhes(context.env.DB, chamado.id);
     await aplicarCascataAtraso(context.env.DB, atualizado, hoje);
+    await sincronizarProgressoChamadoMae(context.env.DB, chamado.id, hoje);
     return json({ chamado: atualizado, criados: [] });
   }
 
@@ -90,5 +92,6 @@ export async function onRequestPost(context) {
   }
 
   await aplicarCascataAtraso(context.env.DB, atualizado, hoje);
+  await sincronizarProgressoChamadoMae(context.env.DB, chamado.id, hoje);
   return json({ chamado: atualizado, criados });
 }

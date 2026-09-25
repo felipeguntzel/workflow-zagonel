@@ -1460,9 +1460,10 @@ form.formulario label.label-checkbox-linha input[type="checkbox"] {
 /* Cards compactos da tela de detalhes do chamado */
 .painel-chamado {
   margin-top: 0 !important;
-  margin-bottom: 0.75rem !important;
-  padding: 1rem 1.25rem !important;
+  margin-bottom: 0.85rem !important;
+  padding: 0.9rem 1.25rem !important;
   transition: all 0.2s ease-in-out;
+  box-sizing: border-box;
 }
 
 .painel-chamado-cabecalho {
@@ -1470,16 +1471,127 @@ form.formulario label.label-checkbox-linha input[type="checkbox"] {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.65rem 1rem;
+  border-bottom: 1px solid var(--cor-borda);
+  padding-bottom: 0.65rem;
+  margin-bottom: 0.85rem;
+  min-height: 42px;
+  box-sizing: border-box;
 }
 
-.btn-recolher-card {
-  font-size: 0.8rem !important;
-  padding: 0.25rem 0.6rem !important;
+.painel-chamado-cabecalho--recolhido {
+  border-bottom: none !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Lado esquerdo: título e legendas/cards informativos */
+.cabecalho-lado-esquerdo {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  min-height: 34px;
+}
+
+.cabecalho-titulo {
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  color: var(--cor-texto) !important;
+  margin: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  line-height: 1.3;
+}
+
+.cabecalho-legendas {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.badge-legenda {
+  height: 34px !important;
+  line-height: 34px !important;
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.4rem !important;
+  padding: 0 0.65rem !important;
+  border-radius: 4px !important;
+  font-size: 0.83rem !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+}
+
+.badge-legenda-secundaria {
+  background: var(--cor-fundo-elevado) !important;
+  color: var(--cor-texto-secundario) !important;
+  border: 1px solid var(--cor-borda) !important;
+  font-weight: normal !important;
+}
+
+/* Lado direito: exclusivamente botões de ação e controles */
+.cabecalho-lado-direito {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-height: 34px;
+}
+
+.grupo-acao-status {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border-radius: 4px;
+}
+
+.select-acao-cabecalho {
+  height: 34px !important;
+  line-height: 34px !important;
+  padding: 0 0.65rem !important;
+  font-size: 0.85rem !important;
+  box-sizing: border-box !important;
+  min-width: 140px;
+  border-radius: 4px !important;
+}
+
+.btn-acao-cabecalho {
+  height: 34px !important;
+  line-height: 34px !important;
+  padding: 0 0.85rem !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  border-radius: 4px !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  flex-shrink: 0 !important;
+}
+
+#btn-salvar-status-topo {
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+}
+
+.btn-recolher-card {
+  height: 34px !important;
+  line-height: 34px !important;
+  padding: 0 0.75rem !important;
+  font-size: 0.83rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  border-radius: 4px !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
 }
 
 .toast-status-rapido {
@@ -1507,12 +1619,15 @@ form.formulario label.label-checkbox-linha input[type="checkbox"] {
 .modal-horas-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 99999;
   padding: 1rem;
+  box-sizing: border-box;
 }
 
 .modal-horas-dialog {
@@ -1545,6 +1660,100 @@ form.formulario label.label-checkbox-linha input[type="checkbox"] {
   padding: 1.25rem;
   overflow-y: auto;
   max-height: 75vh;
+}
+
+/* Card e Botões de Avaliação/Aprovação da Etapa do Fluxo */
+.acao-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--cor-fundo-elevado);
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--cor-texto);
+}
+
+.acao-checkbox-item:hover {
+  border-color: var(--cor-primaria);
+  background: var(--cor-fundo);
+}
+
+.acao-checkbox-item input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--cor-primaria);
+  cursor: pointer;
+}
+
+.painel-acoes-decisao {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  padding-top: 0.35rem;
+}
+
+.btn-decisao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 38px;
+  box-sizing: border-box;
+}
+
+.btn-decisao-aprovar {
+  background: var(--cor-primaria);
+  color: #ffffff;
+  border: 1px solid var(--cor-primaria);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.btn-decisao-aprovar:hover {
+  filter: brightness(0.92);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-decisao-reprovar {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #f87171;
+}
+
+.btn-decisao-reprovar:hover {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(220, 38, 38, 0.2);
+}
+
+.bloco-justificativa-reprovacao {
+  background: var(--cor-fundo);
+  border: 1px solid var(--cor-borda);
+  border-left: 4px solid var(--cor-borda);
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  transition: border-color 0.2s ease;
+}
+
+.bloco-justificativa-reprovacao:focus-within {
+  border-left-color: #dc2626;
 }
 
 

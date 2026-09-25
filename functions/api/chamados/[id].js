@@ -6,6 +6,7 @@ import {
   aplicarCascataAtraso,
   computarBloqueado,
   avancarFluxo,
+  sincronizarProgressoChamadoMae,
 } from "../../_lib/chamados.js";
 import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
@@ -137,6 +138,9 @@ export async function onRequestPut(context) {
   if (atualizado.status_nome && String(atualizado.status_nome).toLowerCase() === "finalizado" && atualizado.data_finalizacao === hoje) {
     await aplicarCascataAtraso(context.env.DB, atualizado, hoje);
   }
+
+  // Sincroniza o chamado mãe caso o chamado atual faça parte de um fluxo
+  await sincronizarProgressoChamadoMae(context.env.DB, atualizado.id, hoje);
 
   return json(atualizado);
 }

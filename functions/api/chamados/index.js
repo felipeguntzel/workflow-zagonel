@@ -22,17 +22,7 @@ export async function onRequestGet(context) {
       `SELECT
          c.*,
          COALESCE(e.setor_id, a.setor_destino_id) AS setor_id,
-         COALESCE(
-           (SELECT s2.nome
-            FROM chamados c2
-            LEFT JOIN etapas e2 ON e2.id = c2.etapa_id
-            LEFT JOIN acoes a2 ON a2.id = c2.acao_origem_id
-            LEFT JOIN setores s2 ON s2.id = COALESCE(e2.setor_id, a2.setor_destino_id)
-            WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL
-            ORDER BY c2.id DESC LIMIT 1),
-           s.nome,
-           '-'
-         ) AS setor_nome,
+         COALESCE(s.nome, '-') AS setor_nome,
          COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
          COALESCE(
            (SELECT COALESCE(e2.nome, a2.rotulo)
@@ -53,6 +43,41 @@ export async function onRequestGet(context) {
          ) AS etapa_atual,
          st.nome AS status_nome,
          st.cor AS status_cor,
+         COALESCE(
+           (SELECT st2.nome
+            FROM chamados c2
+            LEFT JOIN status st2 ON st2.id = c2.status_id
+            WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL
+            ORDER BY c2.id DESC LIMIT 1),
+           st.nome,
+           '-'
+         ) AS status_etapa_nome,
+         COALESCE(
+           (SELECT st2.cor
+            FROM chamados c2
+            LEFT JOIN status st2 ON st2.id = c2.status_id
+            WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL
+            ORDER BY c2.id DESC LIMIT 1),
+           st.cor
+         ) AS status_etapa_cor,
+         COALESCE(
+           (SELECT COUNT(*) FROM etapas WHERE fluxo_template_id = c.fluxo_template_id),
+           1
+         ) AS total_etapas,
+         COALESCE(
+           (SELECT COUNT(DISTINCT c3.etapa_id)
+            FROM chamados c3
+            WHERE (c3.id = COALESCE(c.chamado_mae_id, c.id) OR c3.chamado_mae_id = COALESCE(c.chamado_mae_id, c.id))
+              AND c3.data_finalizacao IS NOT NULL),
+           0
+         ) AS etapas_concluidas,
+         COALESCE(
+           (SELECT COUNT(*)
+            FROM chamados c4
+            WHERE c4.chamado_mae_id = COALESCE(c.chamado_mae_id, c.id)
+              AND c4.data_finalizacao IS NULL),
+           0
+         ) AS subchamados_pendentes,
          resp.nome AS responsavel_nome,
          sol.nome AS solicitante_nome,
          emp.nome AS empresa_nome
@@ -68,7 +93,48 @@ export async function onRequestGet(context) {
        ORDER BY c.prazo`,
       ...parametros
     );
-    return json(chamados);
+
+    const chamadosFormatados = chamados.map((c) => {
+      const total = Math.max(1, Number(c.total_etapas) || 1);
+      const concluidas = Number(c.etapas_concluidas) || 0;
+      const pendentes = Number(c.subchamados_pendentes) || 0;
+      const statusEtapaNome = c.status_etapa_nome || c.status_nome || "-";
+      const statusEtapaCor = c.status_etapa_cor || c.status_cor || null;
+
+      let statusGeralTexto = "";
+      let statusGeralTipo = "andamento"; // "andamento", "finalizado", "suspenso"
+
+      const etapaStatusLower = String(statusEtapaNome).toLowerCase();
+      const cStatusLower = String(c.status_nome || "").toLowerCase();
+
+      if (c.data_finalizacao && pendentes === 0 && concluidas >= total) {
+        statusGeralTexto = `Finalizado (${total}/${total})`;
+        statusGeralTipo = "finalizado";
+      } else if (etapaStatusLower === "suspenso" || cStatusLower === "suspenso") {
+        const etapaAtualNum = Math.min(total, concluidas + 1);
+        statusGeralTexto = `Suspenso (${etapaAtualNum}/${total})`;
+        statusGeralTipo = "suspenso";
+      } else {
+        const etapaAtualNum = Math.min(total, concluidas + 1);
+        if (concluidas >= total && pendentes === 0) {
+          statusGeralTexto = `Finalizado (${total}/${total})`;
+          statusGeralTipo = "finalizado";
+        } else {
+          statusGeralTexto = `Em andamento (${etapaAtualNum}/${total})`;
+          statusGeralTipo = "andamento";
+        }
+      }
+
+      return {
+        ...c,
+        status_etapa_nome: statusEtapaNome,
+        status_etapa_cor: statusEtapaCor,
+        status_geral_texto: statusGeralTexto,
+        status_geral_tipo: statusGeralTipo,
+      };
+    });
+
+    return json(chamadosFormatados);
   } catch (err) {
     console.error("[GET /api/chamados] Falha:", err);
     return error(err.message || "Erro interno do servidor.", 500);
@@ -161,16 +227,8 @@ export async function onRequestPost(context) {
       detalhes: `Chamado mãe criado por ${usuario.nome} com base no fluxo "${etapa.nome}".`
     });
 
-    const hoje = hojeISO();
-    await run(
-      context.env.DB,
-      "UPDATE chamados SET status_id = (SELECT id FROM status WHERE LOWER(nome) = 'finalizado' LIMIT 1), data_finalizacao = ? WHERE id = ?",
-      hoje,
-      mae.id
-    );
-    const maeFinalizada = { ...mae, data_finalizacao: hoje };
-
-    const criados = await avancarFluxo(context.env.DB, maeFinalizada, etapa, {});
+    // O chamado mãe permanece ativo e suas etapas filhas são criadas
+    const criados = await avancarFluxo(context.env.DB, mae, etapa, {});
 
     // Registrar auditoria para as etapas filhas criadas
     for (const filho of criados) {
@@ -184,7 +242,7 @@ export async function onRequestPost(context) {
       });
     }
 
-    return json({ chamado: maeFinalizada, criados }, 201);
+    return json({ chamado: mae, criados }, 201);
   } catch (err) {
     console.error("[POST /api/chamados] Falha:", err);
     return error(err.message || "Erro ao processar criação de chamado.", 500);

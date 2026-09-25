@@ -3,7 +3,7 @@ import { json, error } from "../../_lib/http.js";
 import { exigirAdmin, exigirPermissao, ensureColunaGrupoPai } from "../../_lib/permissoes.js";
 import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 
-const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados"];
+const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados", "dashboards"];
 
 export async function onRequestGet(context) {
   const { erro } = await exigirPermissao(context, "usuarios", "visualizar");

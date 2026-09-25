@@ -4,7 +4,7 @@ import { exigirAdmin, ensureColunaGrupoPai } from "../../_lib/permissoes.js";
 import { validarDependenciasExclusao, atualizarContadorId } from "../../_lib/dependencias.js";
 import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 
-const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados"];
+const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados", "dashboards"];
 
 async function carregarMatrizPermissoes(db, grupoId) {
   const linhas = await all(db, "SELECT * FROM permissoes WHERE grupo_id = ?", grupoId);

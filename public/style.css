@@ -226,6 +226,49 @@ body {
   background: #e5e7eb !important;
 }
 
+.login-split__form .btn-gerador-senha,
+.login-card .btn-gerador-senha {
+  background: var(--cor-fundo-elevado, #ffffff) !important;
+  color: var(--cor-texto, #1f2937) !important;
+  border: 1px solid var(--cor-borda, #cbd5e1) !important;
+  padding: 0.6rem 0.85rem !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+  border-radius: 0.4rem !important;
+  width: 100% !important;
+  margin-top: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.15s ease-in-out !important;
+}
+.login-split__form .btn-gerador-senha:hover,
+.login-card .btn-gerador-senha:hover {
+  background: var(--cor-fundo, #f1f5f9) !important;
+  border-color: var(--cor-primaria, #2f6f4f) !important;
+  color: var(--cor-primaria, #2f6f4f) !important;
+}
+
+.login-split__form .btn-copiar-gerada,
+.login-card .btn-copiar-gerada {
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0.35rem 0.75rem !important;
+  font-size: 0.8rem !important;
+  background: #15803d !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+}
+.login-split__form .btn-copiar-gerada:hover,
+.login-card .btn-copiar-gerada:hover {
+  background: #166534 !important;
+}
+
 @media (max-width: 720px) {
   .login-split { flex-direction: column; }
   .login-split__destaque { flex: 0 0 auto; padding: 2rem 1.5rem; }

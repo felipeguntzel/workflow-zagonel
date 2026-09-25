@@ -255,3 +255,48 @@ export async function chamadoComDetalhes(db, id) {
   );
   return { ...chamado, bloqueado, situacao_prazo: situacao };
 }
+
+/**
+ * Sincroniza o status do chamado mãe com o andamento das etapas filhas do fluxo.
+ * O chamado mãe não é encerrado até que todo o fluxo seja concluído.
+ */
+export async function sincronizarProgressoChamadoMae(db, chamadoId, hoje = null) {
+  const dataHoje = hoje || hojeISO();
+  const chamado = await first(db, "SELECT id, chamado_mae_id FROM chamados WHERE id = ?", chamadoId);
+  if (!chamado) return;
+
+  const raizId = chamado.chamado_mae_id || chamado.id;
+
+  // Verifica subchamados do chamado mãe
+  const filhos = await all(
+    db,
+    "SELECT id, status_id, data_finalizacao FROM chamados WHERE chamado_mae_id = ?",
+    raizId
+  );
+
+  // Se não existem subchamados gerados, o chamado mãe é o único
+  if (filhos.length === 0) return;
+
+  const pendentes = filhos.filter((f) => !f.data_finalizacao);
+
+  if (pendentes.length === 0) {
+    // Todos os subchamados foram finalizados -> finaliza o chamado mãe
+    const statusFinalizado = await statusIdPorNome(db, "finalizado");
+    await run(
+      db,
+      "UPDATE chamados SET status_id = ?, data_finalizacao = COALESCE(data_finalizacao, ?) WHERE id = ?",
+      statusFinalizado,
+      dataHoje,
+      raizId
+    );
+  } else {
+    // Ainda existem etapas pendentes -> mantém o chamado mãe em andamento (não finalizado)
+    const statusEmAndamento = await statusIdPorNome(db, "em desenvolvimento").catch(() => statusIdPorNome(db, "previsto"));
+    await run(
+      db,
+      "UPDATE chamados SET status_id = ?, data_finalizacao = NULL WHERE id = ?",
+      statusEmAndamento,
+      raizId
+    );
+  }
+}

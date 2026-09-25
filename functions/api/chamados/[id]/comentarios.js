@@ -57,8 +57,27 @@ export async function onRequestPost(context) {
   if (!chamado) return error("Chamado não encontrado", 404);
 
   const body = await context.request.json();
-  if (!body.texto) {
+  const textoLimpo = String(body.texto || "").trim();
+  if (!textoLimpo) {
     return error("Campo obrigatório: texto");
+  }
+
+  // Previne duplicação acidental por cliques múltiplos ou chamadas concorrentes
+  const duplicado = await first(
+    context.env.DB,
+    "SELECT id FROM comentarios WHERE chamado_id = ? AND usuario_id = ? AND texto = ? AND data = ? ORDER BY id DESC LIMIT 1",
+    context.params.id,
+    usuario.id,
+    textoLimpo,
+    hojeISO()
+  );
+  if (duplicado) {
+    const ehAdmin = usuario.admin === 1;
+    const ehDoSetor = usuario.setor_id === chamado.setor_id;
+    const ehResponsavel = usuario.id === chamado.responsavel_id;
+    const ehSolicitante = usuario.id === chamado.solicitante_id;
+    const podeVerPrivados = ehAdmin || ehDoSetor || ehResponsavel || ehSolicitante;
+    return json(await listarComentarios(context.env.DB, context.params.id, podeVerPrivados), 200);
   }
 
   const ehPrivado = body.eh_privado ? 1 : 0;

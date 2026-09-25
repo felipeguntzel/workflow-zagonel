@@ -90,6 +90,7 @@ function iniciar() {
 
   // Evento de recolhimento do card de campos personalizados
   const btnRecolherCampos = document.getElementById("btn-recolher-campos");
+  const cabecalhoCampos = document.getElementById("cabecalho-campos-dinamicos");
   const conteudoCampos = document.getElementById("conteudo-campos-dinamicos");
   const btnSalvarCampos = document.getElementById("btn-salvar-campos-dinamicos");
   if (btnRecolherCampos) {
@@ -98,6 +99,9 @@ function iniciar() {
       conteudoCampos.style.display = estadoRecolhimento.campos ? "none" : "";
       if (btnSalvarCampos) {
         btnSalvarCampos.style.display = estadoRecolhimento.campos ? "none" : "";
+      }
+      if (cabecalhoCampos) {
+        cabecalhoCampos.classList.toggle("painel-chamado-cabecalho--recolhido", estadoRecolhimento.campos);
       }
       btnRecolherCampos.textContent = estadoRecolhimento.campos ? "▼ Expandir" : "▲ Recolher";
     });
@@ -115,49 +119,75 @@ function iniciar() {
   carregarTudo().catch((e) => mostrarErro(document.getElementById("mensagem-erro"), e));
 }
 
+let cacheStatus = null;
+let cacheUsuarios = null;
+
+async function obterStatusList() {
+  if (cacheStatus) return cacheStatus;
+  try {
+    cacheStatus = await api("/status");
+  } catch (e) {
+    cacheStatus = [];
+  }
+  return cacheStatus;
+}
+
+async function obterUsuarios() {
+  if (cacheUsuarios) return cacheUsuarios;
+  try {
+    cacheUsuarios = await api("/usuarios");
+  } catch (e) {
+    cacheUsuarios = [];
+  }
+  return cacheUsuarios;
+}
+
 async function carregarTudo() {
-  await Promise.all([
-    carregarDetalhe(),
-    carregarCamposDinamicos(),
+  // Carrega imediatamente em paralelo o chamado e seus campos (dados prioritários para exibição instantânea)
+  const [chamadoPromise, camposPromise] = [
+    api(`/chamados/${id}`),
+    api(`/chamados/${id}/campos`).catch(() => []),
+  ];
+
+  // Dispara em segundo plano os itens secundários para não bloquear a renderização dos dados da solicitação
+  const secundariasPromise = Promise.all([
     carregarAuditoria(),
     carregarComentariosEAnexos(),
     atualizarResumoHoras(),
   ]);
+
+  try {
+    const chamado = await chamadoPromise;
+    // Renderiza os dados obrigatórios e campos imediatamente
+    await Promise.all([
+      carregarDetalhe(chamado),
+      carregarCamposDinamicos(chamado, camposPromise),
+    ]);
+  } catch (e) {
+    mostrarErro(document.getElementById("mensagem-erro"), e);
+  }
+
+  await secundariasPromise;
 }
 
-async function carregarDetalhe() {
-  const chamado = await api(`/chamados/${id}`);
+async function carregarDetalhe(chamadoRecebido = null) {
+  const chamado = chamadoRecebido || (await api(`/chamados/${id}`));
   const finalizado = String(chamado.status_nome || "").toLowerCase() === "finalizado";
 
-  let usuariosDoSetor = [];
-  try {
-    const todosUsuarios = await api("/usuarios");
-    usuariosDoSetor = todosUsuarios.filter(
-      (u) => u.ativo && (chamado.setor_id == null || u.setor_id === chamado.setor_id)
-    );
-  } catch (e) {
-    usuariosDoSetor = [];
-  }
-
-  let statusList = [];
-  try {
-    statusList = await api("/status");
-  } catch (e) {
-    statusList = [];
-  }
+  const statusList = await obterStatusList();
 
   function badgePrioridade(p) {
     const prioridadeNorm = String(p || "normal").toLowerCase();
     if (prioridadeNorm === "urgente") {
-      return `<span class="badge-status" style="background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; font-weight: 800;">🚨 Urgente</span>`;
+      return `<span class="badge-status badge-legenda" style="background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; font-weight: 800;">🚨 Urgente</span>`;
     }
     if (prioridadeNorm === "alta") {
-      return `<span class="badge-status" style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-weight: 700;">⚠️ Alta</span>`;
+      return `<span class="badge-status badge-legenda" style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-weight: 700;">⚠️ Alta</span>`;
     }
     if (prioridadeNorm === "baixa") {
-      return `<span class="badge-status" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: 600;">⬇️ Baixa</span>`;
+      return `<span class="badge-status badge-legenda" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: 600;">⬇️ Baixa</span>`;
     }
-    return `<span class="badge-status" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0; font-weight: 600;">Normal</span>`;
+    return `<span class="badge-status badge-legenda" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0; font-weight: 600;">Normal</span>`;
   }
 
   const podeEditarStatus = permissaoChamados.editar;
@@ -166,27 +196,27 @@ async function carregarDetalhe() {
   const detalheEl = document.getElementById("detalhe");
   detalheEl.innerHTML = `
     <!-- Topo do Card de Detalhes -->
-    <div class="painel-chamado-cabecalho">
-      <div>
-        <h1 style="margin: 0; font-size: 1.35rem; font-weight: 700; color: var(--cor-texto);">
+    <div id="cabecalho-detalhe" class="painel-chamado-cabecalho ${estadoRecolhimento.detalhe ? 'painel-chamado-cabecalho--recolhido' : ''}">
+      <div class="cabecalho-lado-esquerdo">
+        <h1 class="cabecalho-titulo">
           #${chamado.id} - ${escaparHtml(chamado.titulo)}
         </h1>
+        <div class="cabecalho-legendas">
+          <span class="badge-status badge-legenda" style="background: ${chamado.status_cor ? chamado.status_cor + '18' : 'var(--cor-fundo)'}; color: ${chamado.status_cor || 'var(--cor-texto)'}; border: 1px solid ${chamado.status_cor ? chamado.status_cor + '55' : 'var(--cor-borda)'};">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${chamado.status_cor || 'var(--cor-primaria)'};"></span>
+            Status: ${escaparHtml(chamado.status_nome)}
+          </span>
+          ${badgePrioridade(chamado.prioridade)}
+        </div>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-        <!-- Badges de Status e Prioridade -->
-        <span class="badge-status" style="font-size: 0.85rem; padding: 0.3rem 0.65rem; font-weight: 700; background: ${chamado.status_cor ? chamado.status_cor + '18' : 'var(--cor-fundo)'}; color: ${chamado.status_cor || 'var(--cor-texto)'}; border: 1px solid ${chamado.status_cor ? chamado.status_cor + '55' : 'var(--cor-borda)'}; display: inline-flex; align-items: center; gap: 0.4rem;">
-          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${chamado.status_cor || 'var(--cor-primaria)'};"></span>
-          Status: ${escaparHtml(chamado.status_nome)}
-        </span>
-        ${badgePrioridade(chamado.prioridade)}
-
+      <div class="cabecalho-lado-direito">
         <!-- Atualizar Status no Topo da Tela -->
         ${
           podeEditarStatus && !ehEtapaAprovacao
             ? `
-          <div style="display: inline-flex; align-items: center; gap: 0.35rem; margin-left: 0.25rem;">
-            <select id="select-status-topo" class="select-padrao" style="padding: 0.25rem 0.55rem; font-size: 0.85rem; height: 32px; min-width: 140px;">
+          <div class="grupo-acao-status">
+            <select id="select-status-topo" class="select-padrao select-acao-cabecalho" title="Alterar status do chamado">
               ${statusList
                 .map(
                   (s) =>
@@ -194,14 +224,14 @@ async function carregarDetalhe() {
                 )
                 .join("")}
             </select>
-            <button type="button" id="btn-salvar-status-topo" class="btn btn-primario btn-pequeno" style="height: 32px; padding: 0 0.8rem; font-weight: 600;">Salvar status</button>
+            <button type="button" id="btn-salvar-status-topo" class="btn btn-primario btn-acao-cabecalho">Salvar status</button>
           </div>
         `
             : ""
         }
 
         <!-- Botão Recolher do Card de Dados Obrigatórios -->
-        <button type="button" id="btn-recolher-detalhe" class="btn btn-secundario btn-recolher-card" title="Recolher / Expandir dados obrigatórios">
+        <button type="button" id="btn-recolher-detalhe" class="btn btn-secundario btn-acao-cabecalho btn-recolher-card" title="Recolher / Expandir dados obrigatórios">
           ${estadoRecolhimento.detalhe ? "▼ Expandir" : "▲ Recolher"}
         </button>
       </div>
@@ -253,13 +283,7 @@ async function carregarDetalhe() {
             ? `
           <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
             <select id="select-atribuir-responsavel" class="select-padrao" style="min-width: 210px; padding: 0.35rem 0.65rem; font-size: 0.85rem; height: 34px;">
-              <option value="">Atribuir para alguém do setor…</option>
-              ${usuariosDoSetor
-                .map(
-                  (u) =>
-                    `<option value="${u.id}" ${u.id === chamado.responsavel_id ? "selected" : ""}>${escaparHtml(u.nome)}</option>`
-                )
-                .join("")}
+              <option value="">Carregando usuários...</option>
             </select>
             <button type="button" id="btn-salvar-atribuicao" class="btn btn-primario btn-pequeno" style="height: 34px; padding: 0 0.85rem;">Atribuir</button>
             ${
@@ -283,12 +307,36 @@ async function carregarDetalhe() {
   `;
   detalheEl.hidden = false;
 
+  // Carrega lista de usuários em background sem travar a exibição da tela
+  if (!finalizado && permissaoChamados.editar) {
+    obterUsuarios().then((todos) => {
+      const select = document.getElementById("select-atribuir-responsavel");
+      if (!select) return;
+      const usuariosDoSetor = todos.filter(
+        (u) => u.ativo && (chamado.setor_id == null || u.setor_id === chamado.setor_id)
+      );
+      select.innerHTML = `
+        <option value="">Atribuir para alguém do setor…</option>
+        ${usuariosDoSetor
+          .map(
+            (u) =>
+              `<option value="${u.id}" ${u.id === chamado.responsavel_id ? "selected" : ""}>${escaparHtml(u.nome)}</option>`
+          )
+          .join("")}
+      `;
+    });
+  }
+
   // Handler de recolhimento do card de detalhes
   document.getElementById("btn-recolher-detalhe")?.addEventListener("click", () => {
     estadoRecolhimento.detalhe = !estadoRecolhimento.detalhe;
     const box = document.getElementById("detalhe-conteudo-recolhivel");
+    const cabecalho = document.getElementById("cabecalho-detalhe");
     if (box) {
       box.style.display = estadoRecolhimento.detalhe ? "none" : "block";
+    }
+    if (cabecalho) {
+      cabecalho.classList.toggle("painel-chamado-cabecalho--recolhido", estadoRecolhimento.detalhe);
     }
     const btn = document.getElementById("btn-recolher-detalhe");
     if (btn) {
@@ -356,7 +404,7 @@ async function carregarDetalhe() {
   const acaoContainer = document.getElementById("acao");
   if (ehEtapaAprovacao && !finalizado && permissaoChamados.editar) {
     acaoContainer.hidden = false;
-    await renderAprovacao(chamado);
+    renderAprovacao(chamado);
   } else {
     acaoContainer.innerHTML = "";
     acaoContainer.hidden = true;
@@ -364,7 +412,7 @@ async function carregarDetalhe() {
 }
 
 // Carregar e gerenciar campos dinâmicos da etapa
-async function carregarCamposDinamicos() {
+async function carregarCamposDinamicos(chamadoRecebido = null, camposPromiseRecebida = null) {
   const secao = document.getElementById("secao-campos-dinamicos");
   const conteudo = document.getElementById("conteudo-campos-dinamicos");
   const btnSalvar = document.getElementById("btn-salvar-campos-dinamicos");
@@ -372,7 +420,10 @@ async function carregarCamposDinamicos() {
   const msgSucesso = document.getElementById("msg-sucesso-campos");
 
   try {
-    const camposComValores = await api(`/chamados/${id}/campos`);
+    const camposComValores = camposPromiseRecebida
+      ? await camposPromiseRecebida
+      : await api(`/chamados/${id}/campos`);
+
     if (!Array.isArray(camposComValores) || camposComValores.length === 0) {
       secao.hidden = true;
       return;
@@ -380,8 +431,8 @@ async function carregarCamposDinamicos() {
 
     secao.hidden = false;
 
-    // Verificar se usuário pode editar os campos
-    const chamado = await api(`/chamados/${id}`);
+    // Obter dados do chamado sem fazer requisição extra duplicada
+    const chamado = chamadoRecebido || (await api(`/chamados/${id}`));
     const ehMae = chamado.chamado_mae_id == null;
     const ehSolicitante = usuario.id === chamado.solicitante_id;
     const ehAdmin = usuario.admin === 1;
@@ -390,11 +441,25 @@ async function carregarCamposDinamicos() {
 
     btnSalvar.hidden = !podeEditar;
 
+    const ladoEsquerdo = document.querySelector("#cabecalho-campos-dinamicos .cabecalho-lado-esquerdo");
+    if (ladoEsquerdo) {
+      ladoEsquerdo.innerHTML = `
+        <h2 class="cabecalho-titulo">📋 Campos da Solicitação / Etapa</h2>
+        <div class="cabecalho-legendas">
+          <span class="badge-status badge-legenda badge-legenda-secundaria">
+            ${camposComValores.length} campo(s)
+          </span>
+          ${chamado.chamado_mae_id ? '<span class="badge-status badge-legenda badge-legenda-secundaria">Etapa do Fluxo</span>' : '<span class="badge-status badge-legenda badge-legenda-secundaria">Solicitação Original</span>'}
+        </div>
+      `;
+    }
+
     conteudo.innerHTML = `
       <form id="form-campos-dinamicos" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.85rem;">
         ${camposComValores
           .map((c) => {
-            const disabledAttr = podeEditar ? "" : "disabled";
+            const ehSomenteLeitura = c.somente_leitura || c.da_solicitacao;
+            const disabledAttr = (podeEditar && !ehSomenteLeitura) ? "" : "disabled";
             const val = c.valor != null ? String(c.valor) : "";
             const tipoNorm = String(c.tipo || "texto").toLowerCase();
             let inputHtml = "";
@@ -404,7 +469,14 @@ async function carregarCamposDinamicos() {
             } else if (tipoNorm === "numero" || tipoNorm === "number") {
               inputHtml = `<input type="number" step="any" name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" value="${escaparHtml(val)}" ${disabledAttr} class="input-padrao" style="width: 100%;">`;
             } else if (tipoNorm === "data" || tipoNorm === "date") {
-              inputHtml = `<input type="date" name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" value="${escaparHtml(val)}" ${disabledAttr} class="input-padrao" style="width: 100%;">`;
+              let dateVal = val.trim();
+              if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateVal)) {
+                const [d, m, y] = dateVal.split("/");
+                dateVal = `${y}-${m}-${d}`;
+              } else if (dateVal.length > 10) {
+                dateVal = dateVal.slice(0, 10);
+              }
+              inputHtml = `<input type="date" name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" value="${escaparHtml(dateVal)}" ${disabledAttr} class="input-padrao" style="width: 100%;">`;
             } else if (tipoNorm === "checkbox") {
               const checkedAttr = val === "sim" || val === "true" || val === "1" ? "checked" : "";
               inputHtml = `
@@ -442,10 +514,14 @@ async function carregarCamposDinamicos() {
               inputHtml = `<input type="text" name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" value="${escaparHtml(val)}" ${disabledAttr} class="input-padrao" style="width: 100%;">`;
             }
 
+            const solicitacaoBadge = c.da_solicitacao
+              ? `<span style="font-size: 0.72rem; font-weight: normal; background: var(--cor-fundo-elevado); color: var(--cor-texto-secundario); padding: 0.15rem 0.45rem; border-radius: 3px; border: 1px solid var(--cor-borda); margin-left: 0.4rem;">Solicitação</span>`
+              : "";
+
             return `
               <div class="campo-grupo" style="margin-bottom: 0;">
                 <label class="campo-rotulo" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 0.3rem;">
-                  ${escaparHtml(c.rotulo)} ${c.obrigatorio ? '<span class="campo-obrigatorio">*</span>' : ""}
+                  ${escaparHtml(c.rotulo)} ${c.obrigatorio ? '<span class="campo-obrigatorio">*</span>' : ""}${solicitacaoBadge}
                 </label>
                 ${inputHtml}
               </div>
@@ -501,6 +577,10 @@ async function carregarCamposDinamicos() {
 // Configuração unificada de formulário para Comentários + Anexos
 function configurarFormularioComentariosEAnexos() {
   const formComentario = document.getElementById("form-comentario");
+  if (!formComentario) return;
+  if (formComentario.dataset.listenerConfigurado) return;
+  formComentario.dataset.listenerConfigurado = "true";
+
   const textareaComentario = document.getElementById("textarea-comentario");
   const inputArquivo = document.getElementById("input-arquivo-anexo");
   const previewAnexoWrap = document.getElementById("preview-anexo-wrap");
@@ -700,7 +780,13 @@ async function carregarComentariosEAnexos() {
 
     const totalBytes = anexos.reduce((acc, a) => acc + (a.tamanho_bytes || 0), 0);
     if (resumoEl) {
-      resumoEl.textContent = anexos.length > 0 ? `(${anexos.length} anexo(s) - ${formatarTamanho(totalBytes)})` : "";
+      if (anexos.length > 0) {
+        resumoEl.textContent = `📎 ${anexos.length} anexo(s) (${formatarTamanho(totalBytes)})`;
+        resumoEl.hidden = false;
+      } else {
+        resumoEl.textContent = "";
+        resumoEl.hidden = true;
+      }
     }
 
     if (comentarios.length === 0 && anexos.length === 0) {
@@ -805,24 +891,29 @@ async function atualizarResumoHoras() {
   if (!el) return;
   try {
     const resumo = await api(`/chamados/${id}/horas`);
-    el.textContent = `(Total: ${resumo.total_horas || 0}h)`;
+    const total = Number(resumo.total_horas) || 0;
+    if (total > 0) {
+      el.textContent = `⏱️ ${total}h apontadas`;
+      el.hidden = false;
+    } else {
+      el.textContent = "";
+      el.hidden = true;
+    }
   } catch (_) {
     el.textContent = "";
+    el.hidden = true;
   }
 }
 
 // Abrir tela suspensa (modal flutuante) para apontamento rápido de horas
-async function abrirModalHoras() {
+export async function abrirModalHoras() {
   const container = document.getElementById("modal-horas-container");
   if (!container) return;
 
-  let resumoHoras = { total_horas: 0, lancamentos: [] };
-  try {
-    resumoHoras = await api(`/chamados/${id}/horas`);
-  } catch (_) {}
-
+  const chamadoId = id || new URLSearchParams(window.location.search).get("id");
   const hoje = new Date().toISOString().slice(0, 10);
 
+  // Renderização instantânea do modal sem bloquear pela rede
   container.innerHTML = `
     <div class="modal-horas-overlay" id="overlay-horas" role="dialog" aria-modal="true">
       <div class="modal-horas-dialog">
@@ -840,7 +931,7 @@ async function abrirModalHoras() {
           <!-- Total Destaque -->
           <div style="background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 6px; padding: 0.65rem 0.85rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
             <span style="font-size: 0.88rem; color: var(--cor-texto-secundario);">Total apontado neste chamado:</span>
-            <strong id="modal-horas-total-destaque" style="font-size: 1.1rem; color: var(--cor-primaria);">${resumoHoras.total_horas || 0}h</strong>
+            <strong id="modal-horas-total-destaque" style="font-size: 1.1rem; color: var(--cor-primaria);">Carregando...</strong>
           </div>
 
           <!-- Formulário de Apontamento -->
@@ -852,7 +943,7 @@ async function abrirModalHoras() {
               </div>
               <div class="campo-grupo" style="margin: 0;">
                 <label class="campo-rotulo" for="modal-campo-horas-qtd">Horas *</label>
-                <input type="number" step="0.25" min="0.25" id="modal-campo-horas-qtd" required placeholder="Ex: 1.5" class="input-padrao">
+                <input type="number" step="0.25" min="0.25" id="modal-campo-horas-qtd" required placeholder="Ex: 1.5" class="input-padrao" autofocus>
               </div>
             </div>
 
@@ -883,18 +974,7 @@ async function abrirModalHoras() {
           <div style="margin-top: 1.15rem; border-top: 1px solid var(--cor-borda); padding-top: 0.85rem;">
             <span style="font-size: 0.8rem; font-weight: 700; color: var(--cor-texto-secundario); text-transform: uppercase;">Últimos apontamentos:</span>
             <ul id="modal-lista-horas" style="list-style: none; padding: 0; margin: 0.5rem 0 0; max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem;">
-              ${
-                resumoHoras.lancamentos.length === 0
-                  ? `<li style="color: var(--cor-texto-secundario); font-size: 0.85rem;">Nenhum apontamento registrado ainda.</li>`
-                  : resumoHoras.lancamentos
-                      .map(
-                        (l) =>
-                          `<li style="padding: 0.35rem 0.5rem; background: var(--cor-fundo); border-radius: 4px; font-size: 0.85rem; border: 1px solid var(--cor-borda);">
-                             <strong>${formatarDataBR(l.data)}</strong> - <strong>${l.horas}h</strong> por ${escaparHtml(l.usuario_nome)} ${l.observacao ? `<em>(${escaparHtml(l.observacao)})</em>` : ""}
-                           </li>`
-                      )
-                      .join("")
-              }
+              <li style="color: var(--cor-texto-secundario); font-size: 0.85rem;">Carregando histórico...</li>
             </ul>
           </div>
         </div>
@@ -905,7 +985,13 @@ async function abrirModalHoras() {
   const overlay = document.getElementById("overlay-horas");
   const fechar = () => {
     container.innerHTML = "";
+    document.removeEventListener("keydown", onKeyDown);
   };
+
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") fechar();
+  };
+  document.addEventListener("keydown", onKeyDown);
 
   document.getElementById("btn-fechar-modal-horas")?.addEventListener("click", fechar);
   document.getElementById("btn-cancelar-modal-horas")?.addEventListener("click", fechar);
@@ -921,9 +1007,42 @@ async function abrirModalHoras() {
         const atual = Number(campoQtd.value) || 0;
         const total = atual > 0 ? atual + incremento : incremento;
         campoQtd.value = total % 1 === 0 ? total.toFixed(1) : total.toString();
+        campoQtd.focus();
       }
     });
   });
+
+  // Carrega histórico e total em background sem travar abertura da tela
+  if (chamadoId) {
+    api(`/chamados/${chamadoId}/horas`)
+      .then((resumoHoras) => {
+        const elDestaque = document.getElementById("modal-horas-total-destaque");
+        const elLista = document.getElementById("modal-lista-horas");
+        if (elDestaque) {
+          elDestaque.textContent = `${resumoHoras.total_horas || 0}h`;
+        }
+        if (elLista) {
+          if (!resumoHoras.lancamentos || resumoHoras.lancamentos.length === 0) {
+            elLista.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.85rem;">Nenhum apontamento registrado ainda.</li>`;
+          } else {
+            elLista.innerHTML = resumoHoras.lancamentos
+              .map(
+                (l) =>
+                  `<li style="padding: 0.35rem 0.5rem; background: var(--cor-fundo); border-radius: 4px; font-size: 0.85rem; border: 1px solid var(--cor-borda);">
+                     <strong>${formatarDataBR(l.data)}</strong> - <strong>${l.horas}h</strong> por ${escaparHtml(l.usuario_nome || "Usuário")} ${l.observacao ? `<em>(${escaparHtml(l.observacao)})</em>` : ""}
+                   </li>`
+              )
+              .join("");
+          }
+        }
+      })
+      .catch(() => {
+        const elDestaque = document.getElementById("modal-horas-total-destaque");
+        const elLista = document.getElementById("modal-lista-horas");
+        if (elDestaque) elDestaque.textContent = "0h";
+        if (elLista) elLista.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.85rem;">Nenhum apontamento registrado ainda.</li>`;
+      });
+  }
 
   const formModal = document.getElementById("form-modal-horas");
   formModal?.addEventListener("submit", async (e) => {
@@ -937,8 +1056,10 @@ async function abrirModalHoras() {
     if (!dataVal || !horasVal) return;
 
     btnSubmit.disabled = true;
+    btnSubmit.textContent = "Salvando...";
+
     try {
-      await api(`/chamados/${id}/horas`, {
+      await api(`/chamados/${chamadoId}/horas`, {
         method: "POST",
         body: {
           data: dataVal,
@@ -947,8 +1068,10 @@ async function abrirModalHoras() {
         },
       });
 
-      await atualizarResumoHoras();
-      carregarAuditoria();
+      await Promise.all([
+        atualizarResumoHoras(),
+        carregarAuditoria(),
+      ]);
       fechar();
     } catch (err) {
       if (msgErro) {
@@ -956,9 +1079,19 @@ async function abrirModalHoras() {
         msgErro.hidden = false;
       }
       btnSubmit.disabled = false;
+      btnSubmit.textContent = "Salvar apontamento";
     }
   });
 }
+
+// Ouvinte de clique delegado no documento para garantir disparo imediato do botão apontar horas
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("#btn-abrir-modal-horas");
+  if (btn) {
+    e.preventDefault();
+    abrirModalHoras();
+  }
+});
 
 // Carregar histórico unificado de auditoria
 async function carregarAuditoria() {
@@ -1009,39 +1142,72 @@ async function renderAprovacao(chamado) {
   const acoesList = etapa.acoes || [];
 
   acaoContainer.innerHTML = `
-    <h2 style="font-size: 1.15rem; margin: 0 0 0.75rem;">Avaliação da Tarefa / Etapa ${info(
-      "Aprova a solicitação e libera a próxima etapa do fluxo automaticamente, ou reprova e encerra a cadeia."
-    )}</h2>
+    <div class="formulario-secao-cabecalho" style="margin-bottom: 0.85rem;">
+      <h3 style="margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 0.45rem;">
+        <span>⚖️</span> Avaliação da Tarefa / Etapa
+        ${info("Aprova a solicitação e libera a próxima etapa do fluxo automaticamente, ou reprova e encerra a cadeia.")}
+      </h3>
+      <span class="badge-status" style="background: rgba(47, 111, 79, 0.1); color: var(--cor-primaria); border: 1px solid rgba(47, 111, 79, 0.25); font-weight: 700; font-size: 0.8rem;">
+        Etapa de Decisão
+      </span>
+    </div>
+
     ${
       acoesList.length > 0
-        ? `<fieldset id="fieldset-acoes" style="margin-bottom: 0.85rem; padding: 0.65rem 0.85rem; border: 1px solid var(--cor-borda); border-radius: 0.35rem;">
-             <legend style="font-weight: 600; padding: 0 0.4rem; font-size: 0.85rem;">Ações a executar se aprovado</legend>
-             ${acoesList
-               .map(
-                 (a) =>
-                   `<label style="display: block; margin: 0.35rem 0; cursor: pointer; font-size: 0.9rem;"><input type="checkbox" name="acao-${a.id}" value="${a.id}"> ${escaparHtml(a.rotulo)}</label>`
-               )
-               .join("")}
-           </fieldset>`
+        ? `
+        <div style="margin-bottom: 1rem;">
+          <label class="campo-rotulo" style="font-weight: 600; margin-bottom: 0.4rem; color: var(--cor-texto);">
+            Ações a executar se aprovado:
+          </label>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.5rem;">
+            ${acoesList
+              .map(
+                (a) => `
+                <label class="acao-checkbox-item">
+                  <input type="checkbox" name="acao-${a.id}" value="${a.id}">
+                  <span>${escaparHtml(a.rotulo)}</span>
+                </label>
+              `
+              )
+              .join("")}
+          </div>
+        </div>
+      `
         : ""
     }
-    <div style="display: flex; gap: 0.75rem; margin-bottom: 0.75rem;">
-      <button type="button" id="btn-aprovar" class="btn btn-primario">✓ Aprovar e avançar</button>
+
+    <!-- Bloco de Justificativa para Reprovação -->
+    <div class="bloco-justificativa-reprovacao" style="margin-bottom: 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.35rem;">
+        <label for="justificativa" style="font-weight: 600; font-size: 0.88rem; color: var(--cor-texto); margin: 0;">
+          Justificativa <span style="font-weight: normal; color: var(--cor-texto-secundario); font-size: 0.82rem;">(obrigatória apenas se reprovar)</span>
+        </label>
+        <span style="font-size: 0.78rem; color: var(--cor-texto-secundario);">Ficará registrada no histórico e comentários</span>
+      </div>
+      <textarea id="justificativa" class="textarea-padrao" rows="2" style="width: 100%; resize: vertical;" placeholder="Informe o motivo da reprovação detalhado..."></textarea>
     </div>
-    
-    <div style="border-top: 1px solid var(--cor-borda); padding-top: 0.75rem; margin-top: 0.75rem;">
-      <label style="display: block; font-weight: 600; font-size: 0.88rem; margin-bottom: 0.4rem;">
-        Justificativa (obrigatória para reprovar)
-        <textarea id="justificativa" style="width: 100%; min-height: 60px; margin-top: 0.2rem;" class="textarea-padrao" placeholder="Informe o motivo da reprovação..."></textarea>
-      </label>
-      <button type="button" id="btn-reprovar" class="btn btn-perigo">✕ Reprovar</button>
+
+    <!-- Painel de Botões de Ação Padronizados -->
+    <div class="painel-acoes-decisao">
+      <button type="button" id="btn-aprovar" class="btn btn-decisao btn-decisao-aprovar">
+        ✓ Aprovar e avançar
+      </button>
+      <button type="button" id="btn-reprovar" class="btn btn-decisao btn-decisao-reprovar">
+        ✕ Reprovar etapa
+      </button>
     </div>
-    <p id="erro-decisao" class="erro" hidden></p>
+
+    <p id="erro-decisao" class="erro" style="margin-top: 0.65rem;" hidden></p>
   `;
 
-  async function enviarDecisao(corpo) {
+  async function enviarDecisao(corpo, botaoAcionado) {
     const erro = document.getElementById("erro-decisao");
+    const btnAprovar = document.getElementById("btn-aprovar");
+    const btnReprovar = document.getElementById("btn-reprovar");
     if (erro) erro.hidden = true;
+    if (btnAprovar) btnAprovar.disabled = true;
+    if (btnReprovar) btnReprovar.disabled = true;
+
     try {
       await api(`/chamados/${chamado.id}/decisao`, {
         method: "POST",
@@ -1053,28 +1219,33 @@ async function renderAprovacao(chamado) {
         erro.textContent = e.message || "Falha ao processar decisão.";
         erro.hidden = false;
       }
+    } finally {
+      if (btnAprovar) btnAprovar.disabled = false;
+      if (btnReprovar) btnReprovar.disabled = false;
     }
   }
 
-  document.getElementById("btn-aprovar")?.addEventListener("click", () => {
+  document.getElementById("btn-aprovar")?.addEventListener("click", (e) => {
     const acoes = {};
     acoesList.forEach((a) => {
       const cb = acaoContainer.querySelector(`[name="acao-${a.id}"]`);
       if (cb) acoes[a.id] = cb.checked;
     });
-    enviarDecisao({ decisao: "aprovado", acoes });
+    enviarDecisao({ decisao: "aprovado", acoes }, e.currentTarget);
   });
 
-  document.getElementById("btn-reprovar")?.addEventListener("click", () => {
-    const justificativa = document.getElementById("justificativa")?.value.trim();
+  document.getElementById("btn-reprovar")?.addEventListener("click", (e) => {
+    const campoJust = document.getElementById("justificativa");
+    const justificativa = campoJust?.value.trim();
     if (!justificativa) {
       const erro = document.getElementById("erro-decisao");
       if (erro) {
-        erro.textContent = "Justificativa é obrigatória para reprovar.";
+        erro.textContent = "A justificativa é obrigatória para registrar a reprovação desta etapa.";
         erro.hidden = false;
       }
+      campoJust?.focus();
       return;
     }
-    enviarDecisao({ decisao: "reprovado", justificativa });
+    enviarDecisao({ decisao: "reprovado", justificativa }, e.currentTarget);
   });
 }

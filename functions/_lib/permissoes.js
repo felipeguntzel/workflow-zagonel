@@ -3,7 +3,7 @@ import { verificarToken } from "./sessao.js";
 import { error } from "./http.js";
 import { ensureColunasUsuario } from "./usuarios.js";
 
-const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados"];
+const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados", "dashboards"];
 
 let colunaGrupoPaiGarantida = false;
 export async function ensureColunaGrupoPai(db) {
