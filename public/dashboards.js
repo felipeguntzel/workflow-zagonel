@@ -30,6 +30,7 @@ export function inicializar() {
   configurarFiltros();
   carregarEmpresas();
   carregarSetores();
+  carregarStatusGeral();
 
   const tabelaSetores = document.querySelector("#tabela-desempenho-setores")?.closest("table");
   if (tabelaSetores) tornarTabelaReordenavel(tabelaSetores, "dashboards_setores");
@@ -38,6 +39,17 @@ export function inicializar() {
   if (tabelaStatus) tornarTabelaReordenavel(tabelaStatus, "dashboards_status");
 
   carregarDashboard();
+}
+
+let listaStatusGeral = [];
+
+async function carregarStatusGeral() {
+  try {
+    const res = await api("/status");
+    listaStatusGeral = Array.isArray(res) ? res : [];
+  } catch (_) {
+    listaStatusGeral = [];
+  }
 }
 
 let listaSetoresGeral = [];
@@ -330,27 +342,78 @@ function renderizarTabelaStatus(distribuicaoStatus, totalGeral) {
   const tbody = document.getElementById("tabela-distribuicao-status");
   if (!tbody) return;
 
-  if (!distribuicaoStatus || distribuicaoStatus.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3" class="vazio">Nenhum chamado encontrado no período.</td></tr>';
+  const total = totalGeral > 0 ? totalGeral : 0;
+  const mapaItens = new Map();
+
+  // 1. Inicializa com todos os status cadastrados conhecidos
+  for (const st of listaStatusGeral) {
+    if (!st || !st.nome) continue;
+    const chave = st.nome.trim();
+    mapaItens.set(chave.toLowerCase(), {
+      status: chave,
+      cor: st.cor || null,
+      quantidade: 0,
+      ordem: st.id || 999,
+    });
+  }
+
+  // 2. Preenche com os dados vindos do relatório
+  for (const item of (distribuicaoStatus || [])) {
+    const nome = String(item.status || "Sem status").trim();
+    const chave = nome.toLowerCase();
+    if (!mapaItens.has(chave)) {
+      mapaItens.set(chave, {
+        status: nome,
+        cor: item.cor || null,
+        quantidade: Number(item.quantidade) || 0,
+        ordem: item.ordem || 999,
+      });
+    } else {
+      const existente = mapaItens.get(chave);
+      existente.quantidade = Number(item.quantidade) || 0;
+      if (item.cor) existente.cor = item.cor;
+      if (item.ordem) existente.ordem = item.ordem;
+    }
+  }
+
+  const listaFinal = Array.from(mapaItens.values());
+  if (listaFinal.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="vazio">Nenhum status cadastrado no sistema.</td></tr>';
     return;
   }
 
-  const total = totalGeral > 0 ? totalGeral : 1;
+  // Ordena: status com chamados primeiro (decrescente); status com 0 ordenados pela ordem cadastrada
+  listaFinal.sort((a, b) => {
+    if (b.quantidade !== a.quantidade) return b.quantidade - a.quantidade;
+    return (a.ordem || 0) - (b.ordem || 0) || a.status.localeCompare(b.status);
+  });
 
-  tbody.innerHTML = distribuicaoStatus
-    .sort((a, b) => b.quantidade - a.quantidade)
+  tbody.innerHTML = listaFinal
     .map((item) => {
-      const pct = Math.round((item.quantidade / total) * 100);
+      const pct = total > 0 ? Math.round((item.quantidade / total) * 100) : 0;
+      const bolinhaCor = item.cor
+        ? `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${item.cor}; margin-right: 0.45rem; flex-shrink: 0;"></span>`
+        : "";
+
       return `
         <tr>
-          <td><strong>${escaparHtml(item.status)}</strong></td>
-          <td style="text-align: right; font-weight: 700;">${item.quantidade}</td>
+          <td>
+            <div style="display: inline-flex; align-items: center;">
+              ${bolinhaCor}
+              <strong>${escaparHtml(item.status)}</strong>
+            </div>
+          </td>
+          <td style="text-align: right; font-weight: 700; ${item.quantidade === 0 ? 'color: var(--cor-texto-secundario); font-weight: normal;' : ''}">
+            ${item.quantidade}
+          </td>
           <td>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <div class="barra-progresso-wrap" style="flex: 1;">
-                <div class="barra-progresso-fill barra-progresso-fill--medio" style="width: ${pct}%; background: var(--cor-primaria);"></div>
+                <div class="barra-progresso-fill ${pct > 0 ? 'barra-progresso-fill--medio' : ''}" style="width: ${pct}%; background: ${item.cor || 'var(--cor-primaria)'};"></div>
               </div>
-              <span style="font-size: 0.8rem; font-weight: 600; min-width: 35px; text-align: right;">${pct}%</span>
+              <span style="font-size: 0.8rem; font-weight: 600; min-width: 35px; text-align: right; ${pct === 0 ? 'color: var(--cor-texto-secundario); font-weight: normal;' : ''}">
+                ${pct}%
+              </span>
             </div>
           </td>
         </tr>

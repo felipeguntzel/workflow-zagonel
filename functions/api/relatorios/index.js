@@ -82,7 +82,22 @@ export async function onRequestGet(context) {
   let somaDiasResolucaoGeral = 0;
   let contagemResolucaoGeral = 0;
 
-  const distribuicaoStatus = {};
+  const listaStatusCadastrados = await all(
+    context.env.DB,
+    `SELECT id, nome, cor FROM status ORDER BY id`
+  ).catch(() => []);
+
+  const distribuicaoStatusMap = new Map();
+  for (const st of listaStatusCadastrados) {
+    if (!st || !st.nome) continue;
+    distribuicaoStatusMap.set(st.nome, {
+      status: st.nome,
+      cor: st.cor || null,
+      quantidade: 0,
+      ordem: st.id || 999,
+    });
+  }
+
   const setoresMap = new Map();
 
   for (const s of setores) {
@@ -123,7 +138,16 @@ export async function onRequestGet(context) {
 
     // Status
     const nomeStatus = c.status_nome || "Sem status";
-    distribuicaoStatus[nomeStatus] = (distribuicaoStatus[nomeStatus] || 0) + 1;
+    if (!distribuicaoStatusMap.has(nomeStatus)) {
+      distribuicaoStatusMap.set(nomeStatus, {
+        status: nomeStatus,
+        cor: c.status_cor || null,
+        quantidade: 0,
+        ordem: 999,
+      });
+    }
+    const itemStatus = distribuicaoStatusMap.get(nomeStatus);
+    itemStatus.quantidade++;
 
     // Tempo de resolução
     if (ehFinalizado && c.data_finalizacao && c.data_abertura) {
@@ -232,10 +256,7 @@ export async function onRequestGet(context) {
       taxa_pontualidade_geral: taxaPontualidadeGeral,
     },
     setores: relatorioSetores,
-    distribuicao_status: Object.entries(distribuicaoStatus).map(([status, quantidade]) => ({
-      status,
-      quantidade,
-    })),
+    distribuicao_status: Array.from(distribuicaoStatusMap.values()),
     gargalos,
     gerado_em: hoje,
   });
