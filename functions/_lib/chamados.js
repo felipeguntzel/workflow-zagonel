@@ -163,7 +163,7 @@ export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}, obser
                     acaoDef?.observacao ||
                     chamado.observacao;
 
-    // Título dos subchamados: ID do chamado original + nome da etapa
+    // Título dos subchamados: Nome da etapa + referência ao chamado original (ex: "Etapa tal - Ref Chamado 1")
     const idChamadoOriginal = spec.chamado_mae_id || chamado.chamado_mae_id || chamado.id;
     let nomeEtapa = null;
     if (spec.etapa_id) {
@@ -173,9 +173,8 @@ export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}, obser
     if (!nomeEtapa && acaoDef?.rotulo) {
       nomeEtapa = acaoDef.rotulo;
     }
-    const tituloSubchamado = nomeEtapa
-      ? `#${idChamadoOriginal} - ${nomeEtapa}`
-      : (chamado.titulo ? `#${idChamadoOriginal} - ${chamado.titulo}` : `#${idChamadoOriginal}`);
+    const tituloBase = nomeEtapa || chamado.titulo || "Etapa";
+    const tituloSubchamado = `${tituloBase} - Ref Chamado ${idChamadoOriginal}`;
 
     const criado = await criarChamado(db, {
       fluxo_template_id: chamado.fluxo_template_id,

@@ -170,3 +170,72 @@ test("sincronizarProgressoChamadoMae finaliza mãe quando todos subchamados est�
     "Deveria finalizar o chamado mãe quando todos os subchamados terminarem"
   );
 });
+
+test("avancarFluxo padroniza titulo dos subchamados como 'Etapa tal - Ref Chamado X'", async () => {
+  const { avancarFluxo } = await import("./chamados.js");
+  const chamadosInseridos = [];
+
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM etapas WHERE id = ?")) {
+            return { nome: "Criar Ficha Técnica" };
+          }
+          if (sql.includes("FROM status")) {
+            return { id: 1, nome: "previsto" };
+          }
+          if (sql.includes("FROM chamados WHERE id = ?")) {
+            return { id: 2, titulo: chamadosInseridos[0]?.titulo };
+          }
+          return null;
+        },
+        async all() {
+          return { results: [] };
+        },
+        async run() {
+          if (sql.includes("INSERT INTO chamados")) {
+            chamadosInseridos.push({ sql, params: this.params });
+          }
+          return { meta: { last_row_id: 2 } };
+        },
+      };
+    },
+  };
+
+  const chamadoMae = {
+    id: 19,
+    chamado_mae_id: null,
+    fluxo_template_id: 1,
+    empresa_id: 1,
+    solicitante_id: 5,
+    titulo: "DUCHA MOMENT 9000W",
+    prioridade: "normal",
+    observacao: "Solicitação original",
+  };
+
+  const etapa = {
+    id: 100,
+    acoes: [
+      {
+        id: 50,
+        rotulo: "Criar Ficha",
+        setor_destino_id: 2,
+        etapa_destino_id: 101,
+        vinculo: "mae",
+      },
+    ],
+  };
+
+  const criados = await avancarFluxo(mockDb, chamadoMae, etapa, { 50: true });
+
+  assert.equal(criados.length, 1);
+  // O título do subchamado inserido deve conter 'Criar Ficha Técnica - Ref Chamado 19'
+  const paramsInsert = chamadosInseridos[0].params;
+  const tituloGerado = paramsInsert.find((p) => typeof p === "string" && p.includes("Ref Chamado 19"));
+  assert.equal(tituloGerado, "Criar Ficha Técnica - Ref Chamado 19");
+});
