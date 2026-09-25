@@ -263,7 +263,7 @@ function renderizarVisaoHorizontal(container, nos) {
       <table class="geral-bpmn-tabela">
         <thead class="bpmn-fases-cabecalho">
           <tr>
-            <th class="bpmn-fase-th">Setor / Raia</th>
+            <th class="bpmn-fase-th">Setor</th>
             ${Array.from({ length: totalFases })
               .map((_, i) => `<th class="bpmn-fase-th">${i === 0 ? "Fase 1 (Início)" : `Fase ${i + 1}`}</th>`)
               .join("")}
