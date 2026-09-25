@@ -29,6 +29,7 @@ export function inicializar() {
 
   configurarFiltros();
   carregarEmpresas();
+  carregarSetores();
 
   const tabelaSetores = document.querySelector("#tabela-desempenho-setores")?.closest("table");
   if (tabelaSetores) tornarTabelaReordenavel(tabelaSetores, "dashboards_setores");
@@ -37,6 +38,65 @@ export function inicializar() {
   if (tabelaStatus) tornarTabelaReordenavel(tabelaStatus, "dashboards_status");
 
   carregarDashboard();
+}
+
+let listaSetoresGeral = [];
+
+async function carregarSetores() {
+  const selectSetor = document.getElementById("filtro-setor");
+  if (!selectSetor) return;
+
+  try {
+    const setores = await api("/setores");
+    listaSetoresGeral = Array.isArray(setores) ? setores : [];
+    const empId = document.getElementById("filtro-empresa")?.value || null;
+    popularSelectSetores(empId);
+  } catch (_) {
+    listaSetoresGeral = [];
+  }
+}
+
+function popularSelectSetores(empresaIdFiltro = null) {
+  const selectSetor = document.getElementById("filtro-setor");
+  if (!selectSetor) return;
+
+  const valorAnterior = selectSetor.value;
+  selectSetor.innerHTML = '<option value="">Todos os setores</option>';
+
+  let filtrados = listaSetoresGeral;
+  if (empresaIdFiltro) {
+    const empIdNum = Number(empresaIdFiltro);
+    filtrados = listaSetoresGeral.filter((s) => {
+      if (Array.isArray(s.empresas) && s.empresas.length > 0) {
+        return s.empresas.includes(empIdNum);
+      }
+      return s.empresa_id === empIdNum;
+    });
+  }
+
+  // Desduplica por nome
+  const setoresUnicos = [];
+  const nomesVistos = new Set();
+  for (const s of filtrados) {
+    const nomeNorm = String(s.nome || "").trim().toLowerCase();
+    if (!nomesVistos.has(nomeNorm)) {
+      nomesVistos.add(nomeNorm);
+      setoresUnicos.push(s);
+    }
+  }
+
+  // Ordena alfabeticamente
+  setoresUnicos.sort((a, b) => a.nome.localeCompare(b.nome));
+
+  for (const s of setoresUnicos) {
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.textContent = s.nome;
+    if (String(s.id) === String(valorAnterior)) {
+      opt.selected = true;
+    }
+    selectSetor.appendChild(opt);
+  }
 }
 
 async function carregarEmpresas() {
@@ -73,11 +133,16 @@ async function carregarEmpresas() {
 function configurarFiltros() {
   const filtroPeriodo = document.getElementById("filtro-periodo");
   const filtroEmpresa = document.getElementById("filtro-empresa");
+  const filtroSetor = document.getElementById("filtro-setor");
   const btnAtualizar = document.getElementById("btn-atualizar-metricas");
   const btnExportar = document.getElementById("btn-exportar-csv");
 
   filtroPeriodo?.addEventListener("change", () => carregarDashboard());
-  filtroEmpresa?.addEventListener("change", () => carregarDashboard());
+  filtroEmpresa?.addEventListener("change", (e) => {
+    popularSelectSetores(e.target.value);
+    carregarDashboard();
+  });
+  filtroSetor?.addEventListener("change", () => carregarDashboard());
   btnAtualizar?.addEventListener("click", () => carregarDashboard());
 
   btnExportar?.addEventListener("click", async () => {
@@ -114,10 +179,12 @@ async function carregarDashboard() {
 
   const filtroPeriodo = document.getElementById("filtro-periodo");
   const filtroEmpresa = document.getElementById("filtro-empresa");
+  const filtroSetor = document.getElementById("filtro-setor");
 
   const queryParams = new URLSearchParams();
   if (filtroPeriodo?.value) queryParams.set("dias", filtroPeriodo.value);
   if (filtroEmpresa?.value) queryParams.set("empresa_id", filtroEmpresa.value);
+  if (filtroSetor?.value) queryParams.set("setor_id", filtroSetor.value);
 
   const qs = queryParams.toString() ? `?${queryParams.toString()}` : "";
 

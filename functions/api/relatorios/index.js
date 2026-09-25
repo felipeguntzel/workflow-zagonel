@@ -11,6 +11,7 @@ export async function onRequestGet(context) {
 
   const url = new URL(context.request.url);
   const empresaId = url.searchParams.get("empresa_id") ? Number(url.searchParams.get("empresa_id")) : null;
+  const setorId = url.searchParams.get("setor_id") ? Number(url.searchParams.get("setor_id")) : null;
   const diasFiltro = url.searchParams.get("dias") ? Number(url.searchParams.get("dias")) : null;
 
   const verTodos = usuario.admin === 1 || permissoes.chamados.ver_todos_setores;
@@ -23,6 +24,9 @@ export async function onRequestGet(context) {
   if (!verTodos) {
     where.push("COALESCE(e.setor_id, a.setor_destino_id) = ?");
     params.push(usuario.setor_id);
+  } else if (setorId) {
+    where.push("COALESCE(e.setor_id, a.setor_destino_id) = ?");
+    params.push(setorId);
   }
 
   if (empresaId) {
@@ -82,6 +86,7 @@ export async function onRequestGet(context) {
   const setoresMap = new Map();
 
   for (const s of setores) {
+    if (setorId && s.id !== setorId) continue;
     if (verTodos || s.id === usuario.setor_id) {
       setoresMap.set(s.id, {
         setor_id: s.id,
