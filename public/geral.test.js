@@ -4,10 +4,22 @@ import {
   calcularEstruturaBpmn,
   construirArvore,
   renderHtmlCardEtapa,
+  formatarTituloEtapa,
   badgeEtapaTipo,
   badgeStatus,
   situacaoPrazoBadge,
 } from "./geral.js";
+
+test("formatarTituloEtapa combina etapa e chamado quando diferem", () => {
+  assert.equal(
+    formatarTituloEtapa({ etapa_nome: "Engenharia de Produto", titulo: "DUCHA MOMENT 9000W" }),
+    `Engenharia de Produto <span style="font-weight: 500; opacity: 0.8; font-size: 0.88rem;">(DUCHA MOMENT 9000W)</span>`
+  );
+  assert.equal(
+    formatarTituloEtapa({ etapa_nome: "Desenvolvimento", titulo: "Desenvolvimento" }),
+    "Desenvolvimento"
+  );
+});
 
 test("construirArvore organiza chamados em hierarquia de pais e filhos", () => {
   const nos = [

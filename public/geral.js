@@ -127,6 +127,20 @@ export function calcularEstruturaBpmn(nos) {
   };
 }
 
+export function formatarTituloEtapa(no) {
+  const nomeEtapa = no.etapa_nome ? no.etapa_nome.trim() : "";
+  const titulo = no.titulo ? no.titulo.trim() : "";
+
+  if (nomeEtapa && titulo) {
+    if (titulo.toLowerCase().includes(nomeEtapa.toLowerCase())) {
+      return escaparHtml(titulo);
+    }
+    return `${escaparHtml(nomeEtapa)} <span style="font-weight: 500; opacity: 0.8; font-size: 0.88rem;">(${escaparHtml(titulo)})</span>`;
+  }
+
+  return escaparHtml(titulo || nomeEtapa || "Etapa");
+}
+
 export function renderHtmlCardEtapa(no, options = {}) {
   const corBorda = no.status_cor || "var(--cor-primaria)";
   const estaRecolhido = options.expandido !== undefined ? !options.expandido : !etapasExpandidas;
@@ -151,7 +165,7 @@ export function renderHtmlCardEtapa(no, options = {}) {
       <div class="card-etapa-geral__cabecalho">
         <div class="card-etapa-geral__titulo">
           <span style="font-family: monospace; color: var(--cor-texto-secundario); font-size: 0.92rem; font-weight: 700;">#${no.id}</span>
-          <span style="font-weight: 700;">${escaparHtml(no.titulo || no.etapa_nome || "Etapa")}</span>
+          <span style="font-weight: 700;">${formatarTituloEtapa(no)}</span>
           ${badgeEtapaTipo(no.etapa_tipo)}
           ${badgeStatus(no.status_nome, no.status_cor)}
           ${tagResultado}
