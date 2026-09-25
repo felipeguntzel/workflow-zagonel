@@ -700,13 +700,16 @@ async function iniciar(usuarioLogado) {
                 texto: "Anexo da solicitação inicial",
               },
             });
-          } catch (errAnexo) {
-            console.error("Falha ao enviar anexo da solicitação:", errAnexo);
-          }
-        }
-      }
+      // Após gerar o chamado, continua na tela de chamados em aberto (não abre a tela de trabalho do chamado)
+      sessionStorage.setItem(
+        "workflow_toast_sucesso",
+        JSON.stringify({
+          mensagem: `✓ Chamado #${chamadoIdCriado} ("${titulo}") aberto com sucesso!`,
+          id: chamadoIdCriado,
+        })
+      );
 
-      window.location.href = `/chamado?id=${chamadoIdCriado}`;
+      window.location.href = "/chamados";
     } catch (e) {
       mostrarErro(msgErro, e);
       btnSubmit.disabled = false;

@@ -99,6 +99,17 @@ export async function garantirColunasChamados(db) {
       await run(db, "UPDATE fluxo_templates SET ativo = 1 WHERE ativo IS NULL").catch(() => {});
     }
 
+    // Índices de alta performance
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_mae_fin_id ON chamados(chamado_mae_id, data_finalizacao, id DESC)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_status_id ON chamados(status_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_responsavel_id ON chamados(responsavel_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_solicitante_id ON chamados(solicitante_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_etapa_id ON chamados(etapa_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_empresa_id ON chamados(empresa_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_prazo ON chamados(prazo)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_etapas_template ON etapas(fluxo_template_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_apontamentos_chamado_data ON apontamentos_horas(chamado_id, data)").catch(() => {});
+
     colunasChamadosGarantidas = true;
   } catch (err) {
     console.error("Aviso ao garantir colunas de chamados:", err);
@@ -152,6 +163,20 @@ export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}, obser
                     acaoDef?.observacao ||
                     chamado.observacao;
 
+    // Título dos subchamados: ID do chamado original + nome da etapa
+    const idChamadoOriginal = spec.chamado_mae_id || chamado.chamado_mae_id || chamado.id;
+    let nomeEtapa = null;
+    if (spec.etapa_id) {
+      const etapaDestino = await first(db, "SELECT nome FROM etapas WHERE id = ?", spec.etapa_id);
+      nomeEtapa = etapaDestino?.nome;
+    }
+    if (!nomeEtapa && acaoDef?.rotulo) {
+      nomeEtapa = acaoDef.rotulo;
+    }
+    const tituloSubchamado = nomeEtapa
+      ? `#${idChamadoOriginal} - ${nomeEtapa}`
+      : (chamado.titulo ? `#${idChamadoOriginal} - ${chamado.titulo}` : `#${idChamadoOriginal}`);
+
     const criado = await criarChamado(db, {
       fluxo_template_id: chamado.fluxo_template_id,
       etapa_id: spec.etapa_id,
@@ -160,7 +185,7 @@ export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}, obser
       chamado_pai_id: spec.chamado_pai_id,
       empresa_id: chamado.empresa_id,
       solicitante_id: chamado.solicitante_id,
-      titulo: chamado.titulo,
+      titulo: tituloSubchamado,
       prioridade: chamado.prioridade,
       observacao: obsAcao,
     });

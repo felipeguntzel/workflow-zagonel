@@ -15,12 +15,12 @@ export const TELAS_SISTEMA = [
   // Chamados (em ordem alfabética)
   { numero: "07", codigo: "7", id: "chamados", titulo: "Meus chamados", grupo: "Chamados", href: "/chamados", telaPerm: "chamados" },
   { numero: "08", codigo: "8", id: "novo-chamado", titulo: "Abrir novo chamado", grupo: "Chamados", href: "/novo-chamado", telaPerm: "chamados", acaoPerm: "inserir" },
-  { numero: "08B", codigo: "12", id: "apontamentos", titulo: "Apontamento de horas", grupo: "Chamados", href: "/apontamentos", telaPerm: "apontamentos" },
+  { numero: "09", codigo: "9", id: "apontamentos", titulo: "Apontamento de horas", grupo: "Chamados", href: "/apontamentos", telaPerm: "apontamentos" },
   // Dashboards
-  { numero: "09", codigo: "9", id: "dashboards", titulo: "Dashboards", grupo: "Dashboards", href: "/dashboards", telaPerm: "dashboards" },
+  { numero: "10", codigo: "10", id: "dashboards", titulo: "Dashboards", grupo: "Dashboards", href: "/dashboards", telaPerm: "dashboards" },
   // Administração (apenas admin)
-  { numero: "10", codigo: "10", id: "sql", titulo: "Editor SQL", grupo: "Administração", href: "/sql", adminApenas: true },
-  { numero: "11", codigo: "11", id: "auditoria", titulo: "Auditoria do Sistema", grupo: "Administração", href: "/auditoria", adminApenas: true },
+  { numero: "11", codigo: "11", id: "sql", titulo: "Editor SQL", grupo: "Administração", href: "/sql", adminApenas: true },
+  { numero: "12", codigo: "12", id: "auditoria", titulo: "Auditoria do Sistema", grupo: "Administração", href: "/auditoria", adminApenas: true },
 ];
 
 export function normalizarRota(url) {

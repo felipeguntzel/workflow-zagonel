@@ -126,13 +126,16 @@
       <button type="button" id="btn-toggle-filtros" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem; display: inline-flex; align-items: center; gap: 0.35rem;" title="Expandir ou recolher filtros detalhados">
         <span id="icone-toggle-filtros">▾</span> <span id="texto-toggle-filtros">Filtros</span>
       </button>
-      <button type="button" id="btn-salvar-consulta-abrir" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Salvar os filtros atuais como consulta">
+      <button type="button" id="btn-salvar-consulta-abrir" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Salvar os filtros atuais como nova consulta">
         <span>💾</span> Salvar consulta
+      </button>
+      <button type="button" id="btn-editar-consulta" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Editar consulta selecionada (somente quem criou pode editar)" disabled>
+        <span>✏️</span> Editar
       </button>
       <button type="button" id="btn-definir-padrao-consulta" class="btn btn-secundario" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Definir a consulta selecionada como sua padrão ao abrir a tela" disabled>
         <span>⭐</span> Tornar padrão
       </button>
-      <button type="button" id="btn-excluir-consulta" class="btn btn-secundario btn-perigo-outline" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Excluir consulta selecionada" disabled>
+      <button type="button" id="btn-excluir-consulta" class="btn btn-secundario btn-perigo-outline" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;" title="Excluir consulta selecionada (somente quem criou pode excluir)" disabled>
         <span>🗑️</span> Excluir
       </button>
     </div>
@@ -262,6 +265,7 @@
 
       <form id="form-salvar-consulta" style="display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem;">
         <p id="msg-erro-modal-consulta" class="erro" hidden></p>
+        <input type="hidden" id="consulta-id-edicao" value="">
 
         <div class="campo-grupo" style="margin: 0;">
           <label class="campo-rotulo" for="consulta-nome">Nome da consulta <span style="color: #dc2626;">*</span></label>

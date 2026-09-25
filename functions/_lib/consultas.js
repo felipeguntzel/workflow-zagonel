@@ -149,9 +149,12 @@ export async function salvarConsulta(db, { id = null, usuarioId, tela = "chamado
   let consultaId = id;
 
   if (consultaId) {
-    // Atualização: verifica se é autor ou admin
+    // Atualização: somente quem criou pode editar
     const existente = await first(db, `SELECT * FROM consultas_salvas WHERE id = ?`, consultaId);
     if (!existente) throw new Error("Consulta não encontrada.");
+    if (existente.usuario_id !== usuarioId) {
+      throw new Error("Você só pode editar consultas criadas por você.");
+    }
 
     await run(
       db,
@@ -195,7 +198,7 @@ export async function salvarConsulta(db, { id = null, usuarioId, tela = "chamado
 }
 
 /**
- * Exclui uma consulta salva
+ * Exclui uma consulta salva (somente quem criou pode excluir)
  */
 export async function excluirConsulta(db, id, usuario) {
   await ensureTabelaConsultas(db);
@@ -205,8 +208,7 @@ export async function excluirConsulta(db, id, usuario) {
     throw new Error("Consulta não encontrada.");
   }
 
-  const ehAdmin = usuario.admin === 1 || usuario.admin === true;
-  if (!ehAdmin && consulta.usuario_id !== usuario.id) {
+  if (consulta.usuario_id !== usuario.id) {
     throw new Error("Você só pode excluir consultas criadas por você.");
   }
 

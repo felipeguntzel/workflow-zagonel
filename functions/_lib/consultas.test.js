@@ -139,7 +139,54 @@ test("obterConsultaPadraoId retorna id salvo ou null", async () => {
   assert.equal(padrao2, null);
 });
 
-test("excluirConsulta impede usuário comum de excluir consulta de outro usuário", async () => {
+test("salvarConsulta atualiza consulta existente apenas se for o autor", async () => {
+  let consultaAtualizada = null;
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          return {
+            async first() {
+              if (sql.includes("SELECT * FROM consultas_salvas WHERE id = ?")) {
+                return { id: 10, usuario_id: 1, nome: "Antigo", filtros_json: "{}", eh_publica: 0 };
+              }
+              if (sql.includes("SELECT c.*, u.nome AS autor_nome")) {
+                return { ...consultaAtualizada, autor_nome: "Autor" };
+              }
+              return null;
+            },
+            async run() {
+              if (sql.includes("UPDATE consultas_salvas")) {
+                consultaAtualizada = {
+                  id: params[4],
+                  nome: params[0],
+                  filtros_json: params[1],
+                  eh_publica: params[2],
+                };
+                return { meta: { changes: 1 } };
+              }
+              return { meta: {} };
+            },
+            async all() { return { results: [] }; },
+          };
+        },
+      };
+    },
+  };
+
+  // Usuário diferente tentando editar
+  await assert.rejects(
+    () => salvarConsulta(mockDb, { id: 10, usuarioId: 2, nome: "Novo Nome" }),
+    /Você só pode editar consultas criadas por você/
+  );
+
+  // Autor editando
+  const res = await salvarConsulta(mockDb, { id: 10, usuarioId: 1, nome: "Novo Nome", eh_publica: 1 });
+  assert.equal(res.nome, "Novo Nome");
+  assert.equal(res.eh_publica, 1);
+});
+
+test("excluirConsulta permite somente o autor excluir (nem admin de outro ID pode)", async () => {
   const mockDb = {
     prepare(sql) {
       return {
@@ -147,7 +194,7 @@ test("excluirConsulta impede usuário comum de excluir consulta de outro usuári
           return {
             async first() {
               if (sql.includes("SELECT * FROM consultas_salvas")) {
-                return { id: 5, usuario_id: 99, nome: "Consulta de Outro" };
+                return { id: 5, usuario_id: 99, nome: "Consulta do Usuário 99" };
               }
               return null;
             },
@@ -166,9 +213,11 @@ test("excluirConsulta impede usuário comum de excluir consulta de outro usuári
     /Você só pode excluir consultas criadas por você/
   );
 
-  const usuarioAdmin = { id: 1, admin: 1 };
-  const okAdmin = await excluirConsulta(mockDb, 5, usuarioAdmin);
-  assert.equal(okAdmin, true);
+  const usuarioAdminNaoAutor = { id: 1, admin: 1 };
+  await assert.rejects(
+    () => excluirConsulta(mockDb, 5, usuarioAdminNaoAutor),
+    /Você só pode excluir consultas criadas por você/
+  );
 
   const usuarioAutor = { id: 99, admin: 0 };
   const okAutor = await excluirConsulta(mockDb, 5, usuarioAutor);

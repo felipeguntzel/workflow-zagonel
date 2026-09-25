@@ -39,6 +39,12 @@ export async function inicializar() {
     await carregarChamados();
     await carregarConsultasSalvas(true);
     atualizarEstadoBotaoFiltros();
+
+    const toastMsg = sessionStorage.getItem("workflow_toast_sucesso");
+    if (toastMsg) {
+      sessionStorage.removeItem("workflow_toast_sucesso");
+      mostrarToast(toastMsg);
+    }
   } catch (e) {
     mostrarErro(document.getElementById("mensagem-erro"), e);
   }
@@ -248,10 +254,21 @@ function renderizarTabela() {
               ? `<button type="button" class="btn btn-secundario btn-apontar-tabela" data-chamado-id="${c.id}" data-chamado-titulo="${escaparAtributo(c.titulo || '')}" title="Lançar horas neste chamado">⏱️ Apontar</button>`
               : `<button type="button" class="btn btn-secundario btn-apontar-tabela" disabled style="opacity: 0.35; cursor: not-allowed;" title="Apenas o responsável pela atividade ou um administrador pode realizar apontamentos">⏱️ Apontar</button>`;
 
+            // Se o usuário logado for o solicitante OU se o chamado for o chamado original (sem chamado_mae),
+            // abrir o chamado leva à Visão Geral do fluxo para entender o andamento completo!
+            const ehSolicitante = Number(c.solicitante_id) === Number(usuarioLogado.id);
+            const idChamadoGeral = c.chamado_mae_id || c.id;
+            const destinoLink = ehSolicitante || !c.chamado_mae_id
+              ? `/geral?id=${idChamadoGeral}`
+              : `/chamado?id=${c.id}`;
+            const tituloTooltip = ehSolicitante || !c.chamado_mae_id
+              ? "Ver andamento na Visão Geral do Fluxo"
+              : "Abrir chamado para execução";
+
             return `
               <tr>
-                <td class="td-id">#${c.id}</td>
-                <td title="${escaparAtributo(c.titulo)}"><a href="/chamado?id=${c.id}" class="link-sem-sublinhado">${escaparHtml(c.titulo)}</a></td>
+                <td class="td-id"><a href="${destinoLink}" class="link-sem-sublinhado" title="${tituloTooltip}">#${c.id}</a></td>
+                <td title="${escaparAtributo(c.titulo)}"><a href="${destinoLink}" class="link-sem-sublinhado" title="${tituloTooltip}">${escaparHtml(c.titulo)}</a></td>
                 <td>${escaparHtml(c.etapa_atual || "-")}</td>
                 <td>${badgeStatusColorido(c.status_etapa_nome || c.status_nome, c.status_etapa_cor || c.status_cor)}</td>
                 <td>${escaparHtml(c.responsavel_nome || "-")}</td>
@@ -261,7 +278,12 @@ function renderizarTabela() {
                 <td>${badgeStatusGeral(c.status_geral_texto)}</td>
                 <td>${c.prazo ? escaparHtml(formatarDataBR(c.prazo)) : "-"}</td>
                 <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
-                <td style="text-align: center;">${btnApontarHtml}</td>
+                <td style="text-align: center; white-space: nowrap;">
+                  <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: center;">
+                    <a href="/geral?id=${idChamadoGeral}" class="btn btn-secundario btn-pequeno" title="Ver andamento geral de todas as etapas" style="padding: 0.35rem 0.55rem; font-size: 0.8rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">📊 Geral</a>
+                    ${btnApontarHtml}
+                  </div>
+                </td>
               </tr>`;
           })
           .join("");
@@ -604,6 +626,7 @@ function aplicarFiltros(filtros) {
 
 function atualizarEstadoBotoesConsulta(consulta) {
   const btnPadrao = document.getElementById("btn-definir-padrao-consulta");
+  const btnEditar = document.getElementById("btn-editar-consulta");
   const btnExcluir = document.getElementById("btn-excluir-consulta");
   const badgePadrao = document.getElementById("badge-consulta-ativa-padrao");
 
@@ -612,6 +635,7 @@ function atualizarEstadoBotoesConsulta(consulta) {
       btnPadrao.disabled = true;
       btnPadrao.innerHTML = `<span>⭐</span> Tornar padrão`;
     }
+    if (btnEditar) btnEditar.disabled = true;
     if (btnExcluir) btnExcluir.disabled = true;
     if (badgePadrao) badgePadrao.style.display = "none";
     consultaAtivaId = null;
@@ -635,10 +659,21 @@ function atualizarEstadoBotoesConsulta(consulta) {
       : "Definir esta consulta como sua preferência padrão ao abrir a tela";
   }
 
+  // Regra: Somente quem criou pode editar e excluir!
+  const podeEditarExcluir = Boolean(consulta.eh_minha);
+
+  if (btnEditar) {
+    btnEditar.disabled = !podeEditarExcluir;
+    btnEditar.title = podeEditarExcluir
+      ? "Editar consulta selecionada"
+      : "Somente quem criou esta consulta pode editá-la";
+  }
+
   if (btnExcluir) {
-    const podeExcluir = usuarioLogado?.admin === 1 || consulta.eh_minha;
-    btnExcluir.disabled = !podeExcluir;
-    btnExcluir.title = podeExcluir ? "Excluir esta consulta" : "Apenas o criador ou administrador pode excluir";
+    btnExcluir.disabled = !podeEditarExcluir;
+    btnExcluir.title = podeEditarExcluir
+      ? "Excluir consulta selecionada"
+      : "Somente quem criou esta consulta pode excluí-la";
   }
 }
 
@@ -748,11 +783,68 @@ function configurarEventosConsultas() {
     }
   });
 
+  // Botão Editar Consulta
+  document.getElementById("btn-editar-consulta")?.addEventListener("click", () => {
+    if (!consultaAtivaId) return;
+    const consulta = consultasSalvas.find((c) => c.id === consultaAtivaId);
+    if (!consulta) return;
+    if (!consulta.eh_minha) {
+      alert("Somente o criador desta consulta pode editá-la.");
+      return;
+    }
+
+    const modalSalvar = document.getElementById("modal-salvar-consulta");
+    const tituloModal = document.getElementById("modal-consulta-titulo");
+    const inputId = document.getElementById("consulta-id-edicao");
+    const inputNome = document.getElementById("consulta-nome");
+    const checkPublica = document.getElementById("consulta-publica");
+    const checkPadrao = document.getElementById("consulta-padrao");
+    const divResumo = document.getElementById("resumo-filtros-consulta");
+    const msgErro = document.getElementById("msg-erro-modal-consulta");
+    const btnSalvar = document.getElementById("btn-salvar-modal-consulta");
+
+    if (msgErro) msgErro.hidden = true;
+    if (tituloModal) tituloModal.innerHTML = `<span>✏️</span> Editar Consulta Personalizada`;
+    if (btnSalvar) btnSalvar.textContent = "Salvar alterações";
+
+    if (inputId) inputId.value = String(consulta.id);
+    if (inputNome) inputNome.value = consulta.nome || "";
+    if (checkPublica) checkPublica.checked = Boolean(consulta.eh_publica);
+    if (checkPadrao) checkPadrao.checked = consultaPadraoId === consulta.id || Boolean(consulta.eh_padrao);
+
+    const filtros = obterFiltrosAtuais();
+    const partes = [];
+    if (filtros.busca) partes.push(`<strong>Busca:</strong> "${escaparHtml(filtros.busca)}"`);
+    if (filtros.status) partes.push(`<strong>Status:</strong> ${filtros.status === "ativos" ? "Em aberto" : filtros.status === "finalizado" ? "Finalizados" : "Todos"}`);
+    if (filtros.empresa) partes.push(`<strong>Empresa:</strong> ${escaparHtml(filtros.empresa)}`);
+    if (filtros.responsavel) {
+      const respTxt = filtros.responsavel === "__meus__" ? "Atribuídos a mim" : filtros.responsavel === "__sem_responsavel__" ? "Não atribuído" : filtros.responsavel;
+      partes.push(`<strong>Responsável:</strong> ${escaparHtml(respTxt)}`);
+    }
+    if (filtros.setor) partes.push(`<strong>Setor:</strong> ${escaparHtml(filtros.setor)}`);
+
+    if (divResumo) {
+      divResumo.innerHTML = partes.length > 0
+        ? `<strong>Filtros atuais a serem atualizados nesta consulta:</strong><br>${partes.join(" &bull; ")}`
+        : `<em>Nenhum filtro específico aplicado (todos os registros).</em>`;
+    }
+
+    if (modalSalvar) {
+      modalSalvar.hidden = false;
+      modalSalvar.style.display = "flex";
+      setTimeout(() => inputNome?.focus(), 100);
+    }
+  });
+
   // Botão Excluir Consulta
   document.getElementById("btn-excluir-consulta")?.addEventListener("click", async () => {
     if (!consultaAtivaId) return;
     const consulta = consultasSalvas.find((c) => c.id === consultaAtivaId);
     if (!consulta) return;
+    if (!consulta.eh_minha) {
+      alert("Somente o criador desta consulta pode excluí-la.");
+      return;
+    }
 
     const confirmou = await confirmarAcao(
       "Excluir Consulta Personalizada",
@@ -793,13 +885,19 @@ function configurarEventosConsultas() {
   });
 
   document.getElementById("btn-salvar-consulta-abrir")?.addEventListener("click", () => {
+    const tituloModal = document.getElementById("modal-consulta-titulo");
+    const inputId = document.getElementById("consulta-id-edicao");
     const inputNome = document.getElementById("consulta-nome");
     const checkPublica = document.getElementById("consulta-publica");
     const checkPadrao = document.getElementById("consulta-padrao");
     const divResumo = document.getElementById("resumo-filtros-consulta");
     const msgErro = document.getElementById("msg-erro-modal-consulta");
+    const btnSalvar = document.getElementById("btn-salvar-modal-consulta");
 
     if (msgErro) msgErro.hidden = true;
+    if (tituloModal) tituloModal.innerHTML = `<span>💾</span> Salvar Consulta Personalizada`;
+    if (btnSalvar) btnSalvar.textContent = "Salvar consulta";
+    if (inputId) inputId.value = "";
     if (inputNome) inputNome.value = "";
     if (checkPublica) checkPublica.checked = false;
     if (checkPadrao) checkPadrao.checked = false;
@@ -833,6 +931,7 @@ function configurarEventosConsultas() {
     e.preventDefault();
     const msgErro = document.getElementById("msg-erro-modal-consulta");
     const btnSalvar = document.getElementById("btn-salvar-modal-consulta");
+    const consultaId = Number(document.getElementById("consulta-id-edicao")?.value) || null;
     const nome = document.getElementById("consulta-nome")?.value.trim();
     const ehPublica = Boolean(document.getElementById("consulta-publica")?.checked);
     const ehPadrao = Boolean(document.getElementById("consulta-padrao")?.checked);
@@ -844,13 +943,16 @@ function configurarEventosConsultas() {
 
     if (btnSalvar) {
       btnSalvar.disabled = true;
-      btnSalvar.textContent = "Salvando...";
+      btnSalvar.textContent = consultaId ? "Salvando alterações..." : "Salvando...";
     }
 
     try {
       const filtros = obterFiltrosAtuais();
-      const nova = await api("/consultas-salvas", {
-        method: "POST",
+      const metodo = consultaId ? "PUT" : "POST";
+      const endpoint = consultaId ? `/consultas-salvas/${consultaId}` : "/consultas-salvas";
+
+      const resultado = await api(endpoint, {
+        method: metodo,
         body: {
           tela: "chamados",
           nome,
@@ -861,18 +963,22 @@ function configurarEventosConsultas() {
       });
 
       fecharModalSalvar();
-      mostrarToast(`Consulta "${nome}" salva com sucesso!`);
-      consultaAtivaId = nova.id;
-      if (ehPadrao) consultaPadraoId = nova.id;
+      mostrarToast(
+        consultaId
+          ? `Consulta "${nome}" atualizada com sucesso!`
+          : `Consulta "${nome}" salva com sucesso!`
+      );
+      consultaAtivaId = resultado.id;
+      if (ehPadrao) consultaPadraoId = resultado.id;
       await carregarConsultasSalvas(false);
-      seletor.value = String(nova.id);
-      atualizarEstadoBotoesConsulta(nova);
+      seletor.value = String(resultado.id);
+      atualizarEstadoBotoesConsulta(resultado);
     } catch (err) {
       mostrarErro(msgErro, err);
     } finally {
       if (btnSalvar) {
         btnSalvar.disabled = false;
-        btnSalvar.textContent = "Salvar consulta";
+        btnSalvar.textContent = consultaId ? "Salvar alterações" : "Salvar consulta";
       }
     }
   });

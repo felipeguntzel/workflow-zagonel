@@ -7,6 +7,56 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="componentes.css">
+<style>
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+  .sidebar, .sidebar-overlay, .topbar, .pagina-cabecalho__acoes, .dashboard-filtros, #nav {
+    display: none !important;
+  }
+  .app-shell, .app-shell__conteudo, main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+  }
+  .cards-metricas {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 0.75rem !important;
+    margin-bottom: 1rem !important;
+  }
+  .card-metrica {
+    border: 1px solid #d1d5db !important;
+    padding: 0.65rem !important;
+    background: #f9fafb !important;
+    page-break-inside: avoid !important;
+  }
+  .painel {
+    border: 1px solid #d1d5db !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    margin-top: 1rem !important;
+    padding: 0.85rem !important;
+  }
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  th, td {
+    border: 1px solid #e5e7eb !important;
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.82rem !important;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+}
+</style>
 <script>
 (function () {
   try {
@@ -28,8 +78,16 @@
         Métricas de produtividade, tempos de atendimento por setor e monitoramento de gargalos
       </p>
     </div>
-    <div class="pagina-cabecalho__acoes">
-      <button type="button" id="btn-exportar-csv" class="btn btn-secundario">📥 Exportar Relatório (CSV)</button>
+    <div class="pagina-cabecalho__acoes" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <button type="button" id="btn-exportar-pdf" class="btn btn-secundario" title="Imprimir ou salvar este dashboard em PDF">
+        📄 Exportar PDF
+      </button>
+      <button type="button" id="btn-exportar-png" class="btn btn-secundario" title="Baixar imagem consolidada do dashboard em PNG">
+        🖼️ Exportar PNG
+      </button>
+      <button type="button" id="btn-exportar-csv" class="btn btn-secundario" title="Exportar dados analíticos em CSV">
+        📥 Exportar CSV
+      </button>
     </div>
   </div>
 
