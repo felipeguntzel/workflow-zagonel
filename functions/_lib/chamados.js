@@ -11,11 +11,20 @@ export function hojeISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const cacheStatusId = new Map();
 async function statusIdPorNome(db, nome) {
+  const chave = String(nome).toLowerCase();
+  if (cacheStatusId.has(chave)) return cacheStatusId.get(chave);
   const row = await first(db, "SELECT id FROM status WHERE LOWER(nome) = LOWER(?)", nome);
-  if (row) return row.id;
+  if (row) {
+    cacheStatusId.set(chave, row.id);
+    return row.id;
+  }
   const fallback = await first(db, "SELECT id FROM status ORDER BY id ASC LIMIT 1");
-  if (fallback) return fallback.id;
+  if (fallback) {
+    cacheStatusId.set(chave, fallback.id);
+    return fallback.id;
+  }
   throw new Error(`Status não encontrado no sistema: ${nome}`);
 }
 
@@ -90,6 +99,17 @@ export async function garantirColunasChamados(db) {
       await run(db, "UPDATE fluxo_templates SET ativo = 1 WHERE ativo IS NULL").catch(() => {});
     }
 
+    // Índices de alta performance
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_mae_fin_id ON chamados(chamado_mae_id, data_finalizacao, id DESC)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_status_id ON chamados(status_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_responsavel_id ON chamados(responsavel_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_solicitante_id ON chamados(solicitante_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_etapa_id ON chamados(etapa_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_empresa_id ON chamados(empresa_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_chamados_prazo ON chamados(prazo)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_etapas_template ON etapas(fluxo_template_id)").catch(() => {});
+    await run(db, "CREATE INDEX IF NOT EXISTS idx_apontamentos_chamado_data ON apontamentos_horas(chamado_id, data)").catch(() => {});
+
     colunasChamadosGarantidas = true;
   } catch (err) {
     console.error("Aviso ao garantir colunas de chamados:", err);
@@ -129,7 +149,7 @@ export async function criarChamado(db, spec) {
   return first(db, "SELECT * FROM chamados WHERE id = ?", resultado.meta.last_row_id);
 }
 
-export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}) {
+export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}, observacoesAcoes = {}) {
   const especificacoes = resolverProximosChamados(
     etapa,
     { id: chamado.id, chamado_mae_id: chamado.chamado_mae_id },
@@ -137,6 +157,26 @@ export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}) {
   );
   const criados = [];
   for (const spec of especificacoes) {
+    const acaoDef = etapa?.acoes?.find((a) => a.id === spec.acao_origem_id);
+    const obsAcao = (observacoesAcoes && observacoesAcoes[spec.acao_origem_id]) ||
+                    (typeof decisoesAcoes[spec.acao_origem_id] === "object" ? decisoesAcoes[spec.acao_origem_id]?.observacao : null) ||
+                    acaoDef?.observacao ||
+                    chamado.observacao;
+
+    // Título dos subchamados: ID do chamado original + nome da etapa
+    const idChamadoOriginal = spec.chamado_mae_id || chamado.chamado_mae_id || chamado.id;
+    let nomeEtapa = null;
+    if (spec.etapa_id) {
+      const etapaDestino = await first(db, "SELECT nome FROM etapas WHERE id = ?", spec.etapa_id);
+      nomeEtapa = etapaDestino?.nome;
+    }
+    if (!nomeEtapa && acaoDef?.rotulo) {
+      nomeEtapa = acaoDef.rotulo;
+    }
+    const tituloSubchamado = nomeEtapa
+      ? `#${idChamadoOriginal} - ${nomeEtapa}`
+      : (chamado.titulo ? `#${idChamadoOriginal} - ${chamado.titulo}` : `#${idChamadoOriginal}`);
+
     const criado = await criarChamado(db, {
       fluxo_template_id: chamado.fluxo_template_id,
       etapa_id: spec.etapa_id,
@@ -145,10 +185,27 @@ export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}) {
       chamado_pai_id: spec.chamado_pai_id,
       empresa_id: chamado.empresa_id,
       solicitante_id: chamado.solicitante_id,
-      titulo: chamado.titulo,
+      titulo: tituloSubchamado,
       prioridade: chamado.prioridade,
-      observacao: chamado.observacao,
+      observacao: obsAcao,
     });
+
+    const textoObs = (observacoesAcoes && observacoesAcoes[spec.acao_origem_id]) ||
+                     (typeof decisoesAcoes[spec.acao_origem_id] === "object" ? decisoesAcoes[spec.acao_origem_id]?.observacao : null) ||
+                     acaoDef?.observacao;
+    if (textoObs && String(textoObs).trim()) {
+      const hoje = hojeISO();
+      await run(
+        db,
+        `INSERT INTO comentarios (chamado_id, usuario_id, data, texto, eh_justificativa, eh_privado)
+         VALUES (?, ?, ?, ?, 0, 0)`,
+        criado.id,
+        chamado.solicitante_id,
+        hoje,
+        `📌 Observação/Orientação da Ação:\n${String(textoObs).trim()}`
+      ).catch(() => {});
+    }
+
     criados.push(criado);
   }
   return criados;

@@ -4,6 +4,7 @@ import { mostrarErro, info, escaparHtml, escaparAtributo, botaoIconeEditar, bota
 import { confirmarAcao } from "./modal.js";
 import { mostrarAvisoModal } from "./crud-ui.js";
 import { api } from "./api.js";
+import { tornarTabelaReordenavel } from "./tabela-colunas.js";
 
 const TELAS = [
   { chave: "empresas", label: "Empresas", dica: "Acesso ao cadastro de empresas" },
@@ -12,6 +13,7 @@ const TELAS = [
   { chave: "status", label: "Status", dica: "Acesso aos status de chamados" },
   { chave: "fluxos", label: "Fluxos", dica: "Acesso à criação de fluxos de processo e suas etapas" },
   { chave: "chamados", label: "Chamados", dica: "Acesso à visualização e abertura de chamados" },
+  { chave: "apontamentos", label: "Apontamento de Horas", dica: "Consulta, relatório, exportação e edição de apontamentos de horas" },
   { chave: "dashboards", label: "Dashboards", dica: "Acesso aos dashboards e indicadores operacionais de desempenho" },
 ];
 
@@ -69,6 +71,11 @@ async function iniciar(container, mensagemErro) {
     </div>
     <div class="container-modal-grupo"></div>
   `;
+
+  const tabelaGrupos = container.querySelector("table");
+  if (tabelaGrupos) {
+    tornarTabelaReordenavel(tabelaGrupos, "grupos");
+  }
 
   const tbody = container.querySelector(".tbody-grupos");
   const containerModal = container.querySelector(".container-modal-grupo");

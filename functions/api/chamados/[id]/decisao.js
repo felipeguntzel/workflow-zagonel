@@ -78,7 +78,13 @@ export async function onRequestPost(context) {
 
   const atualizado = await chamadoComDetalhes(context.env.DB, chamado.id);
   const etapa = await carregarEtapaComAcoes(context.env.DB, chamado.etapa_id);
-  const criados = await avancarFluxo(context.env.DB, atualizado, etapa, body.acoes ?? {});
+  const criados = await avancarFluxo(
+    context.env.DB,
+    atualizado,
+    etapa,
+    body.acoes ?? {},
+    body.observacoes_acoes ?? {}
+  );
 
   for (const filho of criados) {
     await registrarAuditoria(context.env.DB, {

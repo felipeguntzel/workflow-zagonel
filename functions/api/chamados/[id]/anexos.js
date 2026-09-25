@@ -118,16 +118,23 @@ export async function onRequestDelete(context) {
     return error("Anexo não encontrado", 404);
   }
 
+  const chamado = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
+  if (!chamado) return error("Chamado não encontrado", 404);
+
+  // Regra: Somente pode remover se a atividade não foi finalizada ainda
+  if (chamado.data_finalizacao != null) {
+    return error("Não é possível remover anexo de uma atividade que já foi finalizada.", 403);
+  }
+
+  // Regra: Somente quem adicionou o anexo pode remover
   const ehDono = anexo.usuario_id === usuario.id;
-  const ehAdmin = usuario.admin === 1;
-  if (!ehDono && !ehAdmin) {
-    return error("Sem permissão para excluir este anexo", 403);
+  if (!ehDono && usuario.admin !== 1) {
+    return error("Somente quem adicionou este anexo pode removê-lo.", 403);
   }
 
   await run(context.env.DB, "DELETE FROM chamado_anexos WHERE id = ?", anexoId);
 
-  const chamado = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
-  const raizId = chamado ? (chamado.chamado_mae_id || chamado.id) : context.params.id;
+  const raizId = chamado.chamado_mae_id || chamado.id;
 
   await registrarAuditoria(context.env.DB, {
     chamado_mae_id: raizId,

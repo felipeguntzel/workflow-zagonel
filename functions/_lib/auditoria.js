@@ -166,3 +166,28 @@ export async function contarAuditoriaSistema(
   }
 }
 
+/**
+ * Exclui logs de auditoria administrativa para economizar espaço em disco/D1.
+ */
+export async function excluirLogsAuditoria(db, { dias, dataLimite, tudo = false } = {}) {
+  try {
+    await ensureAuditoriaSistemaTabela(db);
+    let sql = "DELETE FROM auditoria_sistema";
+    const params = [];
+    if (!tudo) {
+      if (dias && Number(dias) > 0) {
+        sql += " WHERE criado_em < datetime('now', '-' || ? || ' days')";
+        params.push(Math.floor(Number(dias)));
+      } else if (dataLimite) {
+        sql += " WHERE substr(criado_em, 1, 10) < ?";
+        params.push(dataLimite);
+      }
+    }
+    const res = await run(db, sql, ...params);
+    return res?.meta?.changes ?? 0;
+  } catch (e) {
+    console.error("Erro ao excluir logs de auditoria do sistema:", e);
+    return 0;
+  }
+}
+

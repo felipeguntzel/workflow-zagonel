@@ -73,3 +73,23 @@ test("estaBloqueado is false when the prerequisite sibling chamado is finalizado
   const irmaos = [{ acao_origem_id: 1, data_finalizacao: "2026-01-05" }];
   assert.equal(estaBloqueado(acaoOrigem, irmaos), false);
 });
+
+test("resolverProximosChamados creates chamados when acao is passed as object with marcado/selecionado", () => {
+  const etapa = {
+    id: 3,
+    etapa_proxima_id: null,
+    etapa_proxima_vinculo: null,
+    acoes: [
+      { id: 1, setor_destino_id: 4, vinculo: "mae" },
+      { id: 2, setor_destino_id: 4, vinculo: "mae" },
+    ],
+  };
+  const triggering = { id: 30, chamado_mae_id: 10 };
+  const resultado = resolverProximosChamados(etapa, triggering, {
+    1: { marcado: true, observacao: "Fazer com prioridade" },
+    2: { marcado: false },
+  });
+  assert.equal(resultado.length, 1);
+  assert.equal(resultado[0].acao_origem_id, 1);
+});
+

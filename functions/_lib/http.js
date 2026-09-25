@@ -1,7 +1,7 @@
-export function json(data, status = 200) {
+export function json(data, status = 200, customHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...customHeaders },
   });
 }
 

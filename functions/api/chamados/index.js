@@ -78,7 +78,22 @@ export async function onRequestGet(context) {
               AND c4.data_finalizacao IS NULL),
            0
          ) AS subchamados_pendentes,
-         resp.nome AS responsavel_nome,
+         COALESCE(
+           (SELECT resp2.nome
+            FROM chamados c2
+            LEFT JOIN usuarios resp2 ON resp2.id = c2.responsavel_id
+            WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL AND c2.responsavel_id IS NOT NULL
+            ORDER BY c2.id DESC LIMIT 1),
+           resp.nome,
+           '-'
+         ) AS responsavel_nome,
+         COALESCE(
+           (SELECT c2.responsavel_id
+            FROM chamados c2
+            WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL AND c2.responsavel_id IS NOT NULL
+            ORDER BY c2.id DESC LIMIT 1),
+           c.responsavel_id
+         ) AS responsavel_id,
          sol.nome AS solicitante_nome,
          emp.nome AS empresa_nome
        FROM chamados c

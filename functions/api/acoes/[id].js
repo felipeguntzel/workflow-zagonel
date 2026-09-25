@@ -1,12 +1,14 @@
 import { first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
+import { assegurarColunaObservacaoAcoes } from "../../_lib/etapas.js";
 
 export async function onRequestPut(context) {
   const { erro } = await exigirPermissao(context, "fluxos", "editar");
   if (erro) return erro;
   const body = await context.request.json();
-  const campos = ["rotulo", "setor_destino_id", "vinculo", "prerequisito_acao_id"];
+  await assegurarColunaObservacaoAcoes(context.env.DB);
+  const campos = ["rotulo", "setor_destino_id", "vinculo", "prerequisito_acao_id", "observacao"];
   const colunas = campos.filter((c) => body[c] !== undefined);
   if (colunas.length === 0) return error("Nenhum campo para atualizar");
   const set = colunas.map((c) => `${c} = ?`).join(", ");

@@ -1,6 +1,7 @@
 import { logout, permissaoDaTela } from "./auth.js";
 import { escaparHtml } from "./ui.js";
 import { api } from "./api.js";
+import { forcarAtualizacaoApp, inicializarMonitoramentoVersao, VERSAO_CLIENTE } from "./versao.js";
 
 const CHAVE_COLAPSADA = "workflow_zagonel_sidebar_colapsada";
 
@@ -15,11 +16,12 @@ export const TELAS_SISTEMA = [
   // Chamados (em ordem alfabética)
   { numero: "07", codigo: "7", id: "chamados", titulo: "Meus chamados", grupo: "Chamados", href: "/chamados", telaPerm: "chamados" },
   { numero: "08", codigo: "8", id: "novo-chamado", titulo: "Abrir novo chamado", grupo: "Chamados", href: "/novo-chamado", telaPerm: "chamados", acaoPerm: "inserir" },
+  { numero: "09", codigo: "9", id: "apontamentos", titulo: "Apontamento de horas", grupo: "Chamados", href: "/apontamentos", telaPerm: "apontamentos" },
   // Dashboards
-  { numero: "09", codigo: "9", id: "dashboards", titulo: "Dashboards", grupo: "Dashboards", href: "/dashboards", telaPerm: "dashboards" },
+  { numero: "10", codigo: "10", id: "dashboards", titulo: "Dashboards", grupo: "Dashboards", href: "/dashboards", telaPerm: "dashboards" },
   // Administração (apenas admin)
-  { numero: "10", codigo: "10", id: "sql", titulo: "Editor SQL", grupo: "Administração", href: "/sql", adminApenas: true },
-  { numero: "11", codigo: "11", id: "auditoria", titulo: "Auditoria do Sistema", grupo: "Administração", href: "/auditoria", adminApenas: true },
+  { numero: "11", codigo: "11", id: "sql", titulo: "Editor SQL", grupo: "Administração", href: "/sql", adminApenas: true },
+  { numero: "12", codigo: "12", id: "auditoria", titulo: "Auditoria do Sistema", grupo: "Administração", href: "/auditoria", adminApenas: true },
 ];
 
 export function normalizarRota(url) {
@@ -62,9 +64,11 @@ export function preCarregarTodasTelas() {
     "fluxos",
     "fluxo",
     "dashboards",
+    "apontamentos",
     "auditoria",
     "sql",
     "geral",
+    "manual",
   ];
   rotas.forEach((r) => {
     preCarregarRota(r);
@@ -303,10 +307,25 @@ function construirSidebar(usuario, modalBusca) {
         <span class="sidebar__usuario-seta">▲</span>
       </button>
       <div class="sidebar__usuario-menu" id="sidebar-usuario-menu" hidden>
-        <button type="button" id="btn-instalar-pwa" class="sidebar__usuario-item" style="display: none; width: 100%; border: none; background: none; text-align: left; cursor: pointer; color: var(--cor-primaria); font-weight: 700; padding: 0.5rem 0.75rem; font-size: 0.85rem;">📲 Instalar Aplicativo</button>
-        <a href="#" id="link-preferencias">Preferências</a>
-        <a href="#" id="link-logout-todos" style="font-size: 0.8rem; color: var(--cor-perigo, #e53935);">Sair de todos os dispositivos</a>
-        <a href="#" id="link-sair">Sair</a>
+        <button type="button" id="btn-instalar-pwa" class="sidebar__usuario-item sidebar__usuario-item--destaque" style="display: none;">
+          <span>Instalar Aplicativo</span>
+        </button>
+        <a href="/manual" id="link-manual-sistema" class="sidebar__usuario-item">
+          <span>Manual do Sistema</span>
+        </a>
+        <a href="#" id="link-preferencias" class="sidebar__usuario-item">
+          <span>Preferências</span>
+        </a>
+        <a href="#" id="link-atualizar-app" class="sidebar__usuario-item" title="Forçar limpeza de cache e recarregar a versão mais recente">
+          <span>🔄 Atualizar app (v${VERSAO_CLIENTE})</span>
+        </a>
+        <hr class="sidebar__usuario-divisor">
+        <a href="#" id="link-logout-todos" class="sidebar__usuario-item sidebar__usuario-item--alerta">
+          <span>Sair de todos os dispositivos</span>
+        </a>
+        <a href="#" id="link-sair" class="sidebar__usuario-item sidebar__usuario-item--sair">
+          <span>Sair</span>
+        </a>
       </div>
     </div>
   `;
@@ -391,13 +410,21 @@ function construirSidebar(usuario, modalBusca) {
     }
   });
 
-  sidebar.querySelector("#link-preferencias").addEventListener("click", async (ev) => {
+    sidebar.querySelector("#link-preferencias").addEventListener("click", async (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
     menuUsuario.hidden = true;
     btnUsuario.setAttribute("aria-expanded", "false");
     const { abrirPainelPreferencias } = await import("./preferencias.js");
     abrirPainelPreferencias();
+  });
+
+  sidebar.querySelector("#link-atualizar-app")?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    menuUsuario.hidden = true;
+    btnUsuario.setAttribute("aria-expanded", "false");
+    forcarAtualizacaoApp();
   });
 
   return sidebar;
@@ -747,6 +774,9 @@ export function aplicarLayout(usuario) {
       setTimeout(preCarregarTodasTelas, 300);
     }
   }
+
+  // Monitora novas versões disponíveis do sistema
+  inicializarMonitoramentoVersao();
 }
 
 // Registro e gerenciamento PWA
@@ -762,9 +792,15 @@ if (typeof window !== "undefined") {
 export function registrarServiceWorker() {
   if (typeof window !== "undefined" && "serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
-        console.warn("Falha ao registrar Service Worker:", err);
-      });
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => {
+          // Checa atualização no servidor ativamente
+          reg.update().catch(() => {});
+        })
+        .catch((err) => {
+          console.warn("Falha ao registrar Service Worker:", err);
+        });
     });
   }
 }

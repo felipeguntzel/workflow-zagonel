@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkFlow Zagonel - Manual Completo do Sistema</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="componentes.css">
+<style>
+.manual-container {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .manual-container {
+    grid-template-columns: 1fr;
+  }
+  .manual-indice {
+    position: static !important;
+  }
+}
+.manual-indice {
+  position: sticky;
+  top: 1.5rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  padding: 1rem;
+}
+.manual-indice ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.manual-indice a {
+  display: block;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.88rem;
+  color: var(--cor-texto-secundario);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+.manual-indice a:hover, .manual-indice a.ativo {
+  background: var(--cor-fundo);
+  color: var(--cor-primaria);
+  font-weight: 600;
+  transform: translateX(4px);
+}
+.manual-secao {
+  margin-bottom: 2.5rem;
+  scroll-margin-top: 1.5rem;
+}
+.manual-secao h2 {
+  font-size: 1.45rem;
+  margin: 0 0 0.85rem;
+  color: var(--cor-primaria);
+  border-bottom: 2px solid var(--cor-borda);
+  padding-bottom: 0.5rem;
+}
+.manual-secao h3 {
+  font-size: 1.15rem;
+  margin: 1.25rem 0 0.5rem;
+  color: var(--cor-texto);
+}
+.manual-secao p, .manual-secao li {
+  line-height: 1.6;
+  color: var(--cor-texto);
+  font-size: 0.92rem;
+}
+.manual-dica {
+  background: var(--cor-fundo);
+  border-left: 4px solid var(--cor-primaria);
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+  font-size: 0.88rem;
+}
+.manual-alerta {
+  background: #fef2f2;
+  border-left: 4px solid #ef4444;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+  font-size: 0.88rem;
+  color: #991b1b;
+}
+.tag-atalho {
+  display: inline-block;
+  background: var(--cor-fundo);
+  border: 1px solid var(--cor-borda);
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+</style>
+<script>
+(function () {
+  try {
+    var u = JSON.parse(localStorage.getItem("workflow_zagonel_usuario"));
+    document.documentElement.setAttribute("data-tema", (u && u.tema) || "claro");
+    document.documentElement.setAttribute("data-fonte", (u && u.fonte) || "arial");
+    document.documentElement.setAttribute("data-tamanho", (u && u.tamanho_fonte) || "m");
+  } catch (e) {}
+})();
+</script>
+</head>
+<body>
+<div id="nav"></div>
+<main>
+  <div class="pagina-cabecalho">
+    <div class="pagina-cabecalho__esquerda">
+      <h1>Manual do Sistema</h1>
+      <p style="font-size: 0.9rem; color: var(--cor-texto-secundario); margin: 0.2rem 0 0;">
+        Guia completo e documentação de todas as funcionalidades e processos do WorkFlow Zagonel
+      </p>
+    </div>
+    <div class="pagina-cabecalho__acoes">
+      <input type="text" id="busca-manual" placeholder="Buscar no manual (ex: horas, aprovação, anexos)..." class="input-padrao" style="min-width: 280px; padding: 0.5rem 0.75rem;">
+    </div>
+  </div>
+
+  <div class="manual-container">
+    <!-- Índice de Navegação Rápida -->
+    <aside class="painel manual-indice">
+      <strong style="font-size: 0.85rem; text-transform: uppercase; color: var(--cor-texto-secundario); letter-spacing: 0.05em;">
+        Sumário do Manual
+      </strong>
+      <ul>
+        <li><a href="#sec-visao-geral">1. Visão Geral & Navegação</a></li>
+        <li><a href="#sec-meus-chamados">2. Meus Chamados</a></li>
+        <li><a href="#sec-abertura-chamados">3. Abertura de Novo Chamado</a></li>
+        <li><a href="#sec-detalhes-chamado">4. Gestão e Execução do Chamado</a></li>
+        <li><a href="#sec-anexos-comentarios">5. Anexos & Visualizador de Imagens</a></li>
+        <li><a href="#sec-apontamento-horas">6. Apontamento de Horas & Fechamento</a></li>
+        <li><a href="#sec-dashboards">7. Dashboards & Indicadores</a></li>
+        <li><a href="#sec-cadastros">8. Cadastros & Modelador de Fluxos</a></li>
+        <li><a href="#sec-permissoes-auditoria">9. Permissões & Auditoria</a></li>
+        <li><a href="#sec-preferencias-atalhos">10. Preferências & Atalhos</a></li>
+      </ul>
+    </aside>
+
+    <!-- Conteúdo Principal do Manual -->
+    <article class="painel" style="padding: 2rem;">
+
+      <!-- Seção 1 -->
+      <section id="sec-visao-geral" class="manual-secao">
+        <h2>1. Visão Geral & Navegação</h2>
+        <p>
+          O <strong>WorkFlow Zagonel</strong> é a plataforma integrada corporativa para padronização de processos, acompanhamento de fluxos de trabalho e controle operacional.
+        </p>
+        <p>
+          O sistema conta com um menu lateral esquerdo recolhível, agrupado em:
+        </p>
+        <ul>
+          <li><strong>Cadastros:</strong> Empresas, Fluxos de Processo, Grupos de Permissão, Setores, Status e Usuários.</li>
+          <li><strong>Chamados:</strong> Meus Chamados, Abrir Novo Chamado e Apontamento de Horas.</li>
+          <li><strong>Dashboards:</strong> Indicadores de desempenho, pontualidade, setores e distribuição de status.</li>
+          <li><strong>Administração:</strong> Auditoria do Sistema e Editor SQL (restritos a administradores).</li>
+        </ul>
+        <div class="manual-dica">
+          💡 <strong>Dica de Navegação Rápida:</strong> Pressione a tecla <span class="tag-atalho">F1</span> ou <span class="tag-atalho">Ctrl + F</span> a qualquer momento para abrir a busca global de telas e navegar rapidamente.
+        </div>
+      </section>
+
+      <!-- Seção 2 -->
+      <section id="sec-meus-chamados" class="manual-secao">
+        <h2>2. Meus Chamados & Gerenciamento de Tabelas</h2>
+        <p>
+          Na tela <strong>Meus Chamados</strong> (<a href="/chamados" class="link-sem-sublinhado">/chamados</a>), você visualiza a lista completa de solicitações com filtros dinâmicos por texto, status, setor, prazo e empresa.
+        </p>
+        <h3>Personalização de Colunas (Reordenar, Ocultar e Exibir):</h3>
+        <ul>
+          <li><strong>Reordenar:</strong> Arraste e solte o cabeçalho de qualquer coluna para mudar a sequência. A sua preferência é gravada automaticamente no seu navegador.</li>
+          <li><strong>Ocultar e Reexibir:</strong> Clique no botão <strong>⚙️ Colunas</strong> no cabeçalho da página para abrir o painel de seleção. Marque ou desmarque as colunas desejadas. Há também as opções de "Exibir todas" e "Restaurar padrão".</li>
+          <li><strong>Exportação:</strong> O botão <strong>📥 Exportar CSV</strong> gera uma planilha com os chamados filtrados no período.</li>
+        </ul>
+      </section>
+
+      <!-- Seção 3 -->
+      <section id="sec-abertura-chamados" class="manual-secao">
+        <h2>3. Abertura de Novo Chamado</h2>
+        <p>
+          Ao clicar em <strong>+ Abrir novo chamado</strong>, selecione o <strong>Fluxo de Processo</strong> desejado, a <strong>Empresa</strong> e a <strong>Prioridade</strong> (Normal, Alta ou Urgente).
+        </p>
+        <p>
+          Preencha o título e as observações iniciais. Se o fluxo possuir etapas com campos dinâmicos obrigatórios, eles serão solicitados e validados automaticamente antes da criação.
+        </p>
+      </section>
+
+      <!-- Seção 4 -->
+      <section id="sec-detalhes-chamado" class="manual-secao">
+        <h2>4. Gestão e Execução do Chamado</h2>
+        <p>
+          Ao abrir um chamado específico, você tem acesso ao painel central de execução:
+        </p>
+        <ul>
+          <li><strong>Atualização Instantânea de Status:</strong> No topo da tela, ao selecionar o novo status, a alteração é salva e refletida imediatamente (em milissegundos) no sistema.</li>
+          <li><strong>Atribuição de Responsável:</strong> Localizado no canto esquerdo, permite selecionar qualquer usuário do mesmo setor da etapa. O botão <strong>Assumir</strong> vincula o chamado para você com apenas um clique, e <strong>Liberar</strong> desvincula o responsável.</li>
+          <li><strong>Contato via WhatsApp:</strong> Ícones dedicados permitem abrir uma conversa com o solicitante ou responsável diretamente pelo WhatsApp com mensagem pré-formatada do chamado.</li>
+          <li><strong>Campos Dinâmicos:</strong> Valores preenchidos nas etapas podem ser salvos pelo botão "Salvar alterações".</li>
+          <li><strong>Etapas de Aprovação:</strong> Se a etapa for do tipo aprovação, o usuário avalia as opções e registra sua justificativa formal antes do avanço.</li>
+        </ul>
+      </section>
+
+      <!-- Seção 5 -->
+      <section id="sec-anexos-comentarios" class="manual-secao">
+        <h2>5. Gestão de Anexos & Visualizador Integrado</h2>
+        <p>
+          A área de <strong>Comentários e Anexos</strong> unifica a comunicação da solicitação:
+        </p>
+        <ul>
+          <li><strong>Colar Prints (Ctrl+V):</strong> Você pode capturar um print de tela (ex: tecla PrintScreen ou ferramenta de captura) e colar diretamente com <span class="tag-atalho">Ctrl + V</span> na caixa de comentários! O print é carregado automaticamente sem precisar salvar arquivos no computador.</li>
+          <li><strong>Visualizador Direto de Imagens:</strong> Ao clicar sobre qualquer imagem anexada, ela se abre em tela cheia com fundo translúcido (lightbox), permitindo zoom e inspeção visual rápida sem necessidade de download. Arquivos PDF, Word ou Excel são baixados pelo navegador.</li>
+          <li><strong>Regras de Exclusão:</strong> Apenas quem inseriu o anexo ou comentário pode removê-lo, e somente se a etapa correspondente do chamado ainda não tiver sido finalizada.</li>
+        </ul>
+      </section>
+
+      <!-- Seção 6 -->
+      <section id="sec-apontamento-horas" class="manual-secao">
+        <h2>6. Apontamento de Horas & Regras de Fechamento Mensal</h2>
+        <p>
+          O controle de horas trabalhadas pode ser feito de duas maneiras:
+        </p>
+        <ol>
+          <li><strong>Apontamento Rápido no Chamado:</strong> Pelo botão <strong>⏱️ Apontar Horas</strong> (no topo ou no card de comentários), abre-se uma tela suspensa para lançamento imediato com atalhos de tempo (+15m, +30m, +1h, +2h).</li>
+          <li><strong>Central de Apontamento de Horas (<a href="/apontamentos" class="link-sem-sublinhado">/apontamentos</a>):</strong> Tela completa com filtros por competência mensal, dia específico, setor, usuário e busca textual.</li>
+        </ol>
+        <div class="manual-alerta">
+          🔒 <strong>Regra Oficial de Fechamento Mensal:</strong><br>
+          Os apontamentos de um determinado mês fecham <strong>no primeiro dia do mês seguinte (dia 01)</strong> às 00:00.<br>
+          Após o fechamento, as horas daquele mês ficam bloqueadas para edição e exclusão por usuários comuns.<br>
+          <strong>Somente Administradores</strong> conseguem alterar apontamentos de meses fechados ou utilizar o botão <strong>🔓 Liberar Edição do Mês</strong> para autorizar ajustes da equipe.
+        </div>
+        <h3>Impressão de Relatório:</h3>
+        <p>
+          O botão <strong>🖨️ Imprimir</strong> formata automaticamente a relação de horas filtradas para folhas A4, incluindo cabeçalho com emitente, data/hora da geração, totalizadores e rodapé formal.
+        </p>
+      </section>
+
+      <!-- Seção 7 -->
+      <section id="sec-dashboards" class="manual-secao">
+        <h2>7. Dashboards & Indicadores Operacionais</h2>
+        <p>
+          Na tela de <strong>Dashboards</strong> (<a href="/dashboards" class="link-sem-sublinhado">/dashboards</a>):
+        </p>
+        <ul>
+          <li><strong>Indicadores Gerais:</strong> Métricas de volume total, chamados em andamento, concluídos no prazo e taxa percentual de pontualidade geral.</li>
+          <li><strong>Filtros por Período, Empresa e Setor:</strong> Permite isolar os dados para reuniões de acompanhamento setorial.</li>
+          <li><strong>Desempenho por Setor & Gargalos:</strong> Identifica etapas com atraso recorrente e setores com maior tempo médio de resolução.</li>
+          <li><strong>Distribuição por Status de Processo:</strong> Lista todos os status cadastrados no sistema, com indicadores coloridos oficiais e barras de participação percentual.</li>
+        </ul>
+      </section>
+
+      <!-- Seção 8 -->
+      <section id="sec-cadastros" class="manual-secao">
+        <h2>8. Cadastros & Modelador de Fluxos</h2>
+        <p>
+          Para usuários autorizados:
+        </p>
+        <ul>
+          <li><strong>Empresas e Setores:</strong> Definição das unidades operacionais e prazos padrão de atendimento.</li>
+          <li><strong>Status Personalizados:</strong> Cadastro de nomes e cores exclusivas para status de chamados.</li>
+          <li><strong>Modelador de Fluxos:</strong> Permite desenhar o fluxo de trabalho com etapas sequenciais ou condicionais, tarefas, aprovações e campos personalizados obrigatórios.</li>
+        </ul>
+      </section>
+
+      <!-- Seção 9 -->
+      <section id="sec-permissoes-auditoria" class="manual-secao">
+        <h2>9. Permissões & Auditoria do Sistema</h2>
+        <p>
+          O sistema implementa controle rígido de segurança:
+        </p>
+        <ul>
+          <li><strong>Grupos de Permissão Hierárquicos:</strong> Matriz granular de permissões (Visualizar, Inserir, Editar, Excluir) por tela, com suporte a herança de grupos pai.</li>
+          <li><strong>Auditoria do Sistema:</strong> Rastreabilidade completa de todas as alterações cadastrais (usuários, status, fluxos, setores, chamados).</li>
+          <li><strong>Limpeza de Logs pelo Administrador:</strong> Na tela de auditoria, o administrador pode clicar em <strong>🗑️ Limpar Logs</strong> para expurgar registros com mais de 30, 60, 90 ou 180 dias, otimizando o espaço ocupado no banco de dados SQLite D1.</li>
+        </ul>
+      </section>
+
+      <!-- Seção 10 -->
+      <section id="sec-preferencias-atalhos" class="manual-secao">
+        <h2>10. Preferências & Atalhos</h2>
+        <p>
+          Acesse o menu da sua conta (no canto inferior da barra lateral) para:
+        </p>
+        <ul>
+          <li><strong>Manual do Sistema:</strong> Acesso direto a esta documentação.</li>
+          <li><strong>Preferências:</strong> Escolha entre os temas <em>Claro</em>, <em>Escuro</em> e <em>Alto Contraste</em>, além de fontes e tamanhos de texto personalizados.</li>
+          <li><strong>Instalar Aplicativo (PWA):</strong> Permite instalar o WorkFlow Zagonel no desktop ou celular para acesso rápido em tela cheia.</li>
+          <li><strong>Sair de todos os dispositivos:</strong> Invalida sessões ativas em outros navegadores ou computadores em caso de segurança.</li>
+        </ul>
+      </section>
+    </article>
+  </div>
+</main>
+<script type="module" src="manual.js"></script>
+</body>
+</html>

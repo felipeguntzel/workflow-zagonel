@@ -48,7 +48,14 @@ async function iniciar(usuarioLogado) {
     fluxos = Array.isArray(resFluxos)
       ? resFluxos.filter((f) => f.ativo !== 0 && f.ativo !== false && f.ativo !== "0")
       : [];
-    empresas = Array.isArray(resEmpresas) ? resEmpresas : [];
+    empresas = Array.isArray(resEmpresas)
+      ? resEmpresas.filter(
+          (emp, idx, arr) =>
+            arr.findIndex(
+              (e) => String(e.nome || "").trim().toLowerCase() === String(emp.nome || "").trim().toLowerCase()
+            ) === idx
+        )
+      : [];
     setores = Array.isArray(resSetores) ? resSetores : [];
   } catch (e) {
     fluxos = [];
@@ -112,34 +119,18 @@ async function iniciar(usuarioLogado) {
             <span id="rotulo-etapa-automatica" style="font-size: 0.8rem; color: var(--cor-texto-secundario); font-weight: 600; background: var(--cor-fundo-elevado); padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid var(--cor-borda);" hidden></span>
           </div>
 
-          <!-- Linha 1: Fluxo de Processo com largura total -->
-          <div class="campo-grupo" style="margin-bottom: 0.45rem;">
-            <label class="campo-rotulo" for="select-fluxo">
-              Fluxo de processo <span class="campo-obrigatorio">*</span>
-            </label>
-            <select id="select-fluxo" name="fluxo_template_id" required class="select-padrao">
-              <option value="">Selecione o fluxo...</option>
-              ${fluxos.map((f) => `<option value="${f.id}">${escaparHtml(f.nome)}</option>`).join("")}
-            </select>
-            <input type="hidden" id="input-etapa-inicial-id" name="etapa_inicial_id">
-            <p id="aviso-etapas-vazias" class="campo-ajuda" style="color: var(--cor-alerta); margin-top: 0.25rem;" hidden></p>
-          </div>
-
-          <!-- Linha 2: Título do chamado e Solicitante alinhados lado a lado -->
-          <div class="formulario-grid-cabecalho" style="margin-top: 0.45rem; margin-bottom: 0.45rem;">
+          <!-- Linha 1: Fluxo de Processo e Solicitante na mesma linha -->
+          <div class="formulario-grid-cabecalho" style="margin-bottom: 0.45rem;">
             <div class="campo-grupo" style="margin-bottom: 0;">
-              <label class="campo-rotulo" for="campo-titulo">
-                Título do chamado <span class="campo-obrigatorio">*</span>
+              <label class="campo-rotulo" for="select-fluxo">
+                Fluxo de processo <span class="campo-obrigatorio">*</span>
               </label>
-              <input 
-                type="text" 
-                id="campo-titulo" 
-                name="titulo" 
-                required 
-                class="input-padrao" 
-                placeholder="Informe um título objetivo e claro para a solicitação..."
-                style="font-size: 0.95rem; font-weight: 600;"
-              >
+              <select id="select-fluxo" name="fluxo_template_id" required class="select-padrao">
+                <option value="">Selecione o fluxo...</option>
+                ${fluxos.map((f) => `<option value="${f.id}">${escaparHtml(f.nome)}</option>`).join("")}
+              </select>
+              <input type="hidden" id="input-etapa-inicial-id" name="etapa_inicial_id">
+              <p id="aviso-etapas-vazias" class="campo-ajuda" style="color: var(--cor-alerta); margin-top: 0.25rem;" hidden></p>
             </div>
 
             <div class="campo-grupo" style="margin-bottom: 0;">
@@ -151,6 +142,22 @@ async function iniciar(usuarioLogado) {
                 <span class="tag-automatico">Automático</span>
               </div>
             </div>
+          </div>
+
+          <!-- Linha 2: Título do chamado ocupando a linha inteira -->
+          <div class="campo-grupo" style="margin-top: 0.45rem; margin-bottom: 0.45rem;">
+            <label class="campo-rotulo" for="campo-titulo">
+              Título do chamado <span class="campo-obrigatorio">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="campo-titulo" 
+              name="titulo" 
+              required 
+              class="input-padrao" 
+              placeholder="Informe um título objetivo e claro para a solicitação..."
+              style="width: 100%; font-size: 0.95rem; font-weight: 600;"
+            >
           </div>
 
           <!-- Linha 3: Prioridade, Setor e Empresa em 3 colunas -->
@@ -202,10 +209,10 @@ async function iniciar(usuarioLogado) {
             </div>
           </div>
 
-          <!-- Linha 4: Observação livre -->
+          <!-- Linha 4: Observação livre sem texto (opcional) -->
           <div class="campo-grupo" style="margin-top: 0.4rem; margin-bottom: 0;">
             <label class="campo-rotulo" for="campo-observacao">
-              Observação (opcional)
+              Observação
             </label>
             <textarea 
               id="campo-observacao" 
@@ -214,6 +221,27 @@ async function iniciar(usuarioLogado) {
               class="textarea-padrao" 
               placeholder="Espaço livre para detalhamento adicional, orientações preliminares ou contexto da solicitação..."
             ></textarea>
+          </div>
+
+          <!-- Linha 5: Anexos da Solicitação (caem como observação/anexo no chamado) -->
+          <div class="campo-grupo" style="margin-top: 0.65rem; margin-bottom: 0;">
+            <label class="campo-rotulo">
+              Anexos da Solicitação
+            </label>
+            <div style="background: var(--cor-fundo); border: 1px dashed var(--cor-borda); border-radius: 6px; padding: 0.75rem 1rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                <label style="display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.88rem; font-weight: 600; color: var(--cor-primaria);">
+                  <span>📎 Adicionar arquivo anexo</span>
+                  <input type="file" id="input-anexo-solicitacao" style="display: none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.csv" multiple>
+                </label>
+                <span style="font-size: 0.78rem; color: var(--cor-texto-secundario);">
+                  Você também pode colar prints de tela com <strong>Ctrl + V</strong>
+                </span>
+              </div>
+              
+              <!-- Lista de pré-visualização dos anexos -->
+              <div id="lista-anexos-preview" style="margin-top: 0.35rem; display: flex; flex-direction: column; gap: 0.35rem;"></div>
+            </div>
           </div>
         </section>
 
@@ -250,8 +278,108 @@ async function iniciar(usuarioLogado) {
   const msgErro = container.querySelector("#mensagem-erro");
   const wrapCampos = container.querySelector("#wrap-campos-dinamicos");
   const containerCampos = container.querySelector("#container-campos-render");
+  const inputAnexos = container.querySelector("#input-anexo-solicitacao");
+  const listaAnexosPreview = container.querySelector("#lista-anexos-preview");
 
   let camposEtapaAtuais = [];
+  let listaAnexosSolicitacao = [];
+
+  function formatarTamanho(bytes) {
+    if (!bytes && bytes !== 0) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+
+  function capturarImagemDoClipboard(e, callback) {
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData || !clipboardData.items) return false;
+
+    for (let i = 0; i < clipboardData.items.length; i++) {
+      const item = clipboardData.items[i];
+      if (item.type && item.type.includes("image")) {
+        const blob = item.getAsFile();
+        if (blob) {
+          e.preventDefault();
+          callback(blob);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function renderizarListaAnexos() {
+    if (!listaAnexosPreview) return;
+    if (listaAnexosSolicitacao.length === 0) {
+      listaAnexosPreview.innerHTML = "";
+      return;
+    }
+
+    listaAnexosPreview.innerHTML = listaAnexosSolicitacao
+      .map((anexo, idx) => {
+        const ehImg = anexo.tipo && anexo.tipo.startsWith("image/");
+        const icone = ehImg ? "🖼️" : "📎";
+        return `
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: var(--cor-fundo-elevado); padding: 0.4rem 0.65rem; border-radius: 4px; border: 1px solid var(--cor-borda); font-size: 0.85rem; margin-top: 0.35rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <span>${icone}</span>
+              <span style="font-weight: 600; color: var(--cor-texto); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escaparHtml(anexo.nome)}</span>
+              <span style="font-size: 0.78rem; color: var(--cor-texto-secundario); flex-shrink: 0;">(${formatarTamanho(anexo.tamanho)})</span>
+            </div>
+            <button type="button" class="btn-icone btn-icone--excluir btn-remover-anexo-item" data-index="${idx}" title="Remover este anexo" style="background: none; border: none; cursor: pointer; color: var(--cor-perigo, #dc2626); font-size: 0.9rem; padding: 2px 6px;">✕</button>
+          </div>
+        `;
+      })
+      .join("");
+
+    listaAnexosPreview.querySelectorAll(".btn-remover-anexo-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.getAttribute("data-index"));
+        listaAnexosSolicitacao.splice(idx, 1);
+        renderizarListaAnexos();
+      });
+    });
+  }
+
+  function adicionarArquivos(files) {
+    if (!files || files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      listaAnexosSolicitacao.push({
+        id: `anexo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        file: file,
+        nome: file.name,
+        tamanho: file.size,
+        tipo: file.type || "application/octet-stream"
+      });
+    }
+    renderizarListaAnexos();
+  }
+
+  if (inputAnexos) {
+    inputAnexos.addEventListener("change", (e) => {
+      adicionarArquivos(e.target.files);
+      inputAnexos.value = "";
+    });
+  }
+
+  const onPasteAnexo = (e) => {
+    capturarImagemDoClipboard(e, (blob) => {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const nomeArquivo = `print_${timestamp}.png`;
+      listaAnexosSolicitacao.push({
+        id: `anexo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        file: blob,
+        nome: nomeArquivo,
+        tamanho: blob.size,
+        tipo: blob.type || "image/png"
+      });
+      renderizarListaAnexos();
+    });
+  };
+
+  document.addEventListener("paste", onPasteAnexo);
 
   async function carregarCamposDaEtapa(etapaId) {
     if (!etapaId) {
@@ -291,19 +419,16 @@ async function iniciar(usuarioLogado) {
             classePos = "col-pos-inteira";
           }
 
-          // Orientação informativa / Dica
-          const orientacaoBtn = c.orientacao
-            ? `<button type="button" class="campo-orientacao-btn" title="Ver orientação do campo" onclick="const box = this.closest('.campo-grupo').querySelector('.campo-orientacao-texto'); if(box) box.hidden = !box.hidden;">i</button>`
-            : "";
+          // Orientação informativa / Dica exibida diretamente junto ao campo
           const orientacaoBox = c.orientacao
-            ? `<div class="campo-orientacao-texto" hidden>💡 ${escaparHtml(c.orientacao)}</div>`
+            ? `<div class="campo-orientacao-texto" style="margin-top: 0.15rem; margin-bottom: 0.35rem;">💡 ${escaparHtml(c.orientacao)}</div>`
             : "";
 
           if (tipoNorm === "texto_longo" || tipoNorm === "textarea") {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <textarea name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} rows="3" class="textarea-padrao" placeholder="Digite aqui..."></textarea>
@@ -313,7 +438,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <div class="campo-fixo-exibicao" style="font-weight: normal; cursor: pointer;" onclick="const cb = this.querySelector('input'); cb.checked = !cb.checked;">
@@ -328,7 +453,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <select name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="select-padrao">
@@ -342,7 +467,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <input type="number" step="any" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao" placeholder="0">
@@ -368,7 +493,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <input 
@@ -400,7 +525,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <select name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="select-padrao">
@@ -413,7 +538,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <input type="text" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao" placeholder="Informe o valor...">
@@ -544,7 +669,47 @@ async function iniciar(usuarioLogado) {
           campos: valoresCampos,
         },
       });
-      window.location.href = `/chamado?id=${resultado.chamado.id}`;
+
+      const chamadoIdCriado = resultado?.chamado?.id;
+
+      // Se houver anexos adicionados na solicitação, envia cada um para o chamado
+      if (chamadoIdCriado && listaAnexosSolicitacao.length > 0) {
+        for (let i = 0; i < listaAnexosSolicitacao.length; i++) {
+          const anexo = listaAnexosSolicitacao[i];
+          btnSubmit.textContent = `Enviando anexo ${i + 1} de ${listaAnexosSolicitacao.length}...`;
+          try {
+            const base64 = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const res = reader.result;
+                resolve(typeof res === "string" ? res.split(",")[1] : "");
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(anexo.file);
+            });
+
+            await api(`/chamados/${chamadoIdCriado}/anexos`, {
+              method: "POST",
+              body: {
+                nome_arquivo: anexo.nome,
+                mime_type: anexo.tipo,
+                tipo_mime: anexo.tipo,
+                tamanho_bytes: anexo.tamanho,
+                conteudo_base64: base64,
+                eh_privado: 0,
+                texto: "Anexo da solicitação inicial",
+              },
+            });
+      // Após gerar o chamado, continua na tela de chamados em aberto (não abre a tela de trabalho do chamado)
+      sessionStorage.setItem(
+        "workflow_toast_sucesso",
+        JSON.stringify({
+          mensagem: `✓ Chamado #${chamadoIdCriado} ("${titulo}") aberto com sucesso!`,
+          id: chamadoIdCriado,
+        })
+      );
+
+      window.location.href = "/chamados";
     } catch (e) {
       mostrarErro(msgErro, e);
       btnSubmit.disabled = false;

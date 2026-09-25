@@ -3,7 +3,10 @@ export function resolverProximosChamados(etapa, triggering, decisoesAcoes = {}) 
 
   if (etapa.acoes && etapa.acoes.length > 0) {
     return etapa.acoes
-      .filter((acao) => decisoesAcoes[acao.id] === true)
+      .filter((acao) => {
+        const val = decisoesAcoes[acao.id];
+        return val === true || (val && typeof val === "object" && (val.marcado === true || val.selecionado === true));
+      })
       .map((acao) => ({
         etapa_id: null,
         acao_origem_id: acao.id,

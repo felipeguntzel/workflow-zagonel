@@ -11,7 +11,13 @@ async function carregarEmpresasDosSetores(db) {
 }
 
 export async function onRequestGet(context) {
-  const { erro } = await exigirPermissao(context, "setores", "visualizar");
+  let { erro } = await exigirPermissao(context, "setores", "visualizar");
+  if (erro) {
+    ({ erro } = await exigirPermissao(context, "dashboards", "visualizar"));
+  }
+  if (erro) {
+    ({ erro } = await exigirPermissao(context, "chamados", "visualizar"));
+  }
   if (erro) return erro;
 
   const setores = await all(context.env.DB, "SELECT * FROM setores ORDER BY id");

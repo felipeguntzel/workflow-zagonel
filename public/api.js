@@ -2,6 +2,41 @@ import { getUsuarioLogado } from "./auth.js";
 
 const BASE = "/api";
 
+// Cache em memória para rotas de leitura rápida
+const cacheMemoriaApi = new Map();
+const TTL_PADRAO_MS = 60000; // 60 segundos de TTL para cadastros
+
+// Rotas cujos GETs podem responder instantaneamente com revalidação em segundo plano
+const ROTAS_CACHEAVEIS = new Set([
+  "/empresas",
+  "/setores",
+  "/status",
+  "/usuarios",
+  "/grupos",
+  "/fluxos",
+]);
+
+export function limparCacheApi(prefixo = "") {
+  if (!prefixo) {
+    cacheMemoriaApi.clear();
+    return;
+  }
+  for (const chave of cacheMemoriaApi.keys()) {
+    if (chave.startsWith(prefixo)) {
+      cacheMemoriaApi.delete(chave);
+    }
+  }
+}
+
+function invalidarCacheCorrespondente(rotaLimpa) {
+  // Ao criar/editar/excluir (POST, PUT, DELETE), invalida a rota correspondente
+  const partes = rotaLimpa.split("/").filter(Boolean);
+  if (partes.length > 0) {
+    const raiz = "/" + partes[0];
+    limparCacheApi(raiz);
+  }
+}
+
 export async function api(path, options = {}) {
   const usuario = getUsuarioLogado();
   const headers = { "content-type": "application/json" };
@@ -19,15 +54,54 @@ export async function api(path, options = {}) {
     rotaLimpa = "/" + rotaLimpa;
   }
 
+  const metodo = (options.method ?? "GET").toUpperCase();
+
+  // Invalidação automática em métodos de mutação (POST, PUT, DELETE)
+  if (metodo !== "GET") {
+    invalidarCacheCorrespondente(rotaLimpa);
+  }
+
+  // Verificação de cache para requisições GET elegíveis
+  const chaveCache = `${rotaLimpa}|${usuario?.id || 0}`;
+  const ehCacheavel = metodo === "GET" && ROTAS_CACHEAVEIS.has(rotaLimpa) && !options.noCache;
+
+  if (ehCacheavel) {
+    const item = cacheMemoriaApi.get(chaveCache);
+    const agora = Date.now();
+    if (item && agora - item.timestamp < TTL_PADRAO_MS) {
+      // Revalidação em background (Stale While Revalidate)
+      buscarDaRede(rotaLimpa, metodo, headers, options.body)
+        .then((dadosAtualizados) => {
+          if (dadosAtualizados) {
+            cacheMemoriaApi.set(chaveCache, { timestamp: Date.now(), dados: dadosAtualizados });
+          }
+        })
+        .catch(() => {});
+
+      // Retorno imediato (0ms) dos dados em cache
+      return item.dados;
+    }
+  }
+
+  const data = await buscarDaRede(rotaLimpa, metodo, headers, options.body);
+
+  if (ehCacheavel && data) {
+    cacheMemoriaApi.set(chaveCache, { timestamp: Date.now(), dados: data });
+  }
+
+  return data;
+}
+
+async function buscarDaRede(rotaLimpa, metodo, headers, body) {
   const corpo =
-    options.body !== undefined
-      ? typeof options.body === "string"
-        ? options.body
-        : JSON.stringify(options.body)
+    body !== undefined
+      ? typeof body === "string"
+        ? body
+        : JSON.stringify(body)
       : undefined;
 
   const res = await fetch(`${BASE}${rotaLimpa}`, {
-    method: options.method ?? "GET",
+    method: metodo,
     headers,
     body: corpo,
   });
