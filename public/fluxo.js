@@ -1128,9 +1128,9 @@ async function iniciar(container, mensagemErro) {
                     <div style="display: grid; grid-template-columns: 1.5fr 1fr auto; gap: 0.6rem; align-items: end;">
                       <div>
                         <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">
-                          Orientação / Dica informativa (opcional)
+                          Orientação / Dica informativa
                         </label>
-                        <input type="text" name="orientacao" placeholder="Texto de ajuda que aparece ao clicar no ícone 'i'..." style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
+                        <input type="text" name="orientacao" placeholder="Orientação ou instrução exibida diretamente junto ao campo..." style="width: 100%; padding: 0.4rem 0.5rem; font-size: 0.85rem;">
                       </div>
                       <div>
                         <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Tipo do campo *</label>

@@ -1341,7 +1341,8 @@ form.formulario label.campo-rotulo,
   border-left: 3px solid var(--cor-primaria);
   padding: 0.35rem 0.6rem;
   border-radius: 0.25rem;
-  margin-top: 0.25rem;
+  margin-top: 0.2rem;
+  margin-bottom: 0.35rem;
   line-height: 1.35;
 }
 

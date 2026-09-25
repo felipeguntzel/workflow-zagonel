@@ -419,19 +419,16 @@ async function iniciar(usuarioLogado) {
             classePos = "col-pos-inteira";
           }
 
-          // Orientação informativa / Dica
-          const orientacaoBtn = c.orientacao
-            ? `<button type="button" class="campo-orientacao-btn" title="Ver orientação do campo" onclick="const box = this.closest('.campo-grupo').querySelector('.campo-orientacao-texto'); if(box) box.hidden = !box.hidden;">i</button>`
-            : "";
+          // Orientação informativa / Dica exibida diretamente junto ao campo
           const orientacaoBox = c.orientacao
-            ? `<div class="campo-orientacao-texto" hidden>💡 ${escaparHtml(c.orientacao)}</div>`
+            ? `<div class="campo-orientacao-texto" style="margin-top: 0.15rem; margin-bottom: 0.35rem;">💡 ${escaparHtml(c.orientacao)}</div>`
             : "";
 
           if (tipoNorm === "texto_longo" || tipoNorm === "textarea") {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <textarea name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} rows="3" class="textarea-padrao" placeholder="Digite aqui..."></textarea>
@@ -441,7 +438,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <div class="campo-fixo-exibicao" style="font-weight: normal; cursor: pointer;" onclick="const cb = this.querySelector('input'); cb.checked = !cb.checked;">
@@ -456,7 +453,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <select name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="select-padrao">
@@ -470,7 +467,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <input type="number" step="any" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao" placeholder="0">
@@ -496,7 +493,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <input 
@@ -528,7 +525,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <select name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="select-padrao">
@@ -541,7 +538,7 @@ async function iniciar(usuarioLogado) {
             inputHtml = `
               <div class="campo-grupo ${classePos}">
                 <label class="campo-rotulo">
-                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}${orientacaoBtn}
+                  <span>${escaparHtml(c.rotulo)}</span>${obrigatorioMark}
                 </label>
                 ${orientacaoBox}
                 <input type="text" name="campo_${c.nome}" data-campo-id="${c.id}" ${reqAttr} class="input-padrao" placeholder="Informe o valor...">
