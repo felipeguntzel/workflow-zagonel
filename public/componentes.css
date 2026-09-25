@@ -2017,6 +2017,7 @@ th.th-drop-alvo {
   margin-bottom: 0;
 }
 
+.card-etapa-geral--recolhido .card-etapa-geral__conteudo-expandido,
 .card-etapa-geral--recolhido .card-etapa-geral__detalhes,
 .card-etapa-geral--recolhido .comentarios-etapa-wrap {
   display: none !important;
@@ -2156,13 +2157,74 @@ th.th-drop-alvo {
   width: 100%;
   max-width: 320px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all 0.15s ease;
+  transition: max-width 0.2s ease, box-shadow 0.15s ease;
   position: relative;
 }
 
 .bpmn-card-etapa:hover {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
   border-color: var(--cor-primaria);
+}
+
+.bpmn-card-etapa .card-etapa-geral__cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+}
+
+/* Na Visão Horizontal, quando expandido, utilizar a área horizontal e não vertical */
+.bpmn-card-etapa:not(.card-etapa-geral--recolhido) {
+  min-width: 560px;
+  max-width: 780px;
+  width: max-content;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.bpmn-card-etapa:not(.card-etapa-geral--recolhido) .card-etapa-geral__conteudo-expandido {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 0.75rem;
+  align-items: stretch;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--cor-borda);
+}
+
+.bpmn-card-etapa:not(.card-etapa-geral--recolhido) .card-etapa-geral__detalhes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+  margin-bottom: 0;
+  background: var(--cor-fundo-elevado);
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+}
+
+.bpmn-card-etapa:not(.card-etapa-geral--recolhido) .comentarios-etapa-wrap {
+  margin-top: 0 !important;
+  border-top: none !important;
+  padding-top: 0 !important;
+  background: var(--cor-fundo-elevado);
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.bpmn-card-etapa:not(.card-etapa-geral--recolhido) .comentarios-conteudo {
+  max-height: 120px;
+  overflow-y: auto;
+  margin-top: 0.35rem;
+}
+
+[data-tema="escuro"] .bpmn-card-etapa:not(.card-etapa-geral--recolhido) .card-etapa-geral__detalhes,
+[data-tema="escuro"] .bpmn-card-etapa:not(.card-etapa-geral--recolhido) .comentarios-etapa-wrap {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .bpmn-conector-linha {

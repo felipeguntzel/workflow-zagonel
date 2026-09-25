@@ -180,35 +180,37 @@ export function renderHtmlCardEtapa(no, options = {}) {
         </div>
       </div>
 
-      <div class="card-etapa-geral__detalhes">
-        <div>
-          <strong>🏢 Setor:</strong> ${escaparHtml(no.setor_nome || "Não definido")}
+      <div class="card-etapa-geral__conteudo-expandido">
+        <div class="card-etapa-geral__detalhes">
+          <div>
+            <strong>🏢 Setor:</strong> ${escaparHtml(no.setor_nome || "Não definido")}
+          </div>
+          <div>
+            <strong>👤 Responsável:</strong> ${no.responsavel_nome ? escaparHtml(no.responsavel_nome) : '<em style="color: var(--cor-texto-secundario);">Ninguém atribuído</em>'}
+          </div>
+          <div>
+            <strong>📅 Prazo:</strong> ${formatarDataBR(no.prazo)}
+          </div>
+          <div>
+            ${situacaoPrazoBadge(no.prazo, no.data_finalizacao, no.status_nome)}
+          </div>
+          ${
+            no.data_finalizacao
+              ? `<div><strong style="color: var(--cor-primaria);">✓ Concluído em:</strong> ${formatarDataBR(no.data_finalizacao)}</div>`
+              : ""
+          }
         </div>
-        <div>
-          <strong>👤 Responsável:</strong> ${no.responsavel_nome ? escaparHtml(no.responsavel_nome) : '<em style="color: var(--cor-texto-secundario);">Ninguém atribuído</em>'}
-        </div>
-        <div>
-          <strong>📅 Prazo:</strong> ${formatarDataBR(no.prazo)}
-        </div>
-        <div>
-          ${situacaoPrazoBadge(no.prazo, no.data_finalizacao, no.status_nome)}
-        </div>
-        ${
-          no.data_finalizacao
-            ? `<div><strong style="color: var(--cor-primaria);">✓ Concluído em:</strong> ${formatarDataBR(no.data_finalizacao)}</div>`
-            : ""
-        }
-      </div>
 
-      <!-- Comentários da Etapa -->
-      <details class="comentarios-etapa-wrap" data-chamado-id="${no.id}" style="margin-top: 0.5rem; border-top: 1px dashed var(--cor-borda); padding-top: 0.45rem;">
-        <summary style="cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--cor-primaria); user-select: none;">
-          💬 Comentários da etapa
-        </summary>
-        <div class="comentarios-conteudo" style="margin-top: 0.5rem; padding-left: 0.25rem;">
-          <div style="font-size: 0.8rem; color: var(--cor-texto-secundario);">Carregando comentários...</div>
-        </div>
-      </details>
+        <!-- Comentários da Etapa -->
+        <details class="comentarios-etapa-wrap" data-chamado-id="${no.id}">
+          <summary style="cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--cor-primaria); user-select: none;">
+            💬 Comentários da etapa
+          </summary>
+          <div class="comentarios-conteudo" style="margin-top: 0.4rem; padding-left: 0.25rem;">
+            <div style="font-size: 0.8rem; color: var(--cor-texto-secundario);">Carregando comentários...</div>
+          </div>
+        </details>
+      </div>
     </div>
   `;
 }
