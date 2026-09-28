@@ -10,7 +10,7 @@ import {
 } from "../../_lib/chamados.js";
 import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
-import { registrarAuditoria } from "../../_lib/auditoria.js";
+import { registrarAuditoria, registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 
 export async function onRequestGet(context) {
   try {
@@ -148,37 +148,113 @@ export async function onRequestPut(context) {
 }
 
 async function coletarSubarvore(db, chamadoId) {
-  const ids = [Number(chamadoId)];
-  const filhos = await all(db, "SELECT id FROM chamados WHERE chamado_pai_id = ?", chamadoId);
-  for (const filho of filhos) {
-    ids.push(...(await coletarSubarvore(db, filho.id)));
+  const visitados = new Set();
+  const resultado = [];
+
+  // Se o chamado for o chamado mãe raiz, busca todos os registros vinculados a essa família
+  const ch = await first(db, "SELECT id, chamado_mae_id FROM chamados WHERE id = ?", chamadoId).catch(() => null);
+  if (ch && (!ch.chamado_mae_id || Number(ch.chamado_mae_id) === Number(chamadoId))) {
+    const rawFamilia = await all(db, "SELECT id FROM chamados WHERE chamado_mae_id = ? OR id = ?", chamadoId, chamadoId).catch(() => []);
+    const todosFamilia = Array.isArray(rawFamilia) ? rawFamilia : (rawFamilia?.results || []);
+    for (const f of todosFamilia) {
+      const fId = Number(f.id);
+      if (!visitados.has(fId)) {
+        visitados.add(fId);
+        resultado.push(fId);
+      }
+    }
+    return resultado;
   }
-  return ids;
+
+  // Caso seja um subchamado, percorre os descendentes em largura
+  const fila = [Number(chamadoId)];
+  while (fila.length > 0) {
+    const atual = fila.shift();
+    if (visitados.has(atual)) continue;
+    visitados.add(atual);
+    resultado.push(atual);
+
+    const rawFilhos = await all(db, "SELECT id FROM chamados WHERE chamado_pai_id = ?", atual).catch(() => []);
+    const filhos = Array.isArray(rawFilhos) ? rawFilhos : (rawFilhos?.results || []);
+    for (const filho of filhos) {
+      const filhoId = Number(filho.id);
+      if (!visitados.has(filhoId)) {
+        fila.push(filhoId);
+      }
+    }
+  }
+
+  return resultado;
 }
 
 export async function onRequestDelete(context) {
-  const { usuario, erro } = await exigirPermissao(context, "chamados", "excluir");
-  if (erro) return erro;
-  const ids = await coletarSubarvore(context.env.DB, context.params.id);
+  try {
+    const { usuario, erro } = await exigirPermissao(context, "chamados", "excluir");
+    if (erro) return erro;
 
-  const chamado = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
-  const raizId = chamado ? (chamado.chamado_mae_id || chamado.id) : context.params.id;
+    const chamado = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
+    if (!chamado) {
+      return error("Chamado não encontrado.", 404);
+    }
 
-  await registrarAuditoria(context.env.DB, {
-    chamado_mae_id: raizId,
-    chamado_id: context.params.id,
-    usuario_id: usuario.id,
-    usuario_nome: usuario.nome,
-    acao: "exclusao_chamado",
-    detalhes: `Exclusão do chamado #${context.params.id} e sua subárvore (${ids.length} nós).`
-  });
+    const raizId = chamado.chamado_mae_id || chamado.id;
+    const ids = await coletarSubarvore(context.env.DB, context.params.id);
 
-  for (const chamadoId of [...ids].reverse()) {
-    await run(context.env.DB, "DELETE FROM apontamentos_horas WHERE chamado_id = ?", chamadoId);
-    await run(context.env.DB, "DELETE FROM comentarios WHERE chamado_id = ?", chamadoId);
-    await run(context.env.DB, "DELETE FROM chamado_anexos WHERE chamado_id = ?", chamadoId);
-    await run(context.env.DB, "DELETE FROM chamado_campos_valores WHERE chamado_id = ?", chamadoId);
-    await run(context.env.DB, "DELETE FROM chamados WHERE id = ?", chamadoId);
+    // Registra na auditoria do sistema (tabela independente sem chaves estrangeiras restritivas)
+    await registrarAuditoriaSistema(context.env.DB, {
+      usuario_id: usuario.id,
+      usuario_nome: usuario.nome,
+      entidade: "chamados",
+      entidade_id: Number(context.params.id),
+      acao: "exclusao_chamado",
+      detalhes: `Exclusão do chamado #${context.params.id} e seus registros vinculados (${ids.length} chamados).`,
+    });
+
+    // Se estiver excluindo apenas um subchamado e a raiz continuar existindo, anota no histórico da raiz
+    if (raizId && !ids.includes(Number(raizId))) {
+      await registrarAuditoria(context.env.DB, {
+        chamado_mae_id: raizId,
+        chamado_id: raizId,
+        usuario_id: usuario.id,
+        usuario_nome: usuario.nome,
+        acao: "exclusao_subchamado",
+        detalhes: `Exclusão da etapa/subchamado #${context.params.id}.`,
+      }).catch(() => {});
+    }
+
+    // 1. Desvincula auto-relacionamento de FKs em chamados (chamado_pai_id e chamado_mae_id) para evitar violação de integridade referencial
+    for (const chamadoId of ids) {
+      await run(
+        context.env.DB,
+        "UPDATE chamados SET chamado_pai_id = NULL, chamado_mae_id = NULL WHERE id = ? OR chamado_pai_id = ? OR chamado_mae_id = ?",
+        chamadoId,
+        chamadoId,
+        chamadoId
+      ).catch(() => {});
+    }
+
+    // 2. Remove registros em tabelas dependentes
+    for (const chamadoId of ids) {
+      await run(context.env.DB, "DELETE FROM historico_auditoria WHERE chamado_id = ? OR chamado_mae_id = ?", chamadoId, chamadoId).catch(() => {});
+      await run(context.env.DB, "DELETE FROM apontamentos_horas WHERE chamado_id = ?", chamadoId).catch(() => {});
+      await run(context.env.DB, "DELETE FROM comentarios WHERE chamado_id = ?", chamadoId).catch(() => {});
+      await run(context.env.DB, "DELETE FROM chamado_anexos WHERE chamado_id = ?", chamadoId).catch(() => {});
+      await run(context.env.DB, "DELETE FROM chamado_campos_valores WHERE chamado_id = ?", chamadoId).catch(() => {});
+    }
+
+    // 3. Remove os chamados
+    for (const chamadoId of [...ids].reverse()) {
+      await run(context.env.DB, "DELETE FROM chamados WHERE id = ?", chamadoId);
+    }
+
+    // 4. Se a raiz ainda existir, sincroniza seu progresso
+    if (raizId && !ids.includes(Number(raizId))) {
+      await sincronizarProgressoChamadoMae(context.env.DB, raizId, hojeISO()).catch(() => {});
+    }
+
+    return json({ ok: true, excluidos: ids });
+  } catch (err) {
+    console.error(`[DELETE /api/chamados/${context.params.id}] Falha:`, err);
+    return error(err.message || "Erro interno do servidor ao excluir chamado.", 500);
   }
-  return json({ ok: true, excluidos: ids });
 }
