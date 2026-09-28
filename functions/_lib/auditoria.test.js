@@ -176,3 +176,60 @@ test("excluirLogsAuditoria apaga registros de auditoria_sistema e historico_audi
   assert.ok(deletouHistorico, "Deve deletar de historico_auditoria quando tudo=true");
 });
 
+test("listarAuditoriaDoChamado normaliza nomes de fluxo e etapas legados no historico unificado", async () => {
+  const { listarAuditoriaDoChamado } = await import("./auditoria.js");
+  const db = {
+    prepare(query) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (query.includes("ft.nome AS fluxo_nome")) {
+                return { id: 10, fluxo_template_id: 1, fluxo_nome: "Produto Derivado", etapa_nome: "Solicitação Inicial" };
+              }
+              return null;
+            },
+            async all() {
+              if (query.includes("c.acao_origem_id")) {
+                return {
+                  results: [
+                    { id: 10, etapa_id: 1, etapa_nome: "Solicitação Inicial", acao_rotulo: null, titulo: "Solicitação Inicial", eh_mae: 1 },
+                    { id: 11, etapa_id: 2, etapa_nome: "Aprovação Projetos", acao_rotulo: null, titulo: "Aprovação Projetos", eh_mae: 0 },
+                    { id: 12, etapa_id: 3, etapa_nome: "Aprovação Desenvolvimento de Produto", acao_rotulo: null, titulo: "Aprovação Desenvolvimento de Produto", eh_mae: 0 },
+                  ],
+                };
+              }
+              if (query.includes("FROM historico_auditoria")) {
+                return {
+                  results: [
+                    { id: 1, chamado_id: 10, usuario_id: 2, usuario_nome: "Felipe", acao: "criacao", detalhes: 'Chamado mãe criado por Felipe com base no fluxo "Solicitação Inicial".' },
+                    { id: 2, chamado_id: 11, usuario_id: null, usuario_nome: "Sistema", acao: "criacao_subchamado", detalhes: "Subchamado #11 gerado pela aprovação da etapa #10." },
+                    { id: 3, chamado_id: 11, usuario_id: 3, usuario_nome: "Carlos", acao: "decisao_aprovada", detalhes: "Etapa #11 APROVADA por Carlos." },
+                    { id: 4, chamado_id: 12, usuario_id: null, usuario_nome: "Sistema", acao: "criacao_subchamado", detalhes: "Subchamado #12 gerado automaticamente pelo fluxo." },
+                  ],
+                };
+              }
+              return { results: [] };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const lista = await listarAuditoriaDoChamado(db, 10);
+  assert.equal(lista.length, 4);
+
+  // 1. Abertura do chamado deve exibir fluxo "Produto Derivado" e etapa inicial "Solicitação Inicial"
+  assert.equal(lista[0].detalhes, 'Chamado aberto por Felipe no fluxo "Produto Derivado" (Etapa: "Solicitação Inicial").');
+
+  // 2. Subchamado gerado por aprovação deve exibir etapa destino e etapa origem
+  assert.equal(lista[1].detalhes, 'Etapa "Aprovação Projetos" iniciada pela aprovação da etapa "Solicitação Inicial".');
+
+  // 3. Decisão aprovada deve exibir o nome da etapa e não o ID cru
+  assert.equal(lista[2].detalhes, 'Etapa "Aprovação Projetos" APROVADA por Carlos.');
+
+  // 4. Subchamado automático deve exibir o nome da etapa
+  assert.equal(lista[3].detalhes, 'Etapa "Aprovação Desenvolvimento de Produto" iniciada automaticamente pelo fluxo.');
+});
+

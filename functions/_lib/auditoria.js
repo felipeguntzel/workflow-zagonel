@@ -36,11 +36,48 @@ export async function registrarAuditoria(db, { chamado_mae_id, chamado_id, usuar
 }
 
 /**
- * Lista todo o histórico de auditoria de um chamado mãe.
+ * Lista todo o histórico de auditoria de um chamado mãe com nomes corretos de fluxo e etapas.
  */
 export async function listarAuditoriaDoChamado(db, chamadoMaeId) {
   try {
-    return await all(
+    const chamadoMae = await first(
+      db,
+      `SELECT c.id, c.fluxo_template_id, ft.nome AS fluxo_nome,
+              COALESCE(
+                e.nome,
+                (SELECT e2.nome FROM etapas e2 WHERE e2.fluxo_template_id = c.fluxo_template_id AND e2.eh_inicial = 1 LIMIT 1),
+                'Solicitação Inicial'
+              ) AS etapa_nome
+       FROM chamados c
+       LEFT JOIN fluxo_templates ft ON ft.id = c.fluxo_template_id
+       LEFT JOIN etapas e ON e.id = c.etapa_id
+       WHERE c.id = ?`,
+      chamadoMaeId
+    );
+
+    const todosChamados = await all(
+      db,
+      `SELECT c.id, c.etapa_id, e.nome AS etapa_nome, a.rotulo AS acao_rotulo, c.titulo,
+              (c.chamado_mae_id IS NULL OR c.chamado_mae_id = 0) AS eh_mae
+       FROM chamados c
+       LEFT JOIN etapas e ON e.id = c.etapa_id
+       LEFT JOIN acoes a ON a.id = c.acao_origem_id
+       WHERE c.id = ? OR c.chamado_mae_id = ?`,
+      chamadoMaeId,
+      chamadoMaeId
+    );
+
+    const mapa = new Map();
+    for (const ch of todosChamados) {
+      const nome = ch.etapa_nome || ch.acao_rotulo || ch.titulo || (ch.eh_mae ? (chamadoMae?.etapa_nome || "Solicitação Inicial") : `Etapa #${ch.id}`);
+      mapa.set(ch.id, {
+        etapaNome: nome,
+        titulo: ch.titulo,
+        ehMae: Boolean(ch.eh_mae),
+      });
+    }
+
+    const registros = await all(
       db,
       `SELECT h.*, u.nome AS usuario_nome_cadastrado,
               c.etapa_id,
@@ -59,6 +96,63 @@ export async function listarAuditoriaDoChamado(db, chamadoMaeId) {
        ORDER BY h.id ASC`,
       chamadoMaeId
     );
+
+    const fluxoNome = chamadoMae?.fluxo_nome;
+
+    return registros.map((r) => {
+      let etapaNome = mapa.get(r.chamado_id)?.etapaNome || r.etapa_nome;
+      let detalhes = r.detalhes || "";
+
+      // Ajustar mensagens legadas ou padronizar nomes de etapas/fluxos:
+      // 1. "Chamado mãe criado por ... com base no fluxo ..." ou "Chamado aberto por ... na etapa ..."
+      if (detalhes.includes("com base no fluxo") || detalhes.startsWith("Chamado aberto por") || detalhes.startsWith("Chamado mãe criado por")) {
+        const usuarioNome = r.usuario_nome || "Usuário";
+        const nomeEtapaInicial = mapa.get(chamadoMaeId)?.etapaNome || "Solicitação Inicial";
+        if (fluxoNome) {
+          detalhes = `Chamado aberto por ${usuarioNome} no fluxo "${fluxoNome}" (Etapa: "${nomeEtapaInicial}").`;
+        } else {
+          detalhes = `Chamado aberto por ${usuarioNome} na etapa "${nomeEtapaInicial}".`;
+        }
+      }
+
+      // 2. "Etapa #X APROVADA/REPROVADA por Y"
+      const matchDecisao = detalhes.match(/Etapa #(\d+)\s+(APROVADA|REPROVADA)\s+por\s+([^.]+?)(?:\.\s*Justificativa:\s*(.*)|\.|$)/i);
+      if (matchDecisao) {
+        const idEtapa = Number(matchDecisao[1]);
+        const acao = matchDecisao[2].toUpperCase();
+        const responsavel = matchDecisao[3].trim();
+        const justificativa = matchDecisao[4] ? `. Justificativa: ${matchDecisao[4].trim()}` : ".";
+        const nome = mapa.get(idEtapa)?.etapaNome || `Etapa #${idEtapa}`;
+        detalhes = `Etapa "${nome}" ${acao} por ${responsavel}${justificativa}`;
+      }
+
+      // 3. "Subchamado #X gerado pela aprovação da etapa #Y"
+      const matchAprovacaoSub = detalhes.match(/Subchamado #(\d+)\s+gerado pela aprovação da etapa #(\d+)/i);
+      if (matchAprovacaoSub) {
+        const idFilho = Number(matchAprovacaoSub[1]);
+        const idOrigem = Number(matchAprovacaoSub[2]);
+        const nomeFilho = mapa.get(idFilho)?.etapaNome || `Etapa #${idFilho}`;
+        const nomeOrigem = mapa.get(idOrigem)?.etapaNome || `Etapa #${idOrigem}`;
+        detalhes = `Etapa "${nomeFilho}" iniciada pela aprovação da etapa "${nomeOrigem}".`;
+      }
+
+      // 4. "Subchamado #X gerado automaticamente pelo fluxo"
+      const matchAutoSub = detalhes.match(/Subchamado #(\d+)\s+gerado automaticamente pelo fluxo/i);
+      if (matchAutoSub) {
+        const idFilho = Number(matchAutoSub[1]);
+        const nomeFilho = mapa.get(idFilho)?.etapaNome || `Etapa #${idFilho}`;
+        detalhes = `Etapa "${nomeFilho}" iniciada automaticamente pelo fluxo.`;
+      }
+
+      // 5. Remover "(Chamado #X)" se presente no texto para manter a leitura limpa e descritiva
+      detalhes = detalhes.replace(/\s*\(Chamado #\d+\)/g, "");
+
+      return {
+        ...r,
+        etapa_nome: etapaNome,
+        detalhes,
+      };
+    });
   } catch (e) {
     return [];
   }

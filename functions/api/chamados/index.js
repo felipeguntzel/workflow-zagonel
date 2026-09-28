@@ -233,13 +233,14 @@ export async function onRequestPost(context) {
     }
 
     // Registrar auditoria de criação do chamado mãe
+    const nomeFluxo = fluxoTemplate?.nome || "Processo";
     await registrarAuditoria(context.env.DB, {
       chamado_mae_id: mae.id,
       chamado_id: mae.id,
       usuario_id: usuario.id,
       usuario_nome: usuario.nome,
       acao: "criacao",
-      detalhes: `Chamado aberto por ${usuario.nome} na etapa "${etapa.nome}".`
+      detalhes: `Chamado aberto por ${usuario.nome} no fluxo "${nomeFluxo}" (Etapa: "${etapa.nome}").`
     });
 
     // O chamado mãe permanece ativo e suas etapas filhas são criadas
@@ -255,7 +256,7 @@ export async function onRequestPost(context) {
         usuario_id: null,
         usuario_nome: "Sistema",
         acao: "criacao_subchamado",
-        detalhes: `Etapa "${nomeFilho}" iniciada (Chamado #${filho.id}) automaticamente pelo fluxo.`
+        detalhes: `Etapa "${nomeFilho}" iniciada automaticamente pelo fluxo.`
       });
     }
 

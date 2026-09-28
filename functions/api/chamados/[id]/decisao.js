@@ -97,7 +97,7 @@ export async function onRequestPost(context) {
         usuario_id: usuario.id,
         usuario_nome: usuario.nome,
         acao: "criacao_subchamado",
-        detalhes: `Etapa "${nomeFilho}" iniciada (Chamado #${filho.id}) pela aprovação de "${etapaNome}".`
+        detalhes: `Etapa "${nomeFilho}" iniciada pela aprovação da etapa "${etapaNome}".`
       });
     }
 
