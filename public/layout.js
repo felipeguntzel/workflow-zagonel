@@ -210,6 +210,10 @@ export async function navegarPara(url, push = true) {
     if (sidebar && sidebar.classList.contains("aberta")) {
       sidebar.classList.remove("aberta");
     }
+    const overlay = document.querySelector(".sidebar-overlay");
+    if (overlay && overlay.classList.contains("visivel")) {
+      overlay.classList.remove("visivel");
+    }
 
     // Montar URL limpa para histórico
     const params = url.includes("?") ? `?${url.split("?")[1]}` : "";

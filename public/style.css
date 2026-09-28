@@ -71,11 +71,22 @@ html[data-tamanho="gg"] { font-size: 20px; }
 
 * { box-sizing: border-box; }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
+
 body {
   margin: 0;
   font-family: var(--fonte-corpo);
   background: var(--cor-fundo);
   color: var(--cor-texto);
+  -webkit-font-smoothing: antialiased;
 }
 
 .login-split {
@@ -291,14 +302,17 @@ td[title] { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space
 /* Tabela elevada: container com sombra, cabeçalho preenchido, scroll
    horizontal próprio quando não couber (matriz de permissões, etapas). */
 .tabela-wrap {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 0.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   background: var(--cor-fundo-elevado);
   border: var(--cor-borda-largura) solid var(--cor-borda);
   margin-top: 1rem;
 }
-.tabela-wrap table { margin-top: 0; }
+.tabela-wrap table { margin-top: 0; min-width: 580px; }
 .tabela-wrap th { background: var(--cor-primaria); color: var(--cor-primaria-texto); }
 .tabela-wrap tbody tr:hover td { background: var(--cor-fundo); }
 
@@ -948,8 +962,31 @@ form.formulario[hidden] { display: none; }
   .sidebar.recolhida .sidebar__usuario-menu { left: 0; right: 0; bottom: 100%; margin-left: 0; }
   .sidebar__colapsar { display: none; }
   .topbar__hamburguer { display: block; }
-  .topbar { display: flex; align-items: center; padding: 0.6rem 1rem; border-bottom: none; position: relative; z-index: 51; }
+  .topbar { display: flex; align-items: center; padding: 0.6rem 0.85rem; border-bottom: none; position: relative; z-index: 51; width: 100%; box-sizing: border-box; }
   .app-shell__conteudo main { padding: 1rem; }
+  
+  .pagina-cabecalho {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .pagina-cabecalho h1,
+  .pagina-cabecalho h2 {
+    font-size: 1.25rem;
+    word-break: break-word;
+  }
+  .pagina-cabecalho__acoes {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .pagina-cabecalho__acoes .btn,
+  .pagina-cabecalho__acoes a.btn {
+    flex: 1 1 calc(50% - 0.4rem);
+    justify-content: center;
+    font-size: 0.85rem;
+    padding: 0.45rem 0.65rem;
+  }
 }
 
 /* Cabeçalho padrão de telas com título e ações */
@@ -1132,6 +1169,55 @@ form.formulario[hidden] { display: none; }
 @media (max-width: 600px) {
   .formulario-grid {
     grid-template-columns: 1fr;
+  }
+  .paleta-atalho-tag {
+    display: none !important;
+  }
+  .modal-cadastro {
+    width: calc(100vw - 1.25rem) !important;
+    max-width: calc(100vw - 1.25rem) !important;
+    padding: 1rem 0.75rem !important;
+    margin: 0.5rem auto !important;
+  }
+  .modal-cadastro--tela-cheia {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    padding: 0.75rem !important;
+  }
+  .modal-cabecalho h3 {
+    font-size: 1.05rem;
+  }
+  .modal-rodape {
+    flex-direction: column-reverse;
+    gap: 0.45rem;
+  }
+  .modal-rodape .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .input-busca-crud {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-shell__conteudo main {
+    padding: 0.75rem 0.5rem;
+  }
+  .painel,
+  .painel-formulario {
+    padding: 0.85rem !important;
+  }
+  .cards-metricas {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+  .card-metrica {
+    padding: 0.85rem 1rem;
   }
 }
 .campo-rotulo {

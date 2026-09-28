@@ -1049,8 +1049,8 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
                 const podeRemoverAnexo = !finalizado && a.usuario_id === usuario.id;
 
                 return `
-                  <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.25rem 0.55rem; border-radius: 4px; font-size: 0.82rem;">
-                    <span>${ehImagem ? "🖼️" : "📄"} <strong>${escaparHtml(a.nome_arquivo)}</strong> <small style="color: var(--cor-texto-secundario);">(${formatarTamanho(a.tamanho_bytes)})</small></span>
+                  <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.25rem 0.55rem; border-radius: 4px; font-size: 0.82rem; max-width: 100%; flex-wrap: wrap;">
+                    <span style="overflow: hidden; text-overflow: ellipsis; word-break: break-word; max-width: 100%;">${ehImagem ? "🖼️" : "📄"} <strong>${escaparHtml(a.nome_arquivo)}</strong> <small style="color: var(--cor-texto-secundario);">(${formatarTamanho(a.tamanho_bytes)})</small></span>
                     ${
                       ehImagem
                         ? `<button type="button" class="btn btn-primario btn-pequeno btn-ver-imagem-anexo" data-id="${a.id}" data-nome="${escaparAtributo(a.nome_arquivo)}" style="padding: 0.15rem 0.5rem; font-size: 0.78rem;">👁️ Ver</button>`
