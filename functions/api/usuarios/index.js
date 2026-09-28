@@ -4,6 +4,7 @@ import { hashSenha, validarFormatoLogin, validarComplexidadeSenha } from "../../
 import { exigirPermissao } from "../../_lib/permissoes.js";
 import { ensureColunasUsuario } from "../../_lib/usuarios.js";
 import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
+import { obterProximoIdDisponivel, atualizarContadorId } from "../../_lib/dependencias.js";
 
 async function carregarGruposDoUsuario(db, usuarioId) {
   const linhas = await all(db, "SELECT grupo_id FROM usuario_grupos WHERE usuario_id = ?", usuarioId);
@@ -88,9 +89,11 @@ export async function onRequestPost(context) {
   const ativo = body.ativo !== undefined ? (body.ativo ? 1 : 0) : 1;
   const deveTrocarSenha = body.deve_trocar_senha !== undefined ? (body.deve_trocar_senha ? 1 : 0) : 1;
   const agora = Date.now();
+  const proximoId = await obterProximoIdDisponivel(context.env.DB, "usuarios");
   const resultado = await run(
     context.env.DB,
-    "INSERT INTO usuarios (nome, setor_id, login, email, telefone, senha_hash, admin, deve_trocar_senha, ativo, token_valido_apos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO usuarios (id, nome, setor_id, login, email, telefone, senha_hash, admin, deve_trocar_senha, ativo, token_valido_apos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    proximoId,
     body.nome,
     body.setor_id,
     login,
@@ -102,7 +105,7 @@ export async function onRequestPost(context) {
     ativo,
     agora
   );
-  const novoId = resultado.meta.last_row_id;
+  const novoId = proximoId || resultado?.meta?.last_row_id;
   for (const grupoId of grupos) {
     await run(
       context.env.DB,
@@ -111,6 +114,7 @@ export async function onRequestPost(context) {
       grupoId
     );
   }
+  await atualizarContadorId(context.env.DB, "usuarios");
   const novo = await first(
     context.env.DB,
     "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha, ativo FROM usuarios WHERE id = ?",

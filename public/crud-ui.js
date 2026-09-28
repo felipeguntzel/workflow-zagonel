@@ -70,6 +70,19 @@ export async function calcularSha256(texto) {
     .join("");
 }
 
+export function calcularMenorIdDisponivel(listaIdsOuItens) {
+  const ids = (listaIdsOuItens || [])
+    .map((item) => (typeof item === "object" && item !== null ? item.id ?? item.codigo : item))
+    .map(Number)
+    .filter((n) => Number.isInteger(n) && n > 0);
+  const set = new Set(ids);
+  let candidato = 1;
+  while (set.has(candidato)) {
+    candidato++;
+  }
+  return candidato;
+}
+
 export function mostrarAvisoModal(titulo, mensagem, acoes = []) {
   const modalWrap = document.createElement("div");
   modalWrap.className = "modal-fundo modal-fundo--aviso";
@@ -717,7 +730,14 @@ export async function renderCrud(container, config) {
     }
 
     const tipo = campo.tipo ?? "text";
-    const valorAtual = linhaEdicao ? linhaEdicao[campo.nome] ?? "" : "";
+    let valorAtual = linhaEdicao ? linhaEdicao[campo.nome] ?? "" : "";
+    if (!linhaEdicao && (campo.nome === "codigo" || campo.sugerirProximoId)) {
+      const menor = calcularMenorIdDisponivel(listaDados);
+      const temPad = Array.isArray(listaDados) && listaDados.some(
+        (i) => typeof i[campo.nome] === "string" && /^\d{3,}$/.test(i[campo.nome])
+      );
+      valorAtual = temPad ? String(menor).padStart(3, "0") : String(menor);
+    }
     const disabled = linhaEdicao && campo.desabilitadoNaEdicao ? "disabled" : "";
     const placeholder = campo.placeholder || (campo.obrigatorio ? "Preenchimento obrigatório" : "");
 

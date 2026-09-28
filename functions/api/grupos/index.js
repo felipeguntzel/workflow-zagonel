@@ -2,6 +2,7 @@ import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
 import { exigirAdmin, exigirPermissao, ensureColunaGrupoPai, ensureTabelaPermissoes, TELAS } from "../../_lib/permissoes.js";
 import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
+import { obterProximoIdDisponivel, atualizarContadorId } from "../../_lib/dependencias.js";
 
 export async function onRequestGet(context) {
   const { erro } = await exigirPermissao(context, "usuarios", "visualizar");
@@ -44,13 +45,16 @@ export async function onRequestPost(context) {
     if (!body.nome) return error("Campo obrigatório: nome");
 
     const grupoPaiId = body.grupo_pai_id ? Number(body.grupo_pai_id) : null;
+    const proximoId = await obterProximoIdDisponivel(context.env.DB, "grupos_permissao");
     const resultado = await run(
       context.env.DB,
-      "INSERT INTO grupos_permissao (nome, grupo_pai_id) VALUES (?, ?)",
+      "INSERT INTO grupos_permissao (id, nome, grupo_pai_id) VALUES (?, ?, ?)",
+      proximoId,
       body.nome.trim(),
       grupoPaiId
     );
-    const grupoId = resultado.meta.last_row_id;
+    const grupoId = proximoId || resultado?.meta?.last_row_id;
+    await atualizarContadorId(context.env.DB, "grupos_permissao");
 
     if (body.permissoes) {
       const telasUnicas = Array.from(new Set([...TELAS, ...Object.keys(body.permissoes)]));

@@ -1,19 +1,59 @@
 import { all, first, run } from "./db.js";
 
 /**
+ * Obtém o menor ID inteiro positivo disponível (>= 1) para a tabela,
+ * garantindo a reutilização imediata de IDs de registros excluídos.
+ */
+export async function obterProximoIdDisponivel(db, tabela) {
+  try {
+    const row = await first(
+      db,
+      `SELECT CASE 
+        WHEN NOT EXISTS (SELECT 1 FROM ${tabela} WHERE id = 1) THEN 1
+        ELSE (
+          SELECT t1.id + 1 
+          FROM ${tabela} t1 
+          WHERE NOT EXISTS (SELECT 1 FROM ${tabela} t2 WHERE t2.id = t1.id + 1)
+          ORDER BY t1.id ASC 
+          LIMIT 1
+        )
+      END AS next_id`
+    );
+    const nextId = row ? Number(row.next_id) : 1;
+    return nextId > 0 ? nextId : 1;
+  } catch (e) {
+    try {
+      const maxRow = await first(db, `SELECT COALESCE(MAX(id), 0) AS max_id FROM ${tabela}`);
+      return (maxRow ? Number(maxRow.max_id) : 0) + 1;
+    } catch (_) {
+      return 1;
+    }
+  }
+}
+
+/**
  * Atualiza o contador de ID em sqlite_sequence para que o próximo registro
  * receba MAX(id) + 1 (ou 1 caso a tabela esteja vazia).
  */
 export async function atualizarContadorId(db, tabela) {
   try {
     const row = await first(db, `SELECT COALESCE(MAX(id), 0) AS max_id FROM ${tabela}`);
-    const maxId = row ? row.max_id : 0;
-    await run(
+    const maxId = row ? Number(row.max_id) : 0;
+    const res = await run(
       db,
       "UPDATE sqlite_sequence SET seq = ? WHERE name = ?",
       maxId,
       tabela
-    );
+    ).catch(() => null);
+
+    if (!res || res.meta?.changes === 0) {
+      await run(
+        db,
+        "INSERT OR REPLACE INTO sqlite_sequence (name, seq) VALUES (?, ?)",
+        tabela,
+        maxId
+      ).catch(() => {});
+    }
   } catch (e) {
     // Silencioso se a tabela não usar AUTOINCREMENT ou sqlite_sequence não tiver a entrada
   }

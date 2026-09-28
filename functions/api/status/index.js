@@ -3,6 +3,7 @@ import { json, error } from "../../_lib/http.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
 import { assegurarEsquemaTabela } from "../../_lib/crud.js";
 import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
+import { obterProximoIdDisponivel, atualizarContadorId } from "../../_lib/dependencias.js";
 
 export async function onRequestGet(context) {
   const { erro } = await exigirPermissao(context, "status", "visualizar");
@@ -32,18 +33,22 @@ export async function onRequestPost(context) {
     }
   }
 
+  const proximoId = await obterProximoIdDisponivel(context.env.DB, "status");
   const res = await run(
     context.env.DB,
-    "INSERT INTO status (nome, cor) VALUES (?, ?)",
+    "INSERT INTO status (id, nome, cor) VALUES (?, ?, ?)",
+    proximoId,
     nome,
     cor || null
   );
-  const novo = await first(context.env.DB, "SELECT * FROM status WHERE id = ?", res.meta.last_row_id);
+  const inseridoId = proximoId || res?.meta?.last_row_id;
+  await atualizarContadorId(context.env.DB, "status");
+  const novo = await first(context.env.DB, "SELECT * FROM status WHERE id = ?", inseridoId);
   await registrarAuditoriaSistema(context.env.DB, {
     usuario_id: usuario?.id,
     usuario_nome: usuario?.nome || "Sistema",
     entidade: "status",
-    entidade_id: res.meta.last_row_id,
+    entidade_id: inseridoId,
     acao: "insercao",
     detalhes: `Novo status "${nome}" cadastrado com cor ${cor || "padrão"}`,
     dados_novos: novo,

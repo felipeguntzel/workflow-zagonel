@@ -12,6 +12,7 @@ import {
 import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
 import { registrarAuditoria, registrarAuditoriaSistema } from "../../_lib/auditoria.js";
+import { atualizarContadorId } from "../../_lib/dependencias.js";
 
 export async function onRequestGet(context) {
   try {
@@ -249,6 +250,7 @@ export async function onRequestDelete(context) {
     for (const chamadoId of [...ids].reverse()) {
       await run(context.env.DB, "DELETE FROM chamados WHERE id = ?", chamadoId);
     }
+    await atualizarContadorId(context.env.DB, "chamados");
 
     // 4. Se a raiz ainda existir, sincroniza seu progresso
     if (raizId && !ids.includes(Number(raizId))) {

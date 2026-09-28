@@ -107,6 +107,20 @@ test("formatarRotuloFK formata com código e nome quando código está presente"
   assert.equal(formatarRotuloFK(null), "");
 });
 
+test("calcularMenorIdDisponivel reutiliza menor ID vago e lida com objetos", async () => {
+  const { calcularMenorIdDisponivel } = await import("./crud-ui.js");
+  assert.equal(calcularMenorIdDisponivel([]), 1);
+  assert.equal(calcularMenorIdDisponivel([1, 2, 3]), 4);
+  assert.equal(calcularMenorIdDisponivel([1, 2, 3, 4]), 5);
+  // Após excluir o 4 (sobrando 1, 2, 3):
+  assert.equal(calcularMenorIdDisponivel([1, 2, 3]), 4);
+  // Após excluir o 2 (sobrando 1, 3, 4):
+  assert.equal(calcularMenorIdDisponivel([1, 3, 4]), 2);
+  // Testando com array de objetos
+  assert.equal(calcularMenorIdDisponivel([{ id: 1 }, { id: 2 }, { id: 3 }]), 4);
+  assert.equal(calcularMenorIdDisponivel([{ id: 1 }, { id: 3 }]), 2);
+});
+
 test("modal.js exporta confirmarAcao, mostrarAviso e abrirModal", async () => {
   const { confirmarAcao, mostrarAviso, abrirModal } = await import("./modal.js");
   assert.equal(typeof confirmarAcao, "function");
