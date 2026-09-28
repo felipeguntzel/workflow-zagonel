@@ -7,13 +7,44 @@ export function resolverProximosChamados(etapa, triggering, decisoesAcoes = {}) 
         const val = decisoesAcoes[acao.id];
         return val === true || (val && typeof val === "object" && (val.marcado === true || val.selecionado === true));
       })
-      .map((acao) => ({
-        etapa_id: acao.etapa_destino_id || null,
-        acao_origem_id: acao.id,
-        setor_id: acao.setor_destino_id,
-        chamado_pai_id: acao.vinculo === "mae" ? raizId : triggering.id,
-        chamado_mae_id: raizId,
-      }));
+      .flatMap((acao) => {
+        let etapasDestino = [];
+        if (Array.isArray(acao.etapas_destino_ids) && acao.etapas_destino_ids.length > 0) {
+          etapasDestino = acao.etapas_destino_ids.map(Number).filter(Boolean);
+        } else if (typeof acao.etapas_destino_ids === "string" && acao.etapas_destino_ids.trim()) {
+          try {
+            const parsed = JSON.parse(acao.etapas_destino_ids);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              etapasDestino = parsed.map(Number).filter(Boolean);
+            }
+          } catch (_) {
+            etapasDestino = acao.etapas_destino_ids.split(",").map(Number).filter(Boolean);
+          }
+        }
+        if (etapasDestino.length === 0 && acao.etapa_destino_id) {
+          etapasDestino = [Number(acao.etapa_destino_id)];
+        }
+
+        if (etapasDestino.length > 0) {
+          return etapasDestino.map((etapaId) => ({
+            etapa_id: etapaId,
+            acao_origem_id: acao.id,
+            setor_id: acao.setor_destino_id,
+            chamado_pai_id: acao.vinculo === "mae" ? raizId : triggering.id,
+            chamado_mae_id: raizId,
+          }));
+        }
+
+        return [
+          {
+            etapa_id: null,
+            acao_origem_id: acao.id,
+            setor_id: acao.setor_destino_id,
+            chamado_pai_id: acao.vinculo === "mae" ? raizId : triggering.id,
+            chamado_mae_id: raizId,
+          },
+        ];
+      });
   }
 
   if (etapa.etapa_proxima_id) {
@@ -33,9 +64,9 @@ export function resolverProximosChamados(etapa, triggering, decisoesAcoes = {}) 
 
 export function estaBloqueado(acaoOrigem, chamadosIrmaos) {
   if (!acaoOrigem || !acaoOrigem.prerequisito_acao_id) return false;
-  const irmao = chamadosIrmaos.find(
+  const irmaos = chamadosIrmaos.filter(
     (c) => c.acao_origem_id === acaoOrigem.prerequisito_acao_id
   );
-  if (!irmao) return false;
-  return irmao.data_finalizacao == null;
+  if (irmaos.length === 0) return false;
+  return irmaos.some((c) => c.data_finalizacao == null);
 }

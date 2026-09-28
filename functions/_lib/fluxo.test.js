@@ -116,3 +116,44 @@ test("resolverProximosChamados propagates etapa_destino_id as etapa_id for acao"
   assert.equal(resultado[1].chamado_pai_id, 100);
 });
 
+test("resolverProximosChamados creates multiple subchamados for multiple etapas_destino_ids", () => {
+  const etapa = {
+    id: 1,
+    etapa_proxima_id: null,
+    acoes: [
+      {
+        id: 20,
+        setor_destino_id: 4,
+        vinculo: "mae",
+        etapas_destino_ids: [12, 15, 18],
+      },
+    ],
+  };
+  const triggering = { id: 200, chamado_mae_id: 50 };
+  const resultado = resolverProximosChamados(etapa, triggering, { 20: true });
+
+  assert.equal(resultado.length, 3);
+  assert.equal(resultado[0].etapa_id, 12);
+  assert.equal(resultado[0].acao_origem_id, 20);
+  assert.equal(resultado[0].chamado_mae_id, 50);
+  assert.equal(resultado[0].chamado_pai_id, 50);
+
+  assert.equal(resultado[1].etapa_id, 15);
+  assert.equal(resultado[1].acao_origem_id, 20);
+
+  assert.equal(resultado[2].etapa_id, 18);
+  assert.equal(resultado[2].acao_origem_id, 20);
+});
+
+test("estaBloqueado returns true if any sibling of prerequisite acao is still not finalized", () => {
+  const acaoOrigem = { id: 30, prerequisito_acao_id: 10 };
+  const chamadosIrmaos = [
+    { id: 1, acao_origem_id: 10, data_finalizacao: "2026-09-28" },
+    { id: 2, acao_origem_id: 10, data_finalizacao: null },
+  ];
+  assert.equal(estaBloqueado(acaoOrigem, chamadosIrmaos), true);
+
+  chamadosIrmaos[1].data_finalizacao = "2026-09-29";
+  assert.equal(estaBloqueado(acaoOrigem, chamadosIrmaos), false);
+});
+
