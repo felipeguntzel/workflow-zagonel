@@ -1,6 +1,6 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { exigirPermissao } from "../../_lib/permissoes.js";
+import { exigirPermissao, exigirUsuarioLogado } from "../../_lib/permissoes.js";
 import { assegurarEsquemaTabela } from "../../_lib/crud.js";
 import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 import { obterProximoIdDisponivel, atualizarContadorId } from "../../_lib/dependencias.js";

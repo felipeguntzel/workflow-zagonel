@@ -271,7 +271,22 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
   const souResponsavel = chamado.responsavel_id != null && Number(chamado.responsavel_id) === Number(usuario?.id);
   const souDoSetor = chamado.setor_id != null && usuario?.setor_id != null && Number(chamado.setor_id) === Number(usuario?.setor_id);
-  const podeEditarChamado = Boolean(usuario?.admin || permissaoChamados.editar || souResponsavel || souDoSetor);
+  const ehSolicitante = Boolean(usuario?.id && Number(chamado.solicitante_id) === Number(usuario.id));
+
+  // Regra: o usuário que abriu o chamado só vai conseguir trocar o status, aprovar/reprovar ou comentar caso assuma a tarefa
+  const solicitanteSemAssumir = ehSolicitante && !ehChamadoMae && !souResponsavel;
+
+  // Trocar status só é liberado se não for solicitante sem assumir a tarefa
+  const podeTrocarStatus = !solicitanteSemAssumir && Boolean(
+    usuario?.admin || permissaoChamados.editar || souResponsavel || souDoSetor
+  );
+
+  const podeEditarChamado = Boolean(
+    usuario?.admin || permissaoChamados.editar || souResponsavel || souDoSetor || ehSolicitante
+  );
+  const podeAssumirOuAtribuir = Boolean(
+    !finalizado && !ehChamadoMae && (usuario?.admin || permissaoChamados.editar || souResponsavel || souDoSetor || ehSolicitante)
+  );
 
   const ehEtapaAprovacao = Boolean(
     chamado.etapa_tipo === "aprovacao" ||
@@ -299,11 +314,11 @@ async function carregarDetalhe(chamadoRecebido = null) {
       <div class="cabecalho-lado-direito">
         <!-- Atualizar Status no Topo da Tela (Salva automaticamente ao selecionar) -->
         ${
-          podeEditarChamado
+          podeTrocarStatus
             ? `
           <div class="grupo-acao-status">
             <select id="select-status-topo" class="select-padrao select-acao-cabecalho" title="Alterar status do chamado">
-              ${statusList
+              ${(statusList && statusList.length > 0 ? statusList : [{ id: chamado.status_id, nome: chamado.status_nome }])
                 .filter((s) => {
                   // Na etapa de aprovação, a finalização com avanço deve ser realizada pelos botões de decisão
                   if (ehEtapaAprovacao && String(s.nome).toLowerCase() === "finalizado" && s.id !== chamado.status_id) {
@@ -365,16 +380,22 @@ async function carregarDetalhe(chamadoRecebido = null) {
           </div>
 
           ${
-            !finalizado && podeEditarChamado
+            !finalizado && podeAssumirOuAtribuir
               ? `
-            <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
-              <select id="select-atribuir-responsavel" class="select-padrao" style="min-width: 210px; max-width: 270px; padding: 0.35rem 0.6rem; font-size: 0.85rem; height: 32px; box-sizing: border-box;" title="Selecione um responsável para atribuir imediatamente">
-                <option value="">Atribuir para alguém do setor…</option>
-              </select>
+            <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: nowrap; width: 100%;">
+              ${
+                (souDoSetor || usuario?.admin || permissaoChamados.editar)
+                  ? `
+                <select id="select-atribuir-responsavel" class="select-padrao" style="flex: 1 1 auto; min-width: 160px; max-width: 250px; padding: 0.35rem 0.55rem; font-size: 0.85rem; height: 32px; box-sizing: border-box;" title="Selecione um responsável para atribuir imediatamente">
+                  <option value="">Atribuir para alguém do setor…</option>
+                </select>
+                `
+                  : ""
+              }
               ${
                 chamado.responsavel_id === usuario.id
-                  ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario" style="height: 32px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Liberar</button>`
-                  : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario" style="height: 32px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Assumir</button>`
+                  ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario" style="flex: 0 0 auto; height: 32px; padding: 0 0.85rem; font-size: 0.85rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Liberar</button>`
+                  : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario" style="flex: 0 0 auto; height: 32px; padding: 0 0.85rem; font-size: 0.85rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Assumir</button>`
               }
             </div>
           `
@@ -429,7 +450,7 @@ async function carregarDetalhe(chamadoRecebido = null) {
   }
 
   // Carrega lista de usuários em background sem travar a exibição da tela
-  if (!ehChamadoMae && !finalizado && podeEditarChamado) {
+  if (!ehChamadoMae && !finalizado && (podeEditarChamado || podeAssumirOuAtribuir)) {
     obterUsuarios().then((todos) => {
       const select = document.getElementById("select-atribuir-responsavel");
       if (!select) return;
@@ -639,9 +660,23 @@ async function carregarDetalhe(chamadoRecebido = null) {
   });
 
   const acaoContainer = document.getElementById("acao");
-  if (ehEtapaAprovacao && !finalizado && podeEditarChamado) {
-    acaoContainer.hidden = false;
-    renderAprovacao(chamado);
+  if (ehEtapaAprovacao && !finalizado) {
+    if (solicitanteSemAssumir) {
+      acaoContainer.hidden = false;
+      acaoContainer.innerHTML = `
+        <div class="painel" style="padding: 0.85rem 1.15rem; border-left: 4px solid #f59e0b; background: var(--cor-fundo); border-radius: 4px; margin-bottom: 1.5rem;">
+          <p style="margin: 0; font-size: 0.9rem; color: var(--cor-texto); line-height: 1.45;">
+            ℹ️ <strong>Você abriu este chamado:</strong> Para avaliar, aprovar, reprovar ou executar as ações desta etapa, você deve primeiro <strong>assumir a tarefa</strong> clicando em <em>Assumir</em> no bloco acima.
+          </p>
+        </div>
+      `;
+    } else if (podeEditarChamado) {
+      acaoContainer.hidden = false;
+      renderAprovacao(chamado);
+    } else {
+      acaoContainer.innerHTML = "";
+      acaoContainer.hidden = true;
+    }
   } else {
     acaoContainer.innerHTML = "";
     acaoContainer.hidden = true;
@@ -1273,7 +1308,12 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
     const formComentario = document.getElementById("form-comentario");
     let avisoBloqueio = document.getElementById("aviso-bloqueio-comentarios-mae");
 
-    if (chamadoInfo && chamadoInfo.pode_comentar === false) {
+    const ehChamadoMaeComentarios = Boolean(chamadoInfo?.eh_chamado_mae || !chamadoInfo?.chamado_mae_id || chamadoInfo?.chamado_mae_id === 0);
+    const ehSolicitanteComentarios = Boolean(usuario?.id && Number(chamadoInfo?.solicitante_id) === Number(usuario.id));
+    const souResponsavelComentarios = chamadoInfo?.responsavel_id != null && Number(chamadoInfo.responsavel_id) === Number(usuario?.id);
+    const solicitantePrecisaAssumirParaComentar = ehSolicitanteComentarios && !ehChamadoMaeComentarios && !souResponsavelComentarios;
+
+    if (chamadoInfo && (chamadoInfo.pode_comentar === false || solicitantePrecisaAssumirParaComentar)) {
       if (formComentario) formComentario.style.display = "none";
       if (!avisoBloqueio && formComentario && formComentario.parentNode) {
         avisoBloqueio = document.createElement("div");
@@ -1282,7 +1322,11 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
         formComentario.parentNode.insertBefore(avisoBloqueio, formComentario);
       }
       if (avisoBloqueio) {
-        avisoBloqueio.innerHTML = `🔒 <strong>Comentários e anexos encerrados:</strong> A primeira etapa de aprovação já foi avaliada. Novos comentários ou anexos não são mais permitidos na solicitação inicial.`;
+        if (solicitantePrecisaAssumirParaComentar) {
+          avisoBloqueio.innerHTML = `🔒 <strong>Comentários e anexos:</strong> Você abriu este chamado. Para fazer comentários ou enviar anexos nesta etapa, você deve primeiro <strong>assumir a tarefa</strong> clicando em <em>Assumir</em> no cabeçalho acima.`;
+        } else {
+          avisoBloqueio.innerHTML = `🔒 <strong>Comentários e anexos encerrados:</strong> A primeira etapa de aprovação já foi avaliada. Novos comentários ou anexos não são mais permitidos na solicitação inicial.`;
+        }
         avisoBloqueio.style.display = "block";
       }
     } else {

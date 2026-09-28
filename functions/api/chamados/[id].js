@@ -44,8 +44,18 @@ export async function onRequestPut(context) {
   const temPermissaoEditar = usuario.admin === 1 || Boolean(permissoes?.chamados?.editar);
   const ehResponsavel = chamadoAntes.responsavel_id != null && Number(chamadoAntes.responsavel_id) === Number(usuario.id);
   const ehMesmoSetor = chamadoAntes.setor_id != null && usuario.setor_id != null && Number(chamadoAntes.setor_id) === Number(usuario.setor_id);
+  const ehSolicitante = Number(chamadoAntes.solicitante_id) === Number(usuario.id);
+  const ehChamadoMae = !chamadoAntes.chamado_mae_id || chamadoAntes.chamado_mae_id === 0;
 
-  if (!temPermissaoEditar && !ehResponsavel && !ehMesmoSetor) {
+  // Regra: o usuário que abriu o chamado só vai conseguir trocar o status caso assuma a tarefa
+  if (body.status_id !== undefined && ehSolicitante && !ehChamadoMae && !ehResponsavel) {
+    return error("O usuário que abriu o chamado só pode alterar o status caso assuma a tarefa.", 403);
+  }
+
+  // O solicitante pode assumir a tarefa diretamente
+  const ehAutoAtribuicao = body.responsavel_id !== undefined && Number(body.responsavel_id) === Number(usuario.id);
+
+  if (!temPermissaoEditar && !ehResponsavel && !ehMesmoSetor && !(ehSolicitante && ehAutoAtribuicao)) {
     return error("Você não tem permissão para editar este chamado.", 403);
   }
 
@@ -56,7 +66,8 @@ export async function onRequestPut(context) {
     if (!usuarioDestino) {
       return error("Usuário responsável não encontrado", 404);
     }
-    if (chamadoAntes.setor_id && usuarioDestino.setor_id !== chamadoAntes.setor_id && usuario.admin !== 1) {
+    const ehAutoAtribuicaoSolicitante = ehSolicitante && Number(body.responsavel_id) === Number(usuario.id);
+    if (chamadoAntes.setor_id && usuarioDestino.setor_id !== chamadoAntes.setor_id && usuario.admin !== 1 && !ehAutoAtribuicaoSolicitante) {
       return error("O responsável deve pertencer ao setor da etapa deste chamado.", 403);
     }
 

@@ -95,3 +95,50 @@ test("onRequestPut rejeita cor duplicada quando outro status ja a utiliza", asyn
   const json = await res.json();
   assert.ok(json.error.includes("já está em uso pelo status"));
 });
+
+test("onRequestGet retorna lista de status para qualquer usuario autenticado", async () => {
+  const { onRequestGet } = await import("./index.js");
+  const token = await gerarToken(123, "segredo-teste");
+
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM usuarios WHERE id = ?")) {
+            return { id: 123, nome: "Comum", admin: 0 };
+          }
+          return null;
+        },
+        async all() {
+          if (sql.includes("SELECT * FROM status")) {
+            return { results: [{ id: 1, nome: "previsto", cor: "#2563eb" }, { id: 2, nome: "finalizado", cor: "#10b981" }] };
+          }
+          return { results: [] };
+        },
+        async run() {
+          return { meta: {} };
+        },
+      };
+    },
+  };
+
+  const context = {
+    env: { DB: mockDb, SESSAO_SEGREDO: "segredo-teste" },
+    request: new Request("http://localhost/api/status", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    }),
+  };
+
+  const res = await onRequestGet(context);
+  assert.equal(res.status, 200);
+  const lista = await res.json();
+  assert.equal(lista.length, 2);
+  assert.equal(lista[0].nome, "previsto");
+});

@@ -61,6 +61,15 @@ export async function onRequestPost(context) {
     return error(perm.motivo, 403);
   }
 
+  const ehChamadoMae = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
+  const ehSolicitante = Number(chamado.solicitante_id) === Number(usuario.id);
+  const ehResponsavel = chamado.responsavel_id != null && Number(chamado.responsavel_id) === Number(usuario.id);
+
+  // Regra: o usuário que abriu o chamado só vai conseguir enviar anexos caso assuma a tarefa
+  if (ehSolicitante && !ehChamadoMae && !ehResponsavel) {
+    return error("O usuário que abriu o chamado só pode enviar anexos caso assuma a tarefa.", 403);
+  }
+
   const body = await context.request.json();
   const { nome_arquivo, tipo_mime, tamanho_bytes, conteudo_base64, eh_privado = 0 } = body;
 

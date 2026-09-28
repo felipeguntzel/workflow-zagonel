@@ -212,3 +212,117 @@ test("onRequestPut rejeita alteração se usuário não for responsável, nem do
   assert.equal(res.status, 403);
 });
 
+test("onRequestPut rejeita solicitante alterando status se nao tiver assumido a tarefa", async () => {
+  const { onRequestPut } = await import("./[id].js");
+  const token = await gerarToken(10, SEGREDO);
+
+  const dbMock = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes("FROM usuarios WHERE id = ?")) {
+                return { id: 10, nome: "Jorge Ramos", setor_id: 1, admin: 0, deve_trocar_senha: 0 };
+              }
+              if (sql.includes("FROM chamados c")) {
+                return {
+                  id: 3,
+                  chamado_mae_id: 1,
+                  solicitante_id: 10, // É o solicitante
+                  responsavel_id: 5,  // Mas não é o responsável
+                  setor_id: 2,
+                  status_id: 1,
+                  status_nome: "previsto",
+                  titulo: "Aprovação 2",
+                };
+              }
+              return null;
+            },
+            async all() {
+              return { results: [] };
+            },
+            async run() {
+              return { meta: { changes: 1 } };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const ctx = {
+    request: new Request("http://localhost/api/chamados/3", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status_id: 2 }),
+    }),
+    params: { id: "3" },
+    env: { DB: dbMock, SESSAO_SEGREDO: SEGREDO },
+  };
+
+  const res = await onRequestPut(ctx);
+  assert.equal(res.status, 403);
+  const data = await res.json();
+  assert.ok(data.error.includes("só pode alterar o status caso assuma a tarefa"));
+});
+
+test("onRequestPut permite que solicitante assuma a tarefa mesmo sendo de outro setor", async () => {
+  const { onRequestPut } = await import("./[id].js");
+  const token = await gerarToken(10, SEGREDO);
+
+  const dbMock = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes("FROM usuarios WHERE id = ?")) {
+                return { id: 10, nome: "Jorge Ramos", setor_id: 1, admin: 0, deve_trocar_senha: 0 };
+              }
+              if (sql.includes("FROM chamados c")) {
+                return {
+                  id: 3,
+                  chamado_mae_id: 1,
+                  solicitante_id: 10, // É o solicitante
+                  responsavel_id: null,
+                  setor_id: 2,
+                  status_id: 1,
+                  status_nome: "previsto",
+                  titulo: "Aprovação 2",
+                };
+              }
+              return null;
+            },
+            async all() {
+              return { results: [] };
+            },
+            async run() {
+              return { meta: { changes: 1 } };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const ctx = {
+    request: new Request("http://localhost/api/chamados/3", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ responsavel_id: 10 }),
+    }),
+    params: { id: "3" },
+    env: { DB: dbMock, SESSAO_SEGREDO: SEGREDO },
+  };
+
+  const res = await onRequestPut(ctx);
+  assert.equal(res.status, 200);
+});
+

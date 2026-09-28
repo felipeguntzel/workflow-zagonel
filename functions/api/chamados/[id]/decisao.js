@@ -27,6 +27,13 @@ export async function onRequestPost(context) {
     const temPermissaoEditar = usuario.admin === 1 || Boolean(permissoes?.chamados?.editar);
     const ehResponsavel = chamado.responsavel_id != null && Number(chamado.responsavel_id) === Number(usuario.id);
     const ehMesmoSetor = chamado.setor_id != null && usuario.setor_id != null && Number(chamado.setor_id) === Number(usuario.setor_id);
+    const ehSolicitante = Number(chamado.solicitante_id) === Number(usuario.id);
+    const ehChamadoMae = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
+
+    // Regra: o usuário que abriu o chamado só vai conseguir aprovar e reprovar caso assuma a tarefa
+    if (ehSolicitante && !ehChamadoMae && !ehResponsavel) {
+      return error("O usuário que abriu o chamado só pode aprovar, reprovar ou executar ações caso assuma a tarefa.", 403);
+    }
 
     if (!temPermissaoEditar && !ehResponsavel && !ehMesmoSetor) {
       return error("Você não tem permissão para registrar decisões neste chamado.", 403);
