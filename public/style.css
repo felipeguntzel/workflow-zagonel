@@ -422,6 +422,7 @@ form.formulario[hidden] { display: none; }
   font-weight: 800;
   font-size: 1.15rem;
   line-height: 1;
+  cursor: pointer;
 }
 .sidebar__logo-img {
   width: 1.85rem;
@@ -429,6 +430,7 @@ form.formulario[hidden] { display: none; }
   border-radius: 0.35rem;
   display: block;
   flex-shrink: 0;
+  cursor: pointer;
 }
 .sidebar__logo-texto {
   display: inline-flex;

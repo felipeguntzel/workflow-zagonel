@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { VERSAO_CLIENTE, removerIndicadorDiscretoNovaVersao } from "./versao.js";
+import { VERSAO_CLIENTE, DATA_VERSAO_CLIENTE, removerIndicadorDiscretoNovaVersao } from "./versao.js";
 import { limparCacheApi } from "./api.js";
 import { setUsuarioLogado, logout } from "./auth.js";
 
@@ -24,6 +24,11 @@ globalThis.localStorage = globalThis.localStorage || {
 test("VERSAO_CLIENTE está definida e segue semver", () => {
   assert.ok(VERSAO_CLIENTE);
   assert.match(VERSAO_CLIENTE, /^\d+\.\d+\.\d+/);
+});
+
+test("DATA_VERSAO_CLIENTE está definida e segue formato DD/MM/AAAA", () => {
+  assert.ok(DATA_VERSAO_CLIENTE);
+  assert.match(DATA_VERSAO_CLIENTE, /^\d{2}\/\d{2}\/\d{4}$/);
 });
 
 test("limparCacheApi executa sem lançar erros", () => {
