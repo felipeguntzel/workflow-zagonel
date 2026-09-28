@@ -41,9 +41,18 @@ async function iniciar(usuarioLogado) {
 
   try {
     const [resFluxos, resEmpresas, resSetores] = await Promise.all([
-      api("/fluxos").catch(() => []),
-      api("/empresas").catch(() => []),
-      api("/setores").catch(() => []),
+      api("/fluxos").catch((err) => {
+        console.error("Erro ao carregar fluxos:", err);
+        return [];
+      }),
+      api("/empresas").catch((err) => {
+        console.error("Erro ao carregar empresas:", err);
+        return [];
+      }),
+      api("/setores").catch((err) => {
+        console.error("Erro ao carregar setores:", err);
+        return [];
+      }),
     ]);
     fluxos = Array.isArray(resFluxos)
       ? resFluxos.filter((f) => f.ativo !== 0 && f.ativo !== false && f.ativo !== "0")
@@ -58,6 +67,7 @@ async function iniciar(usuarioLogado) {
       : [];
     setores = Array.isArray(resSetores) ? resSetores : [];
   } catch (e) {
+    console.error("Erro ao inicializar dados de novo chamado:", e);
     fluxos = [];
     empresas = [];
     setores = [];

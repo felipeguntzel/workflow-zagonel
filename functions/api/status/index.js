@@ -6,7 +6,8 @@ import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 import { obterProximoIdDisponivel, atualizarContadorId } from "../../_lib/dependencias.js";
 
 export async function onRequestGet(context) {
-  const { erro } = await exigirPermissao(context, "status", "visualizar");
+  // Qualquer usuario autenticado pode consultar lista de status para chamados e filtros
+  const { erro } = await exigirUsuarioLogado(context);
   if (erro) return erro;
   await assegurarEsquemaTabela(context.env.DB, "status");
   const lista = await all(context.env.DB, "SELECT * FROM status ORDER BY id");

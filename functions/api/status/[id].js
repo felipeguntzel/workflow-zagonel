@@ -1,11 +1,11 @@
 import { first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { exigirPermissao } from "../../_lib/permissoes.js";
+import { exigirPermissao, exigirUsuarioLogado } from "../../_lib/permissoes.js";
 import { assegurarEsquemaTabela, validarDependenciasExclusao, atualizarContadorId } from "../../_lib/crud.js";
 import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 
 export async function onRequestGet(context) {
-  const { erro } = await exigirPermissao(context, "status", "visualizar");
+  const { erro } = await exigirUsuarioLogado(context);
   if (erro) return erro;
   await assegurarEsquemaTabela(context.env.DB, "status");
   const row = await first(context.env.DB, "SELECT * FROM status WHERE id = ?", context.params.id);

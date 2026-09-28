@@ -1,10 +1,11 @@
 import { all, first, run } from "../../../_lib/db.js";
 import { json, error } from "../../../_lib/http.js";
-import { exigirPermissao } from "../../../_lib/permissoes.js";
+import { exigirPermissao, exigirUsuarioLogado } from "../../../_lib/permissoes.js";
 import { obterProximoIdDisponivel, atualizarContadorId } from "../../../_lib/dependencias.js";
 
 export async function onRequestGet(context) {
-  const { erro } = await exigirPermissao(context, "fluxos", "visualizar");
+  // Qualquer usuario autenticado pode consultar etapas do fluxo para abertura de chamados
+  const { erro } = await exigirUsuarioLogado(context);
   if (erro) return erro;
   const etapas = await all(
     context.env.DB,

@@ -1,6 +1,6 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { exigirPermissao } from "../../_lib/permissoes.js";
+import { exigirPermissao, exigirUsuarioLogado } from "../../_lib/permissoes.js";
 import { obterProximoIdDisponivel, atualizarContadorId } from "../../_lib/dependencias.js";
 
 async function carregarEmpresasDosSetores(db) {
@@ -12,13 +12,8 @@ async function carregarEmpresasDosSetores(db) {
 }
 
 export async function onRequestGet(context) {
-  let { erro } = await exigirPermissao(context, "setores", "visualizar");
-  if (erro) {
-    ({ erro } = await exigirPermissao(context, "dashboards", "visualizar"));
-  }
-  if (erro) {
-    ({ erro } = await exigirPermissao(context, "chamados", "visualizar"));
-  }
+  // Qualquer usuario autenticado pode listar setores para abertura ou consulta de chamados
+  const { erro } = await exigirUsuarioLogado(context);
   if (erro) return erro;
 
   const setores = await all(context.env.DB, "SELECT * FROM setores ORDER BY id");
