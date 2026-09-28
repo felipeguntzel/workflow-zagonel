@@ -126,6 +126,8 @@ export async function garantirColunasChamados(db) {
       }
     }
 
+    await repararFksOrfasChamados(db);
+
     const statusCols = await all(db, "PRAGMA table_info(status)").catch(() => []);
     const statusNomes = new Set(statusCols.map((c) => c.name.toLowerCase()));
     if (!statusNomes.has("cor")) {
@@ -156,6 +158,104 @@ export async function garantirColunasChamados(db) {
     colunasChamadosGarantidas = true;
   } catch (err) {
     console.error("Aviso ao garantir colunas de chamados:", err);
+  }
+}
+
+let fksOrfasReparadas = false;
+export async function repararFksOrfasChamados(db) {
+  if (fksOrfasReparadas) return;
+  try {
+    const tabelasComFkQuebrada = await all(
+      db,
+      "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND (sql LIKE '%_chamados_old%' OR sql LIKE '%_chamados_antigo%')"
+    ).catch(() => []);
+
+    if (!tabelasComFkQuebrada || tabelasComFkQuebrada.length === 0) {
+      fksOrfasReparadas = true;
+      return;
+    }
+
+    await run(db, "PRAGMA foreign_keys = OFF").catch(() => {});
+
+    for (const tbl of tabelasComFkQuebrada) {
+      const nome = tbl.name;
+      if (nome === "comentarios") {
+        await run(db, `CREATE TABLE IF NOT EXISTS _comentarios_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chamado_id INTEGER NOT NULL REFERENCES chamados(id),
+          usuario_id INTEGER REFERENCES usuarios(id),
+          data TEXT NOT NULL,
+          texto TEXT NOT NULL,
+          eh_justificativa INTEGER NOT NULL DEFAULT 0,
+          eh_privado INTEGER NOT NULL DEFAULT 0
+        )`).catch(() => {});
+        await run(db, "INSERT INTO _comentarios_new (id, chamado_id, usuario_id, data, texto, eh_justificativa, eh_privado) SELECT id, chamado_id, usuario_id, data, texto, COALESCE(eh_justificativa, 0), COALESCE(eh_privado, 0) FROM comentarios").catch(() => {});
+        await run(db, "DROP TABLE comentarios").catch(() => {});
+        await run(db, "ALTER TABLE _comentarios_new RENAME TO comentarios").catch(() => {});
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_comentarios_chamado ON comentarios(chamado_id)").catch(() => {});
+      } else if (nome === "apontamentos_horas") {
+        await run(db, `CREATE TABLE IF NOT EXISTS _apontamentos_horas_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chamado_id INTEGER NOT NULL REFERENCES chamados(id),
+          usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+          data TEXT NOT NULL,
+          horas REAL NOT NULL,
+          observacao TEXT
+        )`).catch(() => {});
+        await run(db, "INSERT INTO _apontamentos_horas_new (id, chamado_id, usuario_id, data, horas, observacao) SELECT id, chamado_id, usuario_id, data, horas, observacao FROM apontamentos_horas").catch(() => {});
+        await run(db, "DROP TABLE apontamentos_horas").catch(() => {});
+        await run(db, "ALTER TABLE _apontamentos_horas_new RENAME TO apontamentos_horas").catch(() => {});
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_apontamentos_chamado_data ON apontamentos_horas(chamado_id, data)").catch(() => {});
+      } else if (nome === "chamado_campos_valores") {
+        await run(db, `CREATE TABLE IF NOT EXISTS _chamado_campos_valores_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chamado_id INTEGER NOT NULL REFERENCES chamados(id) ON DELETE CASCADE,
+          campo_id INTEGER NOT NULL REFERENCES campos_etapa(id) ON DELETE CASCADE,
+          valor TEXT,
+          UNIQUE(chamado_id, campo_id)
+        )`).catch(() => {});
+        await run(db, "INSERT INTO _chamado_campos_valores_new (id, chamado_id, campo_id, valor) SELECT id, chamado_id, campo_id, valor FROM chamado_campos_valores").catch(() => {});
+        await run(db, "DROP TABLE chamado_campos_valores").catch(() => {});
+        await run(db, "ALTER TABLE _chamado_campos_valores_new RENAME TO chamado_campos_valores").catch(() => {});
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_chamado_campos_chamado ON chamado_campos_valores(chamado_id)").catch(() => {});
+      } else if (nome === "chamado_anexos") {
+        await run(db, `CREATE TABLE IF NOT EXISTS _chamado_anexos_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chamado_id INTEGER NOT NULL REFERENCES chamados(id) ON DELETE CASCADE,
+          usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+          nome_arquivo TEXT NOT NULL,
+          tipo_mime TEXT NOT NULL,
+          tamanho_bytes INTEGER NOT NULL,
+          conteudo_base64 TEXT NOT NULL,
+          eh_privado INTEGER NOT NULL DEFAULT 0,
+          criado_em TEXT NOT NULL
+        )`).catch(() => {});
+        await run(db, "INSERT INTO _chamado_anexos_new (id, chamado_id, usuario_id, nome_arquivo, tipo_mime, tamanho_bytes, conteudo_base64, eh_privado, criado_em) SELECT id, chamado_id, usuario_id, nome_arquivo, tipo_mime, tamanho_bytes, conteudo_base64, COALESCE(eh_privado, 0), criado_em FROM chamado_anexos").catch(() => {});
+        await run(db, "DROP TABLE chamado_anexos").catch(() => {});
+        await run(db, "ALTER TABLE _chamado_anexos_new RENAME TO chamado_anexos").catch(() => {});
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_chamado_anexos_chamado ON chamado_anexos(chamado_id)").catch(() => {});
+      } else if (nome === "historico_auditoria") {
+        await run(db, `CREATE TABLE IF NOT EXISTS _historico_auditoria_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chamado_mae_id INTEGER NOT NULL REFERENCES chamados(id) ON DELETE CASCADE,
+          chamado_id INTEGER NOT NULL REFERENCES chamados(id) ON DELETE CASCADE,
+          usuario_id INTEGER REFERENCES usuarios(id),
+          usuario_nome TEXT NOT NULL,
+          acao TEXT NOT NULL,
+          detalhes TEXT NOT NULL,
+          criado_em TEXT NOT NULL
+        )`).catch(() => {});
+        await run(db, "INSERT INTO _historico_auditoria_new (id, chamado_mae_id, chamado_id, usuario_id, usuario_nome, acao, detalhes, criado_em) SELECT id, chamado_mae_id, chamado_id, usuario_id, usuario_nome, acao, detalhes, criado_em FROM historico_auditoria").catch(() => {});
+        await run(db, "DROP TABLE historico_auditoria").catch(() => {});
+        await run(db, "ALTER TABLE _historico_auditoria_new RENAME TO historico_auditoria").catch(() => {});
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_historico_chamado_mae ON historico_auditoria(chamado_mae_id)").catch(() => {});
+      }
+    }
+
+    await run(db, "PRAGMA foreign_keys = ON").catch(() => {});
+    fksOrfasReparadas = true;
+  } catch (err) {
+    console.error("Falha ao reparar FKs órfãs de chamados:", err);
   }
 }
 

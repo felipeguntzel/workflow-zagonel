@@ -7,6 +7,7 @@ import {
   computarBloqueado,
   avancarFluxo,
   sincronizarProgressoChamadoMae,
+  repararFksOrfasChamados,
 } from "../../_lib/chamados.js";
 import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
 import { exigirPermissao } from "../../_lib/permissoes.js";
@@ -191,6 +192,8 @@ export async function onRequestDelete(context) {
   try {
     const { usuario, erro } = await exigirPermissao(context, "chamados", "excluir");
     if (erro) return erro;
+
+    await repararFksOrfasChamados(context.env.DB);
 
     const chamado = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
     if (!chamado) {
