@@ -115,8 +115,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navegação em páginas HTML: Network First com fallback para cache
-  if (req.mode === "navigate" || req.headers.get("accept")?.includes("text/html")) {
+  // Navegação e requisições em páginas HTML: Network First com fallback para cache
+  if (
+    url.pathname.endsWith(".html") ||
+    url.pathname === "/" ||
+    req.mode === "navigate" ||
+    req.headers.get("accept")?.includes("text/html")
+  ) {
     event.respondWith(
       fetch(req)
         .then((respostaRede) => {

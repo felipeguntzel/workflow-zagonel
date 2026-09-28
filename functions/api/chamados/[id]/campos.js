@@ -19,6 +19,9 @@ export async function onRequestGet(context) {
     ? chamado
     : await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", raizId);
 
+  const ehSolicitante = usuario.id === (mae?.solicitante_id || chamado.solicitante_id);
+  const ehAdmin = usuario.admin === 1;
+
   // 2. Determinar a etapa da solicitação original (chamado mãe)
   let etapaMaeId = mae?.etapa_id;
   if (!etapaMaeId && mae?.fluxo_template_id) {
@@ -38,7 +41,7 @@ export async function onRequestGet(context) {
       camposMaeFormatados = camposMae.map((c) => ({
         ...c,
         da_solicitacao: true,
-        somente_leitura: ehChamadoMae ? (c.somente_leitura || 0) : 1,
+        somente_leitura: ehChamadoMae ? (c.somente_leitura || 0) : ((ehSolicitante || ehAdmin) ? (c.somente_leitura || 0) : 1),
         origem_etapa: "Solicitação Original"
       }));
     }
@@ -121,20 +124,45 @@ export async function onRequestPut(context) {
   const chamado = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
   if (!chamado) return error("Chamado não encontrado", 404);
 
-  const ehSolicitante = usuario.id === chamado.solicitante_id;
+  const raizId = chamado.chamado_mae_id || chamado.id;
+  const ehChamadoMae = chamado.chamado_mae_id == null;
+
+  const mae = ehChamadoMae
+    ? chamado
+    : await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", raizId);
+
+  const ehSolicitante = usuario.id === (mae?.solicitante_id || chamado.solicitante_id);
   const ehAdmin = usuario.admin === 1;
 
   // No chamado mãe, apenas o solicitante e administradores podem editar
-  if (chamado.chamado_mae_id == null && !ehSolicitante && !ehAdmin) {
-    return error("Apenas o solicitante e administradores podem editar os dados do chamado mãe.", 403);
+  if (ehChamadoMae && !ehSolicitante && !ehAdmin) {
+    return error("Apenas o solicitante e administradores podem editar os dados da solicitação inicial.", 403);
   }
 
   const body = await context.request.json();
   const valores = body.valores || body; // aceita { valores: { ... } } ou { campoId: valor }
 
-  await salvarValoresCamposChamado(context.env.DB, chamado.id, valores, chamado.etapa_id);
+  let etapaMaeId = mae?.etapa_id;
+  if (!etapaMaeId && mae?.fluxo_template_id) {
+    const inicial = await first(
+      context.env.DB,
+      "SELECT id FROM etapas WHERE fluxo_template_id = ? ORDER BY eh_inicial DESC, id ASC LIMIT 1",
+      mae.fluxo_template_id
+    );
+    etapaMaeId = inicial?.id;
+  }
 
-  const raizId = chamado.chamado_mae_id || chamado.id;
+  if (ehChamadoMae) {
+    await salvarValoresCamposChamado(context.env.DB, chamado.id, valores, etapaMaeId || chamado.etapa_id);
+  } else {
+    // Se for subchamado, salva os campos da etapa atual no subchamado
+    await salvarValoresCamposChamado(context.env.DB, chamado.id, valores, chamado.etapa_id);
+    // E se o usuário for solicitante ou admin e enviou campos da solicitação inicial, salva também no chamado mãe
+    if ((ehSolicitante || ehAdmin) && etapaMaeId) {
+      await salvarValoresCamposChamado(context.env.DB, raizId, valores, etapaMaeId);
+    }
+  }
+
   const etapa = chamado.etapa_id ? await first(context.env.DB, "SELECT nome FROM etapas WHERE id = ?", chamado.etapa_id) : null;
   const etapaNome = etapa?.nome || (chamado.chamado_mae_id ? `Etapa #${chamado.id}` : "Solicitação Inicial");
   await registrarAuditoria(context.env.DB, {

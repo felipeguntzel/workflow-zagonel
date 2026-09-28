@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { escaparHtml, mostrarErro, debounce, exportarParaCsv, anunciarA11y } from "./ui.js";
+import { escaparHtml, mostrarErro, debounce, exportarParaCsv, anunciarA11y, formatarDataHoraBR } from "./ui.js";
 import { confirmarAcao } from "./modal.js";
 import { tornarTabelaReordenavel } from "./tabela-colunas.js";
 
@@ -457,22 +457,7 @@ function renderizarTabela(logs) {
   };
 
   const formatarData = (str) => {
-    if (!str) return "-";
-    try {
-      const iso = str.includes("T") ? str : str.replace(" ", "T") + "Z";
-      const d = new Date(iso);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        });
-      }
-    } catch (_) {}
-    return str.replace("T", " ").slice(0, 19);
+    return formatarDataHoraBR(str);
   };
 
   const linhasHtml = logs
@@ -542,7 +527,7 @@ function abrirModalDetalhes(log) {
 
   modalConteudo.innerHTML = `
     <div style="margin-bottom: 0.75rem; line-height: 1.6;">
-      <strong>Data/Hora:</strong> ${escaparHtml(log.criado_em)}<br>
+      <strong>Data/Hora:</strong> ${escaparHtml(formatarDataHoraBR(log.criado_em))}<br>
       <strong>Usuário Responsável:</strong> ${escaparHtml(log.usuario_nome)} (ID ${log.usuario_id ?? "Sistema"})<br>
       <strong>Ação:</strong> ${escaparHtml(log.acao)}<br>
       <strong>Descrição:</strong> ${escaparHtml(log.detalhes || "-")}

@@ -1,7 +1,7 @@
 import { logout, permissaoDaTela } from "./auth.js";
 import { escaparHtml } from "./ui.js";
 import { api } from "./api.js";
-import { forcarAtualizacaoApp, inicializarMonitoramentoVersao, VERSAO_CLIENTE } from "./versao.js";
+import { forcarAtualizacaoApp, inicializarMonitoramentoVersao, VERSAO_CLIENTE, DATA_HORA_VERSAO_CLIENTE } from "./versao.js";
 
 const CHAVE_COLAPSADA = "workflow_zagonel_sidebar_colapsada";
 
@@ -119,18 +119,27 @@ export async function navegarPara(url, push = true) {
   barra.style.width = "45%";
 
   try {
-    let html = cachePaginas.get(rota);
-    if (!html) {
-      const arquivo = rota === "" ? "index.html" : `${rota}.html`;
-      let resp = await fetch(`/${arquivo}`, { cache: "no-cache" });
-      if (!resp.ok) resp = await fetch(`/${rota}`, { cache: "no-cache" });
-      if (!resp.ok) {
-        const dest = url.startsWith("/") ? url : `/${url}`;
-        window.location.href = dest;
-        return;
+    let html = null;
+    const arquivo = rota === "" ? "index.html" : `${rota}.html`;
+    try {
+      let resp = await fetch(`/${arquivo}`, { cache: "no-cache", headers: { Accept: "text/html" } });
+      if (!resp.ok) resp = await fetch(`/${rota}`, { cache: "no-cache", headers: { Accept: "text/html" } });
+      if (resp.ok) {
+        html = await resp.text();
+        cachePaginas.set(rota, html);
       }
-      html = await resp.text();
-      cachePaginas.set(rota, html);
+    } catch (_) {
+      html = cachePaginas.get(rota);
+    }
+
+    if (!html) {
+      html = cachePaginas.get(rota);
+    }
+
+    if (!html) {
+      const dest = url.startsWith("/") ? url : `/${url}`;
+      window.location.href = dest;
+      return;
     }
 
     barra.style.width = "80%";
@@ -200,6 +209,10 @@ export async function navegarPara(url, push = true) {
     const sidebar = document.querySelector(".sidebar");
     if (sidebar && sidebar.classList.contains("aberta")) {
       sidebar.classList.remove("aberta");
+    }
+    const overlay = document.querySelector(".sidebar-overlay");
+    if (overlay && overlay.classList.contains("visivel")) {
+      overlay.classList.remove("visivel");
     }
 
     // Montar URL limpa para histórico
@@ -294,8 +307,8 @@ function construirSidebar(usuario, modalBusca) {
 
   sidebar.innerHTML = `
     <div class="sidebar__cabecalho">
-      <span class="sidebar__logo">
-        <img src="favicon.svg" alt="" class="sidebar__logo-img">
+      <span class="sidebar__logo" title="WorkFlow v${VERSAO_CLIENTE} - Data e Hora: ${DATA_HORA_VERSAO_CLIENTE}">
+        <img src="favicon.svg" alt="WorkFlow" class="sidebar__logo-img" title="WorkFlow v${VERSAO_CLIENTE} - Data e Hora: ${DATA_HORA_VERSAO_CLIENTE}">
         <span class="sidebar__logo-texto">WorkFlow</span>
       </span>
       <button type="button" class="sidebar__colapsar" id="btn-colapsar-sidebar" aria-label="Recolher menu">«</button>
@@ -330,11 +343,11 @@ function construirSidebar(usuario, modalBusca) {
           <span>Preferências</span>
         </a>
         <a href="#" id="link-atualizar-app" class="sidebar__usuario-item" title="Forçar limpeza de cache e recarregar a versão mais recente">
-          <span>🔄 Atualizar app (v${VERSAO_CLIENTE})</span>
+          <span>Atualizar app</span>
         </a>
         <hr class="sidebar__usuario-divisor">
-        <a href="#" id="link-logout-todos" class="sidebar__usuario-item sidebar__usuario-item--alerta">
-          <span>Sair de todos os dispositivos</span>
+        <a href="#" id="link-logout-todos" class="sidebar__usuario-item sidebar__usuario-item--alerta" title="Sair de todos os dispositivos">
+          <span>Sair de todos</span>
         </a>
         <a href="#" id="link-sair" class="sidebar__usuario-item sidebar__usuario-item--sair">
           <span>Sair</span>

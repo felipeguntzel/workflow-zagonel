@@ -105,6 +105,65 @@ async function obterColunasTabela(db, tabela) {
 const bancosValoresGarantidos = new WeakSet();
 export async function garantirTabelaValores(db) {
   if (db && typeof db === "object" && bancosValoresGarantidos.has(db)) return;
+
+  // 1. Detectar e reparar foreign keys órfãs ou quebradas (ex: REFERENCES "_chamados_old")
+  try {
+    const tblInfo = await first(
+      db,
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chamado_campos_valores'"
+    ).catch(() => null);
+
+    if (
+      tblInfo?.sql &&
+      (tblInfo.sql.includes("_chamados_old") ||
+        tblInfo.sql.includes("_chamados_antigo") ||
+        tblInfo.sql.includes('"_chamados_old"'))
+    ) {
+      await run(db, "PRAGMA foreign_keys = OFF").catch(() => {});
+      await run(db, "DROP TABLE IF EXISTS _chamado_campos_valores_fix").catch(() => {});
+      await run(
+        db,
+        `CREATE TABLE _chamado_campos_valores_fix (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chamado_id INTEGER NOT NULL REFERENCES chamados(id) ON DELETE CASCADE,
+          campo_id INTEGER NOT NULL,
+          valor TEXT,
+          UNIQUE(chamado_id, campo_id)
+        )`
+      ).catch(() => {});
+
+      const colList = await all(db, "PRAGMA table_info(chamado_campos_valores)").catch(() => []);
+      const cNomes = new Set(colList.map((c) => c.name.toLowerCase()));
+      const cCampo = cNomes.has("campo_id")
+        ? "campo_id"
+        : cNomes.has("etapa_campo_id")
+        ? "etapa_campo_id"
+        : cNomes.has("campo_etapa_id")
+        ? "campo_etapa_id"
+        : "NULL";
+
+      await run(
+        db,
+        `INSERT OR REPLACE INTO _chamado_campos_valores_fix (id, chamado_id, campo_id, valor)
+         SELECT id, chamado_id, ${cCampo}, valor FROM chamado_campos_valores WHERE ${cCampo} IS NOT NULL`
+      ).catch(() => {});
+
+      await run(db, "DROP TABLE chamado_campos_valores").catch(() => {});
+      await run(db, "ALTER TABLE _chamado_campos_valores_fix RENAME TO chamado_campos_valores").catch(() => {});
+      await run(
+        db,
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_chamado_campos_valores_chamado_campo ON chamado_campos_valores(chamado_id, campo_id)"
+      ).catch(() => {});
+      await run(
+        db,
+        "CREATE INDEX IF NOT EXISTS idx_chamado_campos_chamado ON chamado_campos_valores(chamado_id)"
+      ).catch(() => {});
+      await run(db, "PRAGMA foreign_keys = ON").catch(() => {});
+    }
+  } catch (errReparo) {
+    console.error("Aviso ao reparar FK de chamado_campos_valores:", errReparo);
+  }
+
   try {
     await run(
       db,
@@ -556,6 +615,25 @@ export async function salvarValoresCamposChamado(db, chamadoId, valoresObjeto, e
       );
     } catch (err) {
       console.error(`Falha ao gravar campo personalizado ${campoId} para chamado ${chamadoId}:`, err);
+      if (
+        String(err?.message || "").includes("_chamados_old") ||
+        String(err?.message || "").includes("foreign key") ||
+        String(err?.message || "").includes("no such table")
+      ) {
+        try {
+          if (db && typeof db === "object") bancosValoresGarantidos.delete(db);
+          await garantirTabelaValores(db);
+          await run(
+            db,
+            `INSERT OR REPLACE INTO chamado_campos_valores (chamado_id, campo_id, valor) VALUES (?, ?, ?)`,
+            chamadoId,
+            campoId,
+            valorStr
+          );
+        } catch (retryErr) {
+          console.error(`Falha persistente ao regravar campo personalizado ${campoId}:`, retryErr);
+        }
+      }
     }
   }
 }

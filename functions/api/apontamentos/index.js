@@ -190,6 +190,12 @@ export async function onRequestPost(context) {
     return error("Chamado não encontrado", 404);
   }
 
+  // Não permitir apontamento de horas no chamado da solicitação inicial
+  const ehChamadoInicial = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
+  if (ehChamadoInicial) {
+    return error("Apontamento de horas não é permitido na solicitação inicial. As horas devem ser apontadas nas etapas e atividades do fluxo.", 400);
+  }
+
   // Validação: só permitir apontamento se o usuário for administrador ou for o usuário responsável pela atividade
   const ehAdmin = usuario.admin === 1 || usuario.admin === true;
   let ehResponsavel = chamado.responsavel_id === usuario.id;

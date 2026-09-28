@@ -252,17 +252,21 @@ function renderizarTabela() {
       ? `<tr><td colspan="12" style="text-align:center; padding: 2rem; color: var(--cor-texto-secundario);">Nenhum chamado encontrado para os filtros selecionados.</td></tr>`
       : paginaDados
           .map((c) => {
-            // Regra: só permite apontamento se o usuário for administrador ou for o responsável pela atividade
-            const podeApontar = ehAdmin || (c.responsavel_id && Number(c.responsavel_id) === Number(usuarioLogado.id));
+            const ehChamadoInicial = !c.chamado_mae_id || c.chamado_mae_id === 0;
 
-            const btnApontarHtml = podeApontar
-              ? `<button type="button" class="btn btn-secundario btn-apontar-tabela" data-chamado-id="${c.id}" data-chamado-titulo="${escaparAtributo(c.titulo || '')}" title="Lançar horas neste chamado">⏱️ Apontar</button>`
-              : `<button type="button" class="btn btn-secundario btn-apontar-tabela" disabled style="opacity: 0.35; cursor: not-allowed;" title="Apenas o responsável pela atividade ou um administrador pode realizar apontamentos">⏱️ Apontar</button>`;
+            // Regra: apontamento não é liberado no chamado inicial; nas demais etapas, requer ser admin ou responsável
+            let btnApontarHtml = "";
+            if (!ehChamadoInicial) {
+              const podeApontar = ehAdmin || (c.responsavel_id && Number(c.responsavel_id) === Number(usuarioLogado.id));
+              btnApontarHtml = podeApontar
+                ? `<button type="button" class="btn btn-secundario btn-apontar-tabela" data-chamado-id="${c.id}" data-chamado-titulo="${escaparAtributo(c.titulo || '')}" title="Lançar horas neste chamado">⏱️ Apontar</button>`
+                : `<button type="button" class="btn btn-secundario btn-apontar-tabela" disabled style="opacity: 0.35; cursor: not-allowed;" title="Apenas o responsável pela atividade ou um administrador pode realizar apontamentos">⏱️ Apontar</button>`;
+            }
 
-            // Abrir o chamado leva direto para a visualização e execução do chamado
+            // Visão padrão da solicitação inicial é a Visão Geral
             const idChamadoGeral = c.chamado_mae_id || c.id;
-            const destinoLink = `/chamado?id=${c.id}`;
-            const tituloTooltip = "Abrir chamado";
+            const destinoLink = ehChamadoInicial ? `/geral?id=${c.id}` : `/chamado?id=${c.id}`;
+            const tituloTooltip = ehChamadoInicial ? "Ver visão geral do fluxo" : "Abrir chamado";
 
             return `
               <tr>

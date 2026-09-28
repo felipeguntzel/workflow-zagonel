@@ -6,7 +6,8 @@ import {
   salvarCampoEtapa,
   validarCamposObrigatorios,
   salvarValoresCamposChamado,
-  carregarCamposEValoresDoChamado
+  carregarCamposEValoresDoChamado,
+  garantirTabelaValores
 } from "./campos.js";
 
 test("normalizarTipoCampo converte tipos para os nomes aceitos pelo SQLite D1", () => {
@@ -328,5 +329,51 @@ test("salvarValoresCamposChamado preenche etapa_campo_id quando a coluna existe 
   assert.equal(gravacoes[0].params[1], 42);
   assert.equal(gravacoes[0].params[2], 42);
   assert.equal(gravacoes[0].params[3], "Ducha 9000W");
+});
+
+test("garantirTabelaValores repara tabela chamado_campos_valores quando referencia _chamados_old", async () => {
+  const comandosExecutados = [];
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async run() {
+          comandosExecutados.push(sql);
+          return { meta: {} };
+        },
+        async all() {
+          if (sql.includes("PRAGMA table_info(chamado_campos_valores)")) {
+            return {
+              results: [
+                { name: "id" },
+                { name: "chamado_id" },
+                { name: "campo_id" },
+                { name: "valor" }
+              ]
+            };
+          }
+          return { results: [] };
+        },
+        async first() {
+          if (sql.includes("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chamado_campos_valores'")) {
+            return {
+              sql: 'CREATE TABLE chamado_campos_valores (id INTEGER PRIMARY KEY, chamado_id INTEGER REFERENCES "_chamados_old"(id), campo_id INTEGER, valor TEXT)'
+            };
+          }
+          return null;
+        }
+      };
+    }
+  };
+
+  await garantirTabelaValores(mockDb);
+
+  const reparouTabela = comandosExecutados.some((cmd) => cmd.includes("_chamado_campos_valores_fix"));
+  const recriouIndex = comandosExecutados.some((cmd) => cmd.includes("idx_chamado_campos_valores_chamado_campo"));
+  assert.ok(reparouTabela, "Deveria ter executado processo de reparo com tabela temporária de fix");
+  assert.ok(recriouIndex, "Deveria ter recriado índice único após reparo");
 });
 

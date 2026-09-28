@@ -1,9 +1,11 @@
 import { all, first, run } from "../../../_lib/db.js";
 import { json, error } from "../../../_lib/http.js";
-import { exigirPermissao } from "../../../_lib/permissoes.js";
+import { exigirPermissao, exigirUsuarioLogado } from "../../../_lib/permissoes.js";
+import { obterProximoIdDisponivel, atualizarContadorId } from "../../../_lib/dependencias.js";
 
 export async function onRequestGet(context) {
-  const { erro } = await exigirPermissao(context, "fluxos", "visualizar");
+  // Qualquer usuario autenticado pode consultar etapas do fluxo para abertura de chamados
+  const { erro } = await exigirUsuarioLogado(context);
   if (erro) return erro;
   const etapas = await all(
     context.env.DB,
@@ -20,10 +22,12 @@ export async function onRequestPost(context) {
   if (!body.nome || !body.setor_id || !body.tipo) {
     return error("Campos obrigatórios: nome, setor_id, tipo");
   }
+  const proximoId = await obterProximoIdDisponivel(context.env.DB, "etapas");
   const resultado = await run(
     context.env.DB,
-    `INSERT INTO etapas (fluxo_template_id, nome, setor_id, tipo, eh_inicial, etapa_proxima_id, etapa_proxima_vinculo)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO etapas (id, fluxo_template_id, nome, setor_id, tipo, eh_inicial, etapa_proxima_id, etapa_proxima_vinculo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    proximoId,
     context.params.id,
     body.nome,
     body.setor_id,
@@ -32,6 +36,8 @@ export async function onRequestPost(context) {
     body.etapa_proxima_id ?? null,
     body.etapa_proxima_vinculo ?? null
   );
-  const nova = await first(context.env.DB, "SELECT * FROM etapas WHERE id = ?", resultado.meta.last_row_id);
+  const novoId = proximoId || resultado?.meta?.last_row_id;
+  await atualizarContadorId(context.env.DB, "etapas");
+  const nova = await first(context.env.DB, "SELECT * FROM etapas WHERE id = ?", novoId);
   return json(nova, 201);
 }

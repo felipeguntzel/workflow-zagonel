@@ -1,6 +1,6 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { exigirPermissao } from "../../_lib/permissoes.js";
+import { exigirPermissao, exigirUsuarioLogado } from "../../_lib/permissoes.js";
 import { validarDependenciasExclusao, atualizarContadorId } from "../../_lib/dependencias.js";
 
 async function carregarEmpresasDoSetor(db, setorId) {
@@ -13,7 +13,7 @@ async function carregarEmpresasDoSetor(db, setorId) {
 }
 
 export async function onRequestGet(context) {
-  const { erro } = await exigirPermissao(context, "setores", "visualizar");
+  const { erro } = await exigirUsuarioLogado(context);
   if (erro) return erro;
 
   const setor = await first(context.env.DB, "SELECT * FROM setores WHERE id = ?", context.params.id);

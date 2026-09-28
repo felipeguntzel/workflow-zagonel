@@ -1,10 +1,10 @@
 import { all, first, run } from "./db.js";
 import { json, error } from "./http.js";
 import { exigirPermissao } from "./permissoes.js";
-import { validarDependenciasExclusao, atualizarContadorId } from "./dependencias.js";
+import { validarDependenciasExclusao, atualizarContadorId, obterProximoIdDisponivel } from "./dependencias.js";
 import { registrarAuditoriaSistema } from "./auditoria.js";
 
-export { validarDependenciasExclusao, atualizarContadorId };
+export { validarDependenciasExclusao, atualizarContadorId, obterProximoIdDisponivel };
 
 export function campoObrigatorioFaltando(body, required, { exigirPresente = false } = {}) {
   for (const campo of required) {
@@ -74,6 +74,18 @@ export function crudHandlers(table, { required = [], optional = [], tela } = {})
     if (faltando) return error(`Campo obrigatório: ${faltando}`);
     await assegurarEsquemaTabela(context.env.DB, table);
     let colunas = campos.filter((c) => body[c] !== undefined);
+    let idAtribuido = null;
+    if (!colunas.includes("id")) {
+      idAtribuido = await obterProximoIdDisponivel(context.env.DB, table);
+      colunas.unshift("id");
+      body.id = idAtribuido;
+    }
+    if (table === "empresas" && !body.codigo && idAtribuido) {
+      if (!colunas.includes("codigo")) {
+        colunas.push("codigo");
+      }
+      body.codigo = String(idAtribuido).padStart(3, "0");
+    }
     let placeholders = colunas.map(() => "?").join(", ");
     let valores = colunas.map((c) => body[c]);
     let resultado;
@@ -106,18 +118,20 @@ export function crudHandlers(table, { required = [], optional = [], tela } = {})
         throw err;
       }
     }
+    const inseridoId = idAtribuido || resultado?.meta?.last_row_id;
+    await atualizarContadorId(context.env.DB, table);
     const novo = await first(
       context.env.DB,
       `SELECT * FROM ${table} WHERE id = ?`,
-      resultado.meta.last_row_id
+      inseridoId
     );
     await registrarAuditoriaSistema(context.env.DB, {
       usuario_id: usuario?.id,
       usuario_nome: usuario?.nome || "Sistema",
       entidade: table,
-      entidade_id: resultado.meta.last_row_id,
+      entidade_id: inseridoId,
       acao: "insercao",
-      detalhes: `Novo registro cadastrado em ${table} (ID ${resultado.meta.last_row_id})`,
+      detalhes: `Novo registro cadastrado em ${table} (ID ${inseridoId})`,
       dados_novos: novo,
     });
     return json(novo, 201);

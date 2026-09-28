@@ -1,10 +1,11 @@
 import { json, error } from "../../../_lib/http.js";
 import { first, run } from "../../../_lib/db.js";
-import { exigirPermissao } from "../../../_lib/permissoes.js";
+import { exigirPermissao, exigirUsuarioLogado } from "../../../_lib/permissoes.js";
 import { listarCamposDaEtapa, salvarCampoEtapa, obterTabelaCampos } from "../../../_lib/campos.js";
 
 export async function onRequestGet(context) {
-  const { erro } = await exigirPermissao(context, "fluxos", "visualizar");
+  // Qualquer usuario autenticado pode consultar campos da etapa para preenchimento no chamado
+  const { erro } = await exigirUsuarioLogado(context);
   if (erro) return erro;
 
   try {

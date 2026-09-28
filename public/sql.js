@@ -534,7 +534,7 @@ function renderizarItensEsquema(filtro) {
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <strong style="font-family: monospace; font-size: 0.95rem; color: var(--cor-primaria);">${nome}</strong>
-              <span class="badge" style="font-size: 0.75rem;">${tab.totalRegistros} registros</span>
+              <span class="badge" style="font-size: 0.75rem; background: var(--cor-fundo); color: var(--cor-texto-secundario); border: 1px solid var(--cor-borda);">${tab.totalRegistros} registros</span>
             </div>
             <button type="button" class="btn btn-secundario btn-usar-tabela-esquema" data-tabela="${nome}" style="font-size: 0.78rem; padding: 0.25rem 0.6rem;">
               Selecionar no Console

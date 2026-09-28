@@ -1,6 +1,6 @@
 import { all, first, run } from "../../../_lib/db.js";
 import { json, error } from "../../../_lib/http.js";
-import { hojeISO } from "../../../_lib/chamados.js";
+import { hojeISO, verificarPermissaoComentariosChamado } from "../../../_lib/chamados.js";
 import { obterUsuarioDaRequisicao } from "../../../_lib/permissoes.js";
 import { registrarAuditoria } from "../../../_lib/auditoria.js";
 
@@ -56,6 +56,20 @@ export async function onRequestPost(context) {
   );
   if (!chamado) return error("Chamado não encontrado", 404);
 
+  const perm = await verificarPermissaoComentariosChamado(context.env.DB, chamado);
+  if (!perm.permitido) {
+    return error(perm.motivo, 403);
+  }
+
+  const ehChamadoMae = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
+  const ehSolicitante = Number(chamado.solicitante_id) === Number(usuario.id);
+  const ehResponsavel = chamado.responsavel_id != null && Number(chamado.responsavel_id) === Number(usuario.id);
+
+  // Regra: o usuário que abriu o chamado só vai conseguir fazer comentários caso assuma a tarefa
+  if (ehSolicitante && !ehChamadoMae && !ehResponsavel) {
+    return error("O usuário que abriu o chamado só pode comentar caso assuma a tarefa.", 403);
+  }
+
   const body = await context.request.json();
   const textoLimpo = String(body.texto || "").trim();
   if (!textoLimpo) {
@@ -71,12 +85,11 @@ export async function onRequestPost(context) {
     textoLimpo,
     hojeISO()
   );
+  const ehAdmin = usuario.admin === 1;
+  const ehDoSetor = usuario.setor_id === chamado.setor_id;
+  const podeVerPrivados = ehAdmin || ehDoSetor || ehResponsavel || ehSolicitante;
+
   if (duplicado) {
-    const ehAdmin = usuario.admin === 1;
-    const ehDoSetor = usuario.setor_id === chamado.setor_id;
-    const ehResponsavel = usuario.id === chamado.responsavel_id;
-    const ehSolicitante = usuario.id === chamado.solicitante_id;
-    const podeVerPrivados = ehAdmin || ehDoSetor || ehResponsavel || ehSolicitante;
     return json(await listarComentarios(context.env.DB, context.params.id, podeVerPrivados), 200);
   }
 
@@ -103,12 +116,6 @@ export async function onRequestPost(context) {
     acao: "comentario",
     detalhes: `Comentário na etapa "${etapaNome}"${ehPrivado ? " (privado)" : ""}: "${body.texto.slice(0, 60)}${body.texto.length > 60 ? "..." : ""}"`
   });
-
-  const ehAdmin = usuario.admin === 1;
-  const ehDoSetor = usuario.setor_id === chamado.setor_id;
-  const ehResponsavel = usuario.id === chamado.responsavel_id;
-  const ehSolicitante = usuario.id === chamado.solicitante_id;
-  const podeVerPrivados = ehAdmin || ehDoSetor || ehResponsavel || ehSolicitante;
 
   return json(await listarComentarios(context.env.DB, context.params.id, podeVerPrivados), 201);
 }

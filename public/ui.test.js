@@ -107,6 +107,20 @@ test("formatarRotuloFK formata com código e nome quando código está presente"
   assert.equal(formatarRotuloFK(null), "");
 });
 
+test("calcularMenorIdDisponivel reutiliza menor ID vago e lida com objetos", async () => {
+  const { calcularMenorIdDisponivel } = await import("./crud-ui.js");
+  assert.equal(calcularMenorIdDisponivel([]), 1);
+  assert.equal(calcularMenorIdDisponivel([1, 2, 3]), 4);
+  assert.equal(calcularMenorIdDisponivel([1, 2, 3, 4]), 5);
+  // Após excluir o 4 (sobrando 1, 2, 3):
+  assert.equal(calcularMenorIdDisponivel([1, 2, 3]), 4);
+  // Após excluir o 2 (sobrando 1, 3, 4):
+  assert.equal(calcularMenorIdDisponivel([1, 3, 4]), 2);
+  // Testando com array de objetos
+  assert.equal(calcularMenorIdDisponivel([{ id: 1 }, { id: 2 }, { id: 3 }]), 4);
+  assert.equal(calcularMenorIdDisponivel([{ id: 1 }, { id: 3 }]), 2);
+});
+
 test("modal.js exporta confirmarAcao, mostrarAviso e abrirModal", async () => {
   const { confirmarAcao, mostrarAviso, abrirModal } = await import("./modal.js");
   assert.equal(typeof confirmarAcao, "function");
@@ -121,6 +135,17 @@ test("formatarDataBR converte YYYY-MM-DD para DD/MM/AAAA", async () => {
   assert.equal(formatarDataBR("2026-09-24T12:00:00Z"), "24/09/2026");
   assert.equal(formatarDataBR(null), "-");
   assert.equal(formatarDataBR(""), "-");
+});
+
+test("formatarDataHoraBR converte UTC para fuso do Brasil (DD/MM/AAAA HH:MM)", async () => {
+  const { formatarDataHoraBR } = await import("./ui.js");
+  // 18:35 UTC no banco deve ser exibido como 15:35 em Brasília (UTC-3)
+  assert.equal(formatarDataHoraBR("2026-09-28 18:35:00"), "28/09/2026 15:35");
+  assert.equal(formatarDataHoraBR("2026-09-28 18:36:00"), "28/09/2026 15:36");
+  assert.equal(formatarDataHoraBR("2026-09-28T18:35:00Z"), "28/09/2026 15:35");
+  assert.equal(formatarDataHoraBR("2026-09-28"), "28/09/2026");
+  assert.equal(formatarDataHoraBR(null), "-");
+  assert.equal(formatarDataHoraBR(""), "-");
 });
 
 test("todos os arquivos JS em public possuem sintaxe valida", async () => {

@@ -1,6 +1,6 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { info, mostrarErro, escaparHtml, escaparAtributo, linkWhatsApp, formatarDataBR } from "./ui.js";
+import { info, mostrarErro, escaparHtml, escaparAtributo, linkWhatsApp, formatarDataBR, formatarDataHoraBR } from "./ui.js";
 import { confirmarAcao } from "./modal.js";
 import { api } from "./api.js";
 
@@ -12,6 +12,8 @@ let chamadoAtual = null;
 let estadoRecolhimento = {
   detalhe: false,
   campos: false,
+  historico: false,
+  comentarios: false,
 };
 
 export function inicializar() {
@@ -129,6 +131,40 @@ function iniciar() {
     });
   }
 
+  // Evento de recolhimento do card de histórico unificado de ações
+  const btnRecolherHistorico = document.getElementById("btn-recolher-historico");
+  const cabecalhoHistorico = document.getElementById("cabecalho-historico");
+  const wrapHistorico = document.getElementById("historico-auditoria-wrap");
+  if (btnRecolherHistorico) {
+    btnRecolherHistorico.addEventListener("click", () => {
+      estadoRecolhimento.historico = !estadoRecolhimento.historico;
+      if (wrapHistorico) {
+        wrapHistorico.style.display = estadoRecolhimento.historico ? "none" : "";
+      }
+      if (cabecalhoHistorico) {
+        cabecalhoHistorico.classList.toggle("painel-chamado-cabecalho--recolhido", estadoRecolhimento.historico);
+      }
+      btnRecolherHistorico.textContent = estadoRecolhimento.historico ? "▼ Expandir" : "▲ Recolher";
+    });
+  }
+
+  // Evento de recolhimento do card de comentários e anexos
+  const btnRecolherComentarios = document.getElementById("btn-recolher-comentarios");
+  const cabecalhoComentarios = document.getElementById("cabecalho-comentarios");
+  const wrapComentarios = document.getElementById("conteudo-comentarios-wrap");
+  if (btnRecolherComentarios) {
+    btnRecolherComentarios.addEventListener("click", () => {
+      estadoRecolhimento.comentarios = !estadoRecolhimento.comentarios;
+      if (wrapComentarios) {
+        wrapComentarios.style.display = estadoRecolhimento.comentarios ? "none" : "";
+      }
+      if (cabecalhoComentarios) {
+        cabecalhoComentarios.classList.toggle("painel-chamado-cabecalho--recolhido", estadoRecolhimento.comentarios);
+      }
+      btnRecolherComentarios.textContent = estadoRecolhimento.comentarios ? "▼ Expandir" : "▲ Recolher";
+    });
+  }
+
   // Atalho para abrir tela suspensa de horas
   document.querySelectorAll("#btn-abrir-modal-horas, .btn-abrir-modal-horas").forEach((b) => {
     b.addEventListener("click", abrirModalHoras);
@@ -185,6 +221,16 @@ async function carregarTudo() {
 
   try {
     const chamado = await chamadoPromise;
+    chamadoAtual = chamado;
+
+    // Regra: A visão padrão da solicitação inicial (chamado mãe) é a Visão Geral
+    const params = new URLSearchParams(window.location.search);
+    const ehChamadoMae = Boolean(chamado.eh_chamado_mae || !chamado.chamado_mae_id || chamado.chamado_mae_id === 0);
+    if (ehChamadoMae && params.get("modo") !== "detalhes") {
+      window.location.replace(`/geral?id=${chamado.id}`);
+      return;
+    }
+
     // Renderiza os dados obrigatórios e campos imediatamente
     await Promise.all([
       carregarDetalhe(chamado),
@@ -221,8 +267,32 @@ async function carregarDetalhe(chamadoRecebido = null) {
     return `<span class="badge-status badge-legenda" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0; font-weight: 600;">Normal</span>`;
   }
 
-  const podeEditarStatus = permissaoChamados.editar;
-  const ehEtapaAprovacao = chamado.etapa_id && chamado.etapa_tipo === "aprovacao";
+  const ehChamadoMae = Boolean(chamado.eh_chamado_mae || !chamado.chamado_mae_id || chamado.chamado_mae_id === 0);
+
+  const souResponsavel = chamado.responsavel_id != null && Number(chamado.responsavel_id) === Number(usuario?.id);
+  const souDoSetor = chamado.setor_id != null && usuario?.setor_id != null && Number(chamado.setor_id) === Number(usuario?.setor_id);
+  const ehSolicitante = Boolean(usuario?.id && Number(chamado.solicitante_id) === Number(usuario.id));
+
+  // Regra: o usuário que abriu o chamado só vai conseguir trocar o status, aprovar/reprovar ou comentar caso assuma a tarefa
+  const solicitanteSemAssumir = ehSolicitante && !ehChamadoMae && !souResponsavel;
+
+  // Trocar status só é liberado se não for solicitante sem assumir a tarefa
+  const podeTrocarStatus = !solicitanteSemAssumir && Boolean(
+    usuario?.admin || permissaoChamados.editar || souResponsavel || souDoSetor
+  );
+
+  const podeEditarChamado = Boolean(
+    usuario?.admin || permissaoChamados.editar || souResponsavel || souDoSetor || ehSolicitante
+  );
+  const podeAssumirOuAtribuir = Boolean(
+    !finalizado && !ehChamadoMae && (usuario?.admin || permissaoChamados.editar || souResponsavel || souDoSetor || ehSolicitante)
+  );
+
+  const ehEtapaAprovacao = Boolean(
+    chamado.etapa_tipo === "aprovacao" ||
+    String(chamado.titulo || "").toLowerCase().includes("aprova") ||
+    String(chamado.etapa_nome || "").toLowerCase().includes("aprova")
+  );
 
   const detalheEl = document.getElementById("detalhe");
   detalheEl.innerHTML = `
@@ -244,11 +314,18 @@ async function carregarDetalhe(chamadoRecebido = null) {
       <div class="cabecalho-lado-direito">
         <!-- Atualizar Status no Topo da Tela (Salva automaticamente ao selecionar) -->
         ${
-          podeEditarStatus && !ehEtapaAprovacao
+          podeTrocarStatus
             ? `
           <div class="grupo-acao-status">
             <select id="select-status-topo" class="select-padrao select-acao-cabecalho" title="Alterar status do chamado">
-              ${statusList
+              ${(statusList && statusList.length > 0 ? statusList : [{ id: chamado.status_id, nome: chamado.status_nome }])
+                .filter((s) => {
+                  // Na etapa de aprovação, a finalização com avanço deve ser realizada pelos botões de decisão
+                  if (ehEtapaAprovacao && String(s.nome).toLowerCase() === "finalizado" && s.id !== chamado.status_id) {
+                    return false;
+                  }
+                  return true;
+                })
                 .map(
                   (s) =>
                     `<option value="${s.id}" ${s.id === chamado.status_id ? "selected" : ""}>${escaparHtml(s.nome)}</option>`
@@ -272,18 +349,63 @@ async function carregarDetalhe(chamadoRecebido = null) {
     <p id="erro-status-topo" class="erro" style="margin-top: 0.4rem;" hidden></p>
 
     <!-- Conteúdo Recolhível dos Dados Obrigatórios -->
-    <div id="detalhe-conteudo-recolhivel" style="${estadoRecolhimento.detalhe ? 'display: none;' : ''} margin-top: 0.85rem;">
-      <p style="margin: 0 0 0.35rem; color: var(--cor-texto-secundario); font-size: 0.92rem;">
-        Fluxo: <strong>${escaparHtml(chamado.fluxo_nome || "-")}</strong> |
-        Empresa: <strong>${escaparHtml(chamado.empresa_nome || "Geral")}</strong> |
-        Setor: <strong>${escaparHtml(chamado.setor_nome || "-")}</strong> ${info("Setor responsável por esta etapa/tarefa.")}
-      </p>
+    <div id="detalhe-conteudo-recolhivel" style="${estadoRecolhimento.detalhe ? 'display: none;' : ''} margin-top: 0.75rem;">
+      <div class="detalhe-linha-principal" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap;">
+        <!-- Lado Esquerdo: Metadados da Solicitação -->
+        <div class="detalhe-metadados-esquerdo" style="flex: 1 1 380px; min-width: 280px; display: flex; flex-direction: column; gap: 0.35rem;">
+          <p style="margin: 0; color: var(--cor-texto-secundario); font-size: 0.92rem; line-height: 1.45;">
+            Fluxo: <strong>${escaparHtml(chamado.fluxo_nome || "-")}</strong> |
+            Empresa: <strong>${escaparHtml(chamado.empresa_nome || "Geral")}</strong> |
+            Setor: <strong>${escaparHtml(chamado.setor_nome || "-")}</strong> ${info("Setor responsável por esta etapa/tarefa.")}
+          </p>
 
-      <p style="margin: 0 0 0.45rem; font-size: 0.92rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem;">
-        <span>Solicitante: <strong>${escaparHtml(chamado.solicitante_nome || "-")}</strong></span>
-        ${linkWhatsApp(chamado.solicitante_telefone, chamado.id, chamado.titulo)}
-        <span>| Abertura: <strong>${formatarDataBR(chamado.data_abertura)}</strong> | Prazo: <strong>${formatarDataBR(chamado.prazo)}</strong> (${chamado.situacao_prazo})</span>
-      </p>
+          <p style="margin: 0; font-size: 0.92rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; line-height: 1.45;">
+            <span>Solicitante: <strong>${escaparHtml(chamado.solicitante_nome || "-")}</strong></span>
+            ${linkWhatsApp(chamado.solicitante_telefone, chamado.id, chamado.titulo)}
+            <span>| Abertura: <strong>${formatarDataBR(chamado.data_abertura)}</strong> | Prazo: <strong>${formatarDataBR(chamado.prazo)}</strong> (${chamado.situacao_prazo})</span>
+          </p>
+        </div>
+
+        <!-- Lado Direito: Responsável Atual e Ações de Atribuição (alinhado no mesmo espaço) -->
+        ${
+          !ehChamadoMae
+            ? `
+        <div class="bloco-atribuicao-responsavel" style="flex: 0 1 auto; min-width: 280px; display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem;">
+          <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; line-height: 1.45;">
+            <span style="font-weight: 600; font-size: 0.88rem; color: var(--cor-texto-secundario);">Responsável atual:</span>
+            <span id="valor-responsavel-atual" style="font-size: 0.92rem; font-weight: 700; color: var(--cor-texto);">
+              ${chamado.responsavel_nome ? escaparHtml(chamado.responsavel_nome) : `<em style="color: var(--cor-texto-secundario); font-weight: normal;">Ninguém atribuído</em>`}
+            </span>
+            <span id="wrap-whatsapp-responsavel">${chamado.responsavel_nome ? linkWhatsApp(chamado.responsavel_telefone, chamado.id, chamado.titulo) : ""}</span>
+          </div>
+
+          ${
+            !finalizado && podeAssumirOuAtribuir
+              ? `
+            <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: nowrap; width: 100%;">
+              ${
+                (souDoSetor || usuario?.admin || permissaoChamados.editar)
+                  ? `
+                <select id="select-atribuir-responsavel" class="select-padrao" style="flex: 1 1 auto; min-width: 160px; max-width: 250px; padding: 0.35rem 0.55rem; font-size: 0.85rem; height: 32px; box-sizing: border-box;" title="Selecione um responsável para atribuir imediatamente">
+                  <option value="">Atribuir para alguém do setor…</option>
+                </select>
+                `
+                  : ""
+              }
+              ${
+                chamado.responsavel_id === usuario.id
+                  ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario" style="flex: 0 0 auto; height: 32px; padding: 0 0.85rem; font-size: 0.85rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Liberar</button>`
+                  : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario" style="flex: 0 0 auto; height: 32px; padding: 0 0.85rem; font-size: 0.85rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Assumir</button>`
+              }
+            </div>
+          `
+              : ""
+          }
+        </div>
+        `
+            : ""
+        }
+      </div>
 
       ${
         chamado.observacao
@@ -298,34 +420,6 @@ async function carregarDetalhe(chamadoRecebido = null) {
           : ""
       }
 
-      <!-- Atribuição de Responsável no Canto Esquerdo com Visual Padronizado -->
-      <div class="bloco-atribuicao-responsavel" style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid var(--cor-borda); display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem;">
-        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-          <span style="font-weight: 600; font-size: 0.88rem; color: var(--cor-texto-secundario);">Responsável atual:</span>
-          <span style="font-size: 0.9rem; font-weight: 600;">
-            ${chamado.responsavel_nome ? escaparHtml(chamado.responsavel_nome) : `<em style="color: var(--cor-texto-secundario); font-weight: normal;">Ninguém atribuído</em>`}
-          </span>
-          ${chamado.responsavel_nome ? linkWhatsApp(chamado.responsavel_telefone, chamado.id, chamado.titulo) : ""}
-        </div>
-
-        ${
-          !finalizado && permissaoChamados.editar
-            ? `
-          <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; flex-wrap: wrap;">
-            <select id="select-atribuir-responsavel" class="select-padrao" style="min-width: 230px; max-width: 320px; padding: 0.4rem 0.65rem; font-size: 0.85rem; height: 36px; box-sizing: border-box;" title="Selecione um responsável para atribuir imediatamente">
-              <option value="">Atribuir para alguém do setor…</option>
-            </select>
-            ${
-              chamado.responsavel_id === usuario.id
-                ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario" style="height: 36px; padding: 0 1rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Liberar</button>`
-                : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario" style="height: 36px; padding: 0 1rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Assumir</button>`
-            }
-          </div>
-        `
-            : ""
-        }
-      </div>
-
       ${chamado.resultado ? `<p style="margin-top: 0.5rem; font-weight: 600;">Resultado: ${escaparHtml(chamado.resultado)}</p>` : ""}
       ${
         chamado.bloqueado
@@ -336,8 +430,27 @@ async function carregarDetalhe(chamadoRecebido = null) {
   `;
   detalheEl.hidden = false;
 
+  const linkGeral = document.getElementById("link-geral");
+  if (linkGeral) {
+    if (ehChamadoMae) {
+      linkGeral.textContent = "Voltar para visão geral";
+      linkGeral.href = `/geral?id=${chamado.id}`;
+    } else {
+      linkGeral.textContent = "Ver chamado geral";
+      linkGeral.href = `/geral?id=${chamado.chamado_mae_id || chamado.id}`;
+    }
+  }
+
+  // Ocultar apontamento de horas no chamado da solicitação inicial
+  if (ehChamadoMae) {
+    document.querySelectorAll(".btn-abrir-modal-horas, #btn-abrir-modal-horas").forEach((b) => {
+      b.style.display = "none";
+      b.hidden = true;
+    });
+  }
+
   // Carrega lista de usuários em background sem travar a exibição da tela
-  if (!finalizado && permissaoChamados.editar) {
+  if (!ehChamadoMae && !finalizado && (podeEditarChamado || podeAssumirOuAtribuir)) {
     obterUsuarios().then((todos) => {
       const select = document.getElementById("select-atribuir-responsavel");
       if (!select) return;
@@ -384,6 +497,15 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
       const statusId = Number(selectStatusTopo.value);
       const statusEscolhido = statusList.find((s) => s.id === statusId);
+
+      if (ehEtapaAprovacao && String(statusEscolhido?.nome || "").toLowerCase() === "finalizado") {
+        if (erroStatus) {
+          erroStatus.textContent = "Para concluir ou aprovar esta etapa, utilize a seção 'Avaliação da Tarefa / Etapa' abaixo.";
+          erroStatus.hidden = false;
+        }
+        selectStatusTopo.value = String(statusAnterior);
+        return;
+      }
 
       if (chamado.bloqueado && String(statusEscolhido?.nome || "").toLowerCase() === "finalizado") {
         if (erroStatus) {
@@ -450,11 +572,18 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
     // 1. Atualização visual otimista instantânea na tela
     const containerResp = document.querySelector(".bloco-atribuicao-responsavel");
-    const spanNomeResp = containerResp?.querySelector("span:nth-child(2)");
+    const spanNomeResp = document.getElementById("valor-responsavel-atual") || containerResp?.querySelector("span:nth-child(2)");
     if (spanNomeResp) {
       spanNomeResp.innerHTML = usuarioEscolhido
         ? escaparHtml(usuarioEscolhido.nome)
         : `<em style="color: var(--cor-texto-secundario); font-weight: normal;">Ninguém atribuído</em>`;
+    }
+
+    const wrapWpp = document.getElementById("wrap-whatsapp-responsavel");
+    if (wrapWpp) {
+      wrapWpp.innerHTML = (usuarioEscolhido && usuarioEscolhido.telefone)
+        ? linkWhatsApp(usuarioEscolhido.telefone, chamado.id, chamado.titulo)
+        : "";
     }
 
     const selectResp = document.getElementById("select-atribuir-responsavel");
@@ -491,20 +620,8 @@ async function carregarDetalhe(chamadoRecebido = null) {
         chamadoAtual = respAtualizado;
         chamado.responsavel_id = respAtualizado.responsavel_id;
         chamado.responsavel_nome = respAtualizado.responsavel_nome;
-        // Se a transição automática mudou para previsto, sincroniza o status no select
-        if (respAtualizado.status_id && respAtualizado.status_id !== chamado.status_id) {
-          chamado.status_id = respAtualizado.status_id;
-          chamado.status_nome = respAtualizado.status_nome;
-          chamado.status_cor = respAtualizado.status_cor;
-          if (selectStatusTopo) selectStatusTopo.value = String(respAtualizado.status_id);
-          const badgeLegenda = document.querySelector(".cabecalho-legendas .badge-status");
-          if (badgeLegenda) {
-            badgeLegenda.style.background = respAtualizado.status_cor ? respAtualizado.status_cor + "18" : "var(--cor-fundo)";
-            badgeLegenda.style.color = respAtualizado.status_cor || "var(--cor-texto)";
-            badgeLegenda.style.borderColor = respAtualizado.status_cor ? respAtualizado.status_cor + "55" : "var(--cor-borda)";
-            badgeLegenda.innerHTML = `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${respAtualizado.status_cor || "var(--cor-primaria)"};"></span>Status: ${escaparHtml(respAtualizado.status_nome)}`;
-          }
-        }
+        // Recarrega o detalhe para refletir a nova responsabilidade nos cards e botões
+        await carregarDetalhe(chamadoAtual);
       }
       // Atualiza o histórico de auditoria em segundo plano
       carregarAuditoria();
@@ -516,6 +633,11 @@ async function carregarDetalhe(chamadoRecebido = null) {
         spanNomeResp.innerHTML = responsavelAnteriorNome
           ? escaparHtml(responsavelAnteriorNome)
           : `<em style="color: var(--cor-texto-secundario); font-weight: normal;">Ninguém atribuído</em>`;
+      }
+      if (wrapWpp) {
+        wrapWpp.innerHTML = (chamado.responsavel_telefone)
+          ? linkWhatsApp(chamado.responsavel_telefone, chamado.id, chamado.titulo)
+          : "";
       }
       if (selectResp) selectResp.value = responsavelAnteriorId ? String(responsavelAnteriorId) : "";
       if (toastStatus) toastStatus.hidden = true;
@@ -538,9 +660,23 @@ async function carregarDetalhe(chamadoRecebido = null) {
   });
 
   const acaoContainer = document.getElementById("acao");
-  if (ehEtapaAprovacao && !finalizado && permissaoChamados.editar) {
-    acaoContainer.hidden = false;
-    renderAprovacao(chamado);
+  if (ehEtapaAprovacao && !finalizado) {
+    if (solicitanteSemAssumir) {
+      acaoContainer.hidden = false;
+      acaoContainer.innerHTML = `
+        <div class="painel" style="padding: 0.85rem 1.15rem; border-left: 4px solid #f59e0b; background: var(--cor-fundo); border-radius: 4px; margin-bottom: 1.5rem;">
+          <p style="margin: 0; font-size: 0.9rem; color: var(--cor-texto); line-height: 1.45;">
+            ℹ️ <strong>Você abriu este chamado:</strong> Para avaliar, aprovar, reprovar ou executar as ações desta etapa, você deve primeiro <strong>assumir a tarefa</strong> clicando em <em>Assumir</em> no bloco acima.
+          </p>
+        </div>
+      `;
+    } else if (podeEditarChamado) {
+      acaoContainer.hidden = false;
+      renderAprovacao(chamado);
+    } else {
+      acaoContainer.innerHTML = "";
+      acaoContainer.hidden = true;
+    }
   } else {
     acaoContainer.innerHTML = "";
     acaoContainer.hidden = true;
@@ -576,7 +712,7 @@ async function carregarCamposDinamicos(chamadoRecebido = null, camposPromiseRece
     const podeEditarChamado = (!ehMae || ehSolicitante || ehAdmin) && !statusFinalizado;
 
     const temCamposEditaveis = camposComValores.some((c) => {
-      const ehSomenteLeitura = Boolean(c.somente_leitura || (c.da_solicitacao && !ehMae));
+      const ehSomenteLeitura = Boolean(c.somente_leitura);
       return podeEditarChamado && !ehSomenteLeitura;
     });
 
@@ -599,7 +735,7 @@ async function carregarCamposDinamicos(chamadoRecebido = null, camposPromiseRece
       <form id="form-campos-dinamicos" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.85rem;">
         ${camposComValores
           .map((c) => {
-            const ehSomenteLeitura = Boolean(c.somente_leitura || (c.da_solicitacao && !ehMae));
+            const ehSomenteLeitura = Boolean(c.somente_leitura);
             const disabledAttr = (podeEditarChamado && !ehSomenteLeitura) ? "" : "disabled";
             const val = c.valor != null ? String(c.valor) : "";
             const tipoNorm = String(c.tipo || "texto").toLowerCase();
@@ -1028,9 +1164,12 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
     }
 
     if (comentarios.length === 0 && anexos.length === 0) {
-      listaEl.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem; text-align: center; padding: 1rem 0;">Nenhum comentário ou anexo ainda.</li>`;
+      listaEl.innerHTML = "";
+      listaEl.style.display = "none";
       return;
     }
+
+    listaEl.style.display = "flex";
 
     let htmlItens = "";
 
@@ -1049,8 +1188,8 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
                 const podeRemoverAnexo = !finalizado && a.usuario_id === usuario.id;
 
                 return `
-                  <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.25rem 0.55rem; border-radius: 4px; font-size: 0.82rem;">
-                    <span>${ehImagem ? "🖼️" : "📄"} <strong>${escaparHtml(a.nome_arquivo)}</strong> <small style="color: var(--cor-texto-secundario);">(${formatarTamanho(a.tamanho_bytes)})</small></span>
+                  <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.25rem 0.55rem; border-radius: 4px; font-size: 0.82rem; max-width: 100%; flex-wrap: wrap;">
+                    <span style="overflow: hidden; text-overflow: ellipsis; word-break: break-word; max-width: 100%;">${ehImagem ? "🖼️" : "📄"} <strong>${escaparHtml(a.nome_arquivo)}</strong> <small style="color: var(--cor-texto-secundario);">(${formatarTamanho(a.tamanho_bytes)})</small></span>
                     ${
                       ehImagem
                         ? `<button type="button" class="btn btn-primario btn-pequeno btn-ver-imagem-anexo" data-id="${a.id}" data-nome="${escaparAtributo(a.nome_arquivo)}" style="padding: 0.15rem 0.5rem; font-size: 0.78rem;">👁️ Ver</button>`
@@ -1165,6 +1304,42 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
         }
       });
     });
+
+    const formComentario = document.getElementById("form-comentario");
+    let avisoBloqueio = document.getElementById("aviso-bloqueio-comentarios-mae");
+
+    const ehChamadoMaeComentarios = Boolean(chamadoInfo?.eh_chamado_mae || !chamadoInfo?.chamado_mae_id || chamadoInfo?.chamado_mae_id === 0);
+    const ehSolicitanteComentarios = Boolean(usuario?.id && Number(chamadoInfo?.solicitante_id) === Number(usuario.id));
+    const souResponsavelComentarios = chamadoInfo?.responsavel_id != null && Number(chamadoInfo.responsavel_id) === Number(usuario?.id);
+    const solicitantePrecisaAssumirParaComentar = ehSolicitanteComentarios && !ehChamadoMaeComentarios && !souResponsavelComentarios;
+
+    if (chamadoInfo && (chamadoInfo.pode_comentar === false || solicitantePrecisaAssumirParaComentar)) {
+      if (formComentario) formComentario.style.display = "none";
+      if (!avisoBloqueio && formComentario && formComentario.parentNode) {
+        avisoBloqueio = document.createElement("div");
+        avisoBloqueio.id = "aviso-bloqueio-comentarios-mae";
+        avisoBloqueio.style.cssText = "background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-left: 4px solid #f59e0b; padding: 0.85rem 1rem; border-radius: 4px; font-size: 0.88rem; color: var(--cor-texto); margin-top: 0.5rem;";
+        formComentario.parentNode.insertBefore(avisoBloqueio, formComentario);
+      }
+      if (avisoBloqueio) {
+        if (solicitantePrecisaAssumirParaComentar) {
+          avisoBloqueio.innerHTML = `🔒 <strong>Comentários e anexos:</strong> Você abriu este chamado. Para fazer comentários ou enviar anexos nesta etapa, você deve primeiro <strong>assumir a tarefa</strong> clicando em <em>Assumir</em> no cabeçalho acima.`;
+        } else {
+          avisoBloqueio.innerHTML = `🔒 <strong>Comentários e anexos encerrados:</strong> A primeira etapa de aprovação já foi avaliada. Novos comentários ou anexos não são mais permitidos na solicitação inicial.`;
+        }
+        avisoBloqueio.style.display = "block";
+      }
+    } else {
+      if (formComentario) formComentario.style.display = "";
+      if (avisoBloqueio) avisoBloqueio.style.display = "none";
+    }
+
+    if (chamadoInfo && (chamadoInfo.eh_chamado_mae || !chamadoInfo.chamado_mae_id)) {
+      document.querySelectorAll(".btn-abrir-modal-horas, #btn-abrir-modal-horas").forEach((b) => {
+        b.style.display = "none";
+        b.hidden = true;
+      });
+    }
   } catch (err) {
     listaEl.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem;">Erro ao carregar comentários.</li>`;
   }
@@ -1174,6 +1349,11 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
 async function atualizarResumoHoras() {
   const el = document.getElementById("indicador-horas-topo");
   if (!el) return;
+  if (chamadoAtual && (chamadoAtual.eh_chamado_mae || !chamadoAtual.chamado_mae_id)) {
+    el.textContent = "";
+    el.hidden = true;
+    return;
+  }
   try {
     const resumo = await api(`/chamados/${id}/horas`);
     const total = Number(resumo.total_horas) || 0;
@@ -1393,15 +1573,16 @@ async function carregarAuditoria() {
       return;
     }
 
-    listaEl.innerHTML = historico
+    const historicoOrdenado = [...historico].sort((a, b) => {
+      const dataA = new Date(a.criado_em || 0).getTime();
+      const dataB = new Date(b.criado_em || 0).getTime();
+      if (dataB !== dataA) return dataB - dataA;
+      return (b.id || 0) - (a.id || 0);
+    });
+
+    listaEl.innerHTML = historicoOrdenado
       .map((item) => {
-        let dataFormatada = "-";
-        if (item.criado_em) {
-          const partes = item.criado_em.slice(0, 19).replace("T", " ").split(" ");
-          const dataBR = formatarDataBR(partes[0]);
-          const hora = partes[1] ? partes[1].slice(0, 5) : "";
-          dataFormatada = `${dataBR} ${hora}`.trim();
-        }
+        const dataFormatada = formatarDataHoraBR(item.criado_em);
         const nomeEtapa = item.etapa_nome || (item.eh_chamado_mae ? "Solicitação Inicial" : `Etapa #${item.chamado_id}`);
         return `
           <li style="font-size: 0.88rem; border-left: 3px solid var(--cor-primaria); padding: 0.4rem 0.65rem; background: var(--cor-fundo); border-radius: 0 4px 4px 0;">
@@ -1425,17 +1606,21 @@ async function carregarAuditoria() {
 }
 
 async function renderAprovacao(chamado) {
-  let etapa = null;
-  try {
-    etapa = await api(`/etapas/${chamado.etapa_id}`);
-  } catch (e) {
-    return;
-  }
   const acaoContainer = document.getElementById("acao");
   if (!acaoContainer) return;
 
-  const acoesList = etapa.acoes || [];
+  let etapa = null;
+  if (chamado.etapa_id) {
+    try {
+      etapa = await api(`/etapas/${chamado.etapa_id}`);
+    } catch (e) {
+      console.warn("Aviso ao carregar ações da etapa:", e);
+    }
+  }
 
+  const acoesList = etapa?.acoes || [];
+
+  acaoContainer.hidden = false;
   acaoContainer.innerHTML = `
     <div class="formulario-secao-cabecalho" style="margin-bottom: 0.85rem;">
       <h3 style="margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 0.45rem;">

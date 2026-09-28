@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validarDependenciasExclusao, atualizarContadorId } from "./dependencias.js";
+import { validarDependenciasExclusao, atualizarContadorId, obterProximoIdDisponivel } from "./dependencias.js";
 
 function criarDbMock({ allResult = [], firstResult = null } = {}) {
   const executed = [];
@@ -90,4 +90,28 @@ test("atualizarContadorId executa UPDATE em sqlite_sequence com MAX(id)", async 
   assert.ok(updateCall);
   assert.equal(updateCall.args[0], 3);
   assert.equal(updateCall.args[1], "empresas");
+});
+
+test("obterProximoIdDisponivel retorna menor ID vago da consulta", async () => {
+  const db = criarDbMock({
+    firstResult: { next_id: 4 },
+  });
+  const id = await obterProximoIdDisponivel(db, "empresas");
+  assert.equal(id, 4);
+});
+
+test("obterProximoIdDisponivel usa fallback de MAX(id) + 1 caso query falhe", async () => {
+  const db = {
+    prepare(q) {
+      if (q.includes("CASE")) {
+        throw new Error("Syntax error");
+      }
+      return {
+        bind() { return this; },
+        async first() { return { max_id: 3 }; },
+      };
+    }
+  };
+  const id = await obterProximoIdDisponivel(db, "empresas");
+  assert.equal(id, 4);
 });

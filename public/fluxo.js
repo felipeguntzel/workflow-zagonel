@@ -827,6 +827,10 @@ async function iniciar(container, mensagemErro) {
     }
 
     let acaoEditandoId = null;
+    let telaCheiaAtiva = false;
+    try {
+      telaCheiaAtiva = localStorage.getItem("workflow_modal_acoes_tela_cheia") === "1";
+    } catch (_) {}
 
     function renderConteudoAcoes() {
       const acoes = detalhesEtapa.acoes || [];
@@ -837,12 +841,18 @@ async function iniciar(container, mensagemErro) {
 
       modalAcaoWrap.innerHTML = `
         <div class="modal-fundo modal-fundo--cadastro" role="dialog" aria-modal="true">
-          <div class="modal-cadastro modal-cadastro--complexo" style="max-width: 880px;">
+          <div class="modal-cadastro modal-cadastro--complexo modal-cadastro--acoes ${telaCheiaAtiva ? "modal-cadastro--tela-cheia" : ""}" style="${telaCheiaAtiva ? "display: flex; flex-direction: column;" : "max-width: 960px;"}">
             <div class="modal-cabecalho">
               <h3>Ações de Aprovação: ${escaparHtml(etapa.nome)}</h3>
-              <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
+              <div class="modal-acoes-topo">
+                <button type="button" class="modal-btn-topo btn-toggle-tela-cheia" title="Alternar entre tela cheia e janela padrão" aria-label="Alternar tela cheia">
+                  <span class="icone-tela-cheia">${telaCheiaAtiva ? "🗗" : "⛶"}</span>
+                  <span class="texto-tela-cheia">${telaCheiaAtiva ? "Restaurar" : "Tela cheia"}</span>
+                </button>
+                <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
+              </div>
             </div>
-            <div style="padding: 1.25rem;">
+            <div class="modal-corpo-acoes" style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 1.25rem;">
               <p class="erro-modal-acao erro" hidden></p>
               
               <div style="margin-bottom: 1.25rem;">
@@ -870,13 +880,20 @@ async function iniciar(container, mensagemErro) {
                         <tr style="${acaoEditandoId === a.id ? "background: rgba(47, 111, 79, 0.08); font-weight: 600;" : ""}">
                           <td style="font-weight: 600;">${escaparHtml(a.rotulo)}</td>
                           <td>${escaparHtml(setores.find((s) => s.id === a.setor_destino_id)?.nome ?? a.setor_destino_id)}</td>
-                          <td>${
-                            a.etapa_destino_id
-                              ? `<span class="badge badge--sucesso">${escaparHtml(
-                                  etapasAtuais.find((e) => e.id === a.etapa_destino_id)?.nome ?? `#${a.etapa_destino_id}`
-                                )}</span>`
-                              : '<span style="color: var(--cor-texto-secundario); font-size: 0.85rem;">-</span>'
-                          }</td>
+                          <td>${(() => {
+                            const ids = Array.isArray(a.etapas_destino_ids) && a.etapas_destino_ids.length > 0
+                              ? a.etapas_destino_ids.map(Number)
+                              : (a.etapa_destino_id ? [Number(a.etapa_destino_id)] : []);
+                            if (ids.length === 0) {
+                              return '<span style="color: var(--cor-texto-secundario); font-size: 0.85rem;">-</span>';
+                            }
+                            return `<div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+                              ${ids.map((id) => {
+                                const e = etapasAtuais.find((et) => et.id === id);
+                                return `<span class="badge-status-etapa-destino" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0; font-weight: 600; font-size: 0.78rem; padding: 0.15rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center;">${escaparHtml(e?.nome ?? `#${id}`)}</span>`;
+                              }).join("")}
+                            </div>`;
+                          })()}</td>
                           <td>${a.vinculo === "mae" ? "Chamado mãe" : "Chamado pai"}</td>
                           <td>${a.prerequisito_acao_id ? escaparHtml(acoes.find((x) => x.id === a.prerequisito_acao_id)?.rotulo ?? "-") : "-"}</td>
                           <td style="font-size: 0.82rem; color: var(--cor-texto-secundario); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escaparHtml(a.observacao || "")}">
@@ -916,23 +933,6 @@ async function iniciar(container, mensagemErro) {
                       <input type="text" name="rotulo" required placeholder="Ex: Liberar Ferramentaria" value="${escaparHtml(acaoEmEdicao?.rotulo || "")}" style="width: 100%;">
                     </div>
                     <div>
-                      <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Etapa Destino (Opcional)</label>
-                      <select name="etapa_destino_id" style="width: 100%;">
-                        <option value="">-- Nenhuma (Execução direta do setor) --</option>
-                        ${etapasAtuais
-                          .filter((e) => e.id !== etapa.id)
-                          .map(
-                            (e) =>
-                              `<option value="${e.id}" ${
-                                acaoEmEdicao && acaoEmEdicao.etapa_destino_id === e.id ? "selected" : ""
-                              } data-setor-id="${e.setor_id || ""}">${escaparHtml(e.nome)} (${escaparHtml(
-                                e.setor_nome || setores.find((s) => s.id === e.setor_id)?.nome || "Setor"
-                              )})</option>`
-                          )
-                          .join("")}
-                      </select>
-                    </div>
-                    <div>
                       <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Setor destino *</label>
                       <select name="setor_destino_id" required style="width: 100%;">
                         <option value="">Selecione…</option>
@@ -956,6 +956,41 @@ async function iniciar(container, mensagemErro) {
                           .join("")}
                       </select>
                     </div>
+                    <div style="grid-column: 1 / -1; margin-top: 0.25rem;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.25rem;">
+                        <label style="font-size: 0.85rem; font-weight: 600; margin: 0;">
+                          Etapas de Destino (Opcional - selecione uma ou mais)
+                        </label>
+                        <span style="font-size: 0.78rem; color: var(--cor-texto-secundario);">
+                          Deixe desmarcado para execução direta sem etapa vinculada
+                        </span>
+                      </div>
+                      <div class="multiselect-caixa" style="max-height: 140px; border: 1px solid var(--cor-borda); border-radius: 6px; padding: 0.4rem 0.6rem; background: var(--cor-fundo-elevado);">
+                        ${(() => {
+                          const idsEtapasEdicao = acaoEmEdicao
+                            ? (Array.isArray(acaoEmEdicao.etapas_destino_ids) && acaoEmEdicao.etapas_destino_ids.length > 0
+                                ? acaoEmEdicao.etapas_destino_ids.map(Number)
+                                : (acaoEmEdicao.etapa_destino_id ? [Number(acaoEmEdicao.etapa_destino_id)] : []))
+                            : [];
+                          const outrasEtapas = etapasAtuais.filter((e) => e.id !== etapa.id);
+                          if (outrasEtapas.length === 0) {
+                            return `<span style="font-size: 0.82rem; color: var(--cor-texto-secundario); padding: 0.3rem;">Nenhuma outra etapa cadastrada neste fluxo.</span>`;
+                          }
+                          return outrasEtapas
+                            .map((e) => {
+                              const selecionada = idsEtapasEdicao.includes(e.id);
+                              const setorNome = e.setor_nome || setores.find((s) => s.id === e.setor_id)?.nome || "Setor";
+                              return `
+                                <label class="multiselect-item" style="display: flex; align-items: center; gap: 0.55rem; font-size: 0.86rem; cursor: pointer; padding: 0.25rem 0.4rem; border-radius: 4px;">
+                                  <input type="checkbox" name="etapas_destino_ids[]" value="${e.id}" data-setor-id="${e.setor_id || ""}" ${selecionada ? "checked" : ""}>
+                                  <span><strong>${escaparHtml(e.nome)}</strong> <span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">(${escaparHtml(setorNome)})</span></span>
+                                </label>
+                              `;
+                            })
+                            .join("");
+                        })()}
+                      </div>
+                    </div>
                     <div style="grid-column: 1 / -1;">
                       <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">
                         Observação / Orientação de como fazer esta ação
@@ -973,7 +1008,7 @@ async function iniciar(container, mensagemErro) {
                       </button>
                     </div>
                     <div style="grid-column: 1 / -1; font-size: 0.8rem; color: var(--cor-texto-secundario); background: var(--cor-fundo); padding: 0.4rem 0.65rem; border-radius: 4px; border: 1px solid var(--cor-borda);">
-                      💡 <strong>Dica:</strong> Se selecionar uma <em>Etapa Destino</em>, o subchamado herdará todas as configurações dessa etapa (podendo inclusive gerar seus próprios subchamados encadeados). <em>Mãe</em> atrela o subchamado à raiz do processo; <em>Pai</em> atrela como subtarefa da etapa atual.
+                      💡 <strong>Dica:</strong> Se selecionar uma ou mais <em>Etapas de Destino</em>, serão gerados subchamados para cada uma delas ao executar esta ação (podendo gerar seus próprios subchamados encadeados). <em>Mãe</em> atrela os subchamados à raiz do processo; <em>Pai</em> atrela como subtarefas da etapa atual.
                     </div>
                   </form>
                 </div>
@@ -993,6 +1028,26 @@ async function iniciar(container, mensagemErro) {
 
       fundo.querySelector(".modal-fechar").addEventListener("click", fechar);
       fundo.querySelector(".btn-fechar-modal-acao").addEventListener("click", fechar);
+
+      const btnTelaCheia = fundo.querySelector(".btn-toggle-tela-cheia");
+      if (btnTelaCheia) {
+        btnTelaCheia.addEventListener("click", () => {
+          telaCheiaAtiva = !telaCheiaAtiva;
+          try {
+            localStorage.setItem("workflow_modal_acoes_tela_cheia", telaCheiaAtiva ? "1" : "0");
+          } catch (_) {}
+          const modalCadastro = fundo.querySelector(".modal-cadastro");
+          modalCadastro.classList.toggle("modal-cadastro--tela-cheia", telaCheiaAtiva);
+          modalCadastro.style.maxWidth = telaCheiaAtiva ? "none" : "960px";
+          modalCadastro.style.display = telaCheiaAtiva ? "flex" : "";
+          modalCadastro.style.flexDirection = telaCheiaAtiva ? "column" : "";
+          const icone = btnTelaCheia.querySelector(".icone-tela-cheia");
+          const texto = btnTelaCheia.querySelector(".texto-tela-cheia");
+          if (icone) icone.textContent = telaCheiaAtiva ? "🗗" : "⛶";
+          if (texto) texto.textContent = telaCheiaAtiva ? "Restaurar" : "Tela cheia";
+        });
+      }
+
       fundo.querySelectorAll(".btn-cancelar-edicao-acao").forEach((b) =>
         b.addEventListener("click", () => {
           acaoEditandoId = null;
@@ -1001,14 +1056,17 @@ async function iniciar(container, mensagemErro) {
       );
 
       // Sincronizar setor ao selecionar etapa destino
-      const selectEtapaDestino = fundo.querySelector("select[name='etapa_destino_id']");
+      const chksEtapasDestino = fundo.querySelectorAll("input[name='etapas_destino_ids[]']");
       const selectSetorDestino = fundo.querySelector("select[name='setor_destino_id']");
-      selectEtapaDestino?.addEventListener("change", () => {
-        const opt = selectEtapaDestino.selectedOptions[0];
-        const setorId = opt?.dataset.setorId;
-        if (setorId && selectSetorDestino) {
-          selectSetorDestino.value = setorId;
-        }
+      chksEtapasDestino.forEach((chk) => {
+        chk.addEventListener("change", () => {
+          if (chk.checked) {
+            const setorId = chk.dataset.setorId;
+            if (setorId && selectSetorDestino && (!selectSetorDestino.value || selectSetorDestino.value === "")) {
+              selectSetorDestino.value = setorId;
+            }
+          }
+        });
       });
 
       // Editar ação
@@ -1047,12 +1105,15 @@ async function iniciar(container, mensagemErro) {
         const erroEl = fundo.querySelector(".erro-modal-acao");
         erroEl.hidden = true;
 
+        const etapasSelecionadas = Array.from(
+          formAcao.querySelectorAll("input[name='etapas_destino_ids[]']:checked")
+        ).map((cb) => Number(cb.value)).filter(Boolean);
+
         const corpo = {
           rotulo: formAcao.elements.rotulo.value.trim(),
           setor_destino_id: Number(formAcao.elements.setor_destino_id.value),
-          etapa_destino_id: formAcao.elements.etapa_destino_id.value
-            ? Number(formAcao.elements.etapa_destino_id.value)
-            : null,
+          etapas_destino_ids: etapasSelecionadas,
+          etapa_destino_id: etapasSelecionadas.length > 0 ? etapasSelecionadas[0] : null,
           vinculo: formAcao.elements.vinculo.value,
           prerequisito_acao_id: formAcao.elements.prerequisito_acao_id.value
             ? Number(formAcao.elements.prerequisito_acao_id.value)

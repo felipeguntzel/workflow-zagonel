@@ -23,7 +23,7 @@
 <body>
 <div id="nav"></div>
 <main>
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+  <div class="chamado-sub-barra">
     <p style="margin: 0;">
       <a href="/chamados" class="link-sem-sublinhado">← Meus chamados</a>
       <span style="color: var(--cor-borda); margin: 0 0.35rem;">|</span>
@@ -62,70 +62,77 @@
   <!-- Card 3: Ação / Aprovação (quando aplicável) -->
   <div id="acao" class="painel painel-chamado" hidden></div>
 
-  <!-- Card 4: Comentários e Anexos Unificados (com atalho para tela suspensa de horas) -->
-  <section id="card-comentarios-anexos" class="painel painel-chamado">
-    <div class="painel-chamado-cabecalho">
-      <div class="cabecalho-lado-esquerdo">
-        <h2 class="cabecalho-titulo">💬 Comentários e Anexos</h2>
-      </div>
-      <div class="cabecalho-lado-direito">
-        <button type="button" id="btn-abrir-modal-horas" onclick="window.abrirModalHoras &amp;&amp; window.abrirModalHoras()" class="btn btn-secundario btn-acao-cabecalho" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Abrir tela suspensa para apontamento rápido de horas">
-          ⏱️ Apontar Horas
-        </button>
-      </div>
-    </div>
-
-    <!-- Lista Unificada de Comentários e Anexos -->
-    <ul id="lista-comentarios" style="list-style: none; padding: 0; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.5rem;"></ul>
-
-    <!-- Formulário Unificado: Comentário + Anexo -->
-    <form class="formulario" id="form-comentario" style="display: flex; flex-direction: column; gap: 0.6rem;">
-      <label class="campo-rotulo" for="textarea-comentario" style="font-weight: 600;">Novo comentário ou anexo</label>
-      <textarea name="texto" id="textarea-comentario" style="width: 100%; min-height: 70px;" placeholder="Digite seu comentário, anexe arquivos abaixo ou cole prints com Ctrl+V..."></textarea>
-      
-      <!-- Preview do print colado via Ctrl+V -->
-      <div id="preview-print-comentario" class="preview-print-wrap" hidden>
-        <img id="img-preview-print" class="preview-print-img" alt="Print colado">
-        <div style="flex: 1; min-width: 0;">
-          <div id="nome-print-comentario" style="font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
-          <div style="font-size: 0.75rem; color: var(--cor-texto-secundario);">Imagem da área de transferência (print colado)</div>
-        </div>
-        <button type="button" id="btn-remover-print" class="btn-icone btn-icone--excluir" title="Remover imagem" aria-label="Remover imagem">✕</button>
-      </div>
-
-      <!-- Área de Anexo Integrada -->
-      <div style="display: flex; flex-direction: column; gap: 0.5rem; background: var(--cor-fundo); padding: 0.65rem 0.85rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda);">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
-          <label style="display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--cor-primaria);">
-            <span>📎 Adicionar arquivo anexo</span>
-            <input type="file" id="input-arquivo-anexo" style="display: none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.csv">
-          </label>
-          <span style="font-size: 0.75rem; color: var(--cor-texto-secundario);">PDF, XLSX, DOCX, PNG, JPG, CSV (Máx. 2MB)</span>
-        </div>
-
-        <div id="preview-anexo-wrap" hidden></div>
-        <p id="msg-erro-anexo" class="erro" style="margin: 0.2rem 0 0;" hidden></p>
-      </div>
-
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.25rem; flex-wrap: wrap; gap: 0.5rem;">
-        <label class="label-checkbox-linha">
-          <input type="checkbox" id="check-comentario-privado">
-          <span>Comentário/anexo privado (visível apenas para o setor desta etapa)</span>
-        </label>
-        <button type="submit" class="btn btn-primario" id="btn-submit-comentario">Enviar comentário</button>
-      </div>
-    </form>
-  </section>
-
-  <!-- Histórico Unificado de Auditoria -->
-  <section class="painel painel-chamado">
-    <div class="painel-chamado-cabecalho">
+  <!-- Card 4: Histórico Unificado de Auditoria -->
+  <section id="card-historico-auditoria" class="painel painel-chamado">
+    <div id="cabecalho-historico" class="painel-chamado-cabecalho">
       <div class="cabecalho-lado-esquerdo">
         <h2 class="cabecalho-titulo">📜 Histórico Unificado de Ações</h2>
+      </div>
+      <div class="cabecalho-lado-direito">
+        <button type="button" id="btn-recolher-historico" class="btn btn-secundario btn-acao-cabecalho btn-recolher-card" title="Recolher / Expandir">▲ Recolher</button>
       </div>
     </div>
     <div id="historico-auditoria-wrap" style="max-height: 280px; overflow-y: auto; padding-right: 0.5rem;">
       <ul id="lista-historico-auditoria" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;"></ul>
+    </div>
+  </section>
+
+  <!-- Card 5: Comentários e Anexos Unificados (com atalho para tela suspensa de horas) -->
+  <section id="card-comentarios-anexos" class="painel painel-chamado">
+    <div id="cabecalho-comentarios" class="painel-chamado-cabecalho">
+      <div class="cabecalho-lado-esquerdo">
+        <h2 class="cabecalho-titulo">💬 Comentários e Anexos</h2>
+      </div>
+      <div class="cabecalho-lado-direito" style="display: flex; gap: 0.4rem; align-items: center;">
+        <button type="button" id="btn-abrir-modal-horas" onclick="window.abrirModalHoras &amp;&amp; window.abrirModalHoras()" class="btn btn-secundario btn-acao-cabecalho" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Abrir tela suspensa para apontamento rápido de horas">
+          ⏱️ Apontar Horas
+        </button>
+        <button type="button" id="btn-recolher-comentarios" class="btn btn-secundario btn-acao-cabecalho btn-recolher-card" title="Recolher / Expandir">▲ Recolher</button>
+      </div>
+    </div>
+
+    <!-- Conteúdo Recolhível de Comentários e Anexos -->
+    <div id="conteudo-comentarios-wrap">
+      <!-- Lista Unificada de Comentários e Anexos -->
+      <ul id="lista-comentarios" style="list-style: none; padding: 0; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.5rem;"></ul>
+
+      <!-- Formulário Unificado: Comentário + Anexo -->
+      <form class="formulario" id="form-comentario" style="display: flex; flex-direction: column; gap: 0.6rem;">
+        <label class="campo-rotulo" for="textarea-comentario" style="font-weight: 600;">Novo comentário ou anexo</label>
+        <textarea name="texto" id="textarea-comentario" style="width: 100%; min-height: 70px;" placeholder="Digite seu comentário, anexe arquivos abaixo ou cole prints com Ctrl+V..."></textarea>
+        
+        <!-- Preview do print colado via Ctrl+V -->
+        <div id="preview-print-comentario" class="preview-print-wrap" hidden>
+          <img id="img-preview-print" class="preview-print-img" alt="Print colado">
+          <div style="flex: 1; min-width: 0;">
+            <div id="nome-print-comentario" style="font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+            <div style="font-size: 0.75rem; color: var(--cor-texto-secundario);">Imagem da área de transferência (print colado)</div>
+          </div>
+          <button type="button" id="btn-remover-print" class="btn-icone btn-icone--excluir" title="Remover imagem" aria-label="Remover imagem">✕</button>
+        </div>
+
+        <!-- Área de Anexo Integrada -->
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; background: var(--cor-fundo); padding: 0.65rem 0.85rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda);">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+            <label style="display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--cor-primaria);">
+              <span>📎 Adicionar arquivo anexo</span>
+              <input type="file" id="input-arquivo-anexo" style="display: none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.csv">
+            </label>
+            <span style="font-size: 0.75rem; color: var(--cor-texto-secundario);">PDF, XLSX, DOCX, PNG, JPG, CSV (Máx. 2MB)</span>
+          </div>
+
+          <div id="preview-anexo-wrap" hidden></div>
+          <p id="msg-erro-anexo" class="erro" style="margin: 0.2rem 0 0;" hidden></p>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.25rem; flex-wrap: wrap; gap: 0.5rem;">
+          <label class="label-checkbox-linha">
+            <input type="checkbox" id="check-comentario-privado">
+            <span>Comentário/anexo privado (visível apenas para o setor desta etapa)</span>
+          </label>
+          <button type="submit" class="btn btn-primario" id="btn-submit-comentario">Enviar comentário</button>
+        </div>
+      </form>
     </div>
   </section>
 </main>

@@ -1,6 +1,7 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
-import { exigirPermissao } from "../../_lib/permissoes.js";
+import { exigirPermissao, exigirUsuarioLogado } from "../../_lib/permissoes.js";
+import { obterProximoIdDisponivel, atualizarContadorId } from "../../_lib/dependencias.js";
 
 async function carregarEmpresasDosSetores(db) {
   try {
@@ -11,13 +12,8 @@ async function carregarEmpresasDosSetores(db) {
 }
 
 export async function onRequestGet(context) {
-  let { erro } = await exigirPermissao(context, "setores", "visualizar");
-  if (erro) {
-    ({ erro } = await exigirPermissao(context, "dashboards", "visualizar"));
-  }
-  if (erro) {
-    ({ erro } = await exigirPermissao(context, "chamados", "visualizar"));
-  }
+  // Qualquer usuario autenticado pode listar setores para abertura ou consulta de chamados
+  const { erro } = await exigirUsuarioLogado(context);
   if (erro) return erro;
 
   const setores = await all(context.env.DB, "SELECT * FROM setores ORDER BY id");
@@ -66,16 +62,19 @@ export async function onRequestPost(context) {
     ? Number(body.prazo_padrao_dias)
     : 5;
 
+  const proximoId = await obterProximoIdDisponivel(context.env.DB, "setores");
+
   const res = await run(
     context.env.DB,
-    "INSERT INTO setores (nome, empresa_id, centro_custo, prazo_padrao_dias) VALUES (?, ?, ?, ?)",
+    "INSERT INTO setores (id, nome, empresa_id, centro_custo, prazo_padrao_dias) VALUES (?, ?, ?, ?, ?)",
+    proximoId,
     body.nome,
     empresas[0],
     body.centro_custo || null,
     prazoPadrao
   );
 
-  const novoId = res.meta.last_row_id;
+  const novoId = proximoId || res?.meta?.last_row_id;
 
   for (const empId of empresas) {
     await run(
@@ -86,6 +85,7 @@ export async function onRequestPost(context) {
     );
   }
 
+  await atualizarContadorId(context.env.DB, "setores");
   const novo = await first(context.env.DB, "SELECT * FROM setores WHERE id = ?", novoId);
   novo.empresas = empresas;
 

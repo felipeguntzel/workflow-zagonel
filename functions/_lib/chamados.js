@@ -68,6 +68,7 @@ let colunasChamadosGarantidas = false;
 export async function garantirColunasChamados(db) {
   if (colunasChamadosGarantidas) return;
   try {
+    await repararFksOrfasChamados(db);
     const cols = await all(db, "PRAGMA table_info(chamados)");
     const nomes = new Set(cols.map((c) => c.name.toLowerCase()));
     if (!nomes.has("titulo")) {
@@ -126,6 +127,8 @@ export async function garantirColunasChamados(db) {
       }
     }
 
+    await repararFksOrfasChamados(db);
+
     const statusCols = await all(db, "PRAGMA table_info(status)").catch(() => []);
     const statusNomes = new Set(statusCols.map((c) => c.name.toLowerCase()));
     if (!statusNomes.has("cor")) {
@@ -156,6 +159,119 @@ export async function garantirColunasChamados(db) {
     colunasChamadosGarantidas = true;
   } catch (err) {
     console.error("Aviso ao garantir colunas de chamados:", err);
+  }
+}
+
+let fksOrfasReparadas = false;
+export async function repararFksOrfasChamados(db) {
+  if (fksOrfasReparadas) return;
+  try {
+    const tabelasComFkQuebrada = await all(
+      db,
+      "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND (sql LIKE '%_chamados_old%' OR sql LIKE '%_chamados_antigo%')"
+    ).catch(() => []);
+
+    if (!tabelasComFkQuebrada || tabelasComFkQuebrada.length === 0) {
+      fksOrfasReparadas = true;
+      return;
+    }
+
+    await run(db, "PRAGMA foreign_keys = OFF").catch(() => {});
+
+    for (const tbl of tabelasComFkQuebrada) {
+      const nome = tbl.name;
+      if (nome === "comentarios") {
+        await run(db, `CREATE TABLE IF NOT EXISTS _comentarios_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chamado_id INTEGER NOT NULL REFERENCES chamados(id),
+          usuario_id INTEGER REFERENCES usuarios(id),
+          data TEXT NOT NULL,
+          texto TEXT NOT NULL,
+          eh_justificativa INTEGER NOT NULL DEFAULT 0,
+          eh_privado INTEGER NOT NULL DEFAULT 0
+        )`).catch(() => {});
+        await run(db, "INSERT INTO _comentarios_new (id, chamado_id, usuario_id, data, texto, eh_justificativa, eh_privado) SELECT id, chamado_id, usuario_id, data, texto, COALESCE(eh_justificativa, 0), COALESCE(eh_privado, 0) FROM comentarios").catch(() => {});
+        await run(db, "DROP TABLE comentarios").catch(() => {});
+        await run(db, "ALTER TABLE _comentarios_new RENAME TO comentarios").catch(() => {});
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_comentarios_chamado ON comentarios(chamado_id)").catch(() => {});
+      } else if (nome === "apontamentos_horas") {
+        await run(db, `CREATE TABLE IF NOT EXISTS _apontamentos_horas_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chamado_id INTEGER NOT NULL REFERENCES chamados(id),
+          usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+          data TEXT NOT NULL,
+          horas REAL NOT NULL,
+          observacao TEXT
+        )`).catch(() => {});
+        await run(db, "INSERT INTO _apontamentos_horas_new (id, chamado_id, usuario_id, data, horas, observacao) SELECT id, chamado_id, usuario_id, data, horas, observacao FROM apontamentos_horas").catch(() => {});
+        await run(db, "DROP TABLE apontamentos_horas").catch(() => {});
+        await run(db, "ALTER TABLE _apontamentos_horas_new RENAME TO apontamentos_horas").catch(() => {});
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_apontamentos_chamado_data ON apontamentos_horas(chamado_id, data)").catch(() => {});
+      } else if (nome === "chamado_campos_valores") {
+        await run(db, "DROP TABLE IF EXISTS _chamado_campos_valores_new").catch(() => {});
+        await run(db, `CREATE TABLE _chamado_campos_valores_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chamado_id INTEGER NOT NULL REFERENCES chamados(id) ON DELETE CASCADE,
+          campo_id INTEGER NOT NULL,
+          valor TEXT,
+          UNIQUE(chamado_id, campo_id)
+        )`).catch(() => {});
+        const colsVal = await all(db, "PRAGMA table_info(chamado_campos_valores)").catch(() => []);
+        const nomesVal = new Set(colsVal.map((c) => c.name.toLowerCase()));
+        const colCampo = nomesVal.has("campo_id")
+          ? "campo_id"
+          : nomesVal.has("etapa_campo_id")
+          ? "etapa_campo_id"
+          : nomesVal.has("campo_etapa_id")
+          ? "campo_etapa_id"
+          : "NULL";
+        await run(
+          db,
+          `INSERT OR REPLACE INTO _chamado_campos_valores_new (id, chamado_id, campo_id, valor)
+           SELECT id, chamado_id, ${colCampo}, valor FROM chamado_campos_valores WHERE ${colCampo} IS NOT NULL`
+        ).catch(() => {});
+        await run(db, "DROP TABLE chamado_campos_valores").catch(() => {});
+        await run(db, "ALTER TABLE _chamado_campos_valores_new RENAME TO chamado_campos_valores").catch(() => {});
+        await run(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_chamado_campos_valores_chamado_campo ON chamado_campos_valores(chamado_id, campo_id)").catch(() => {});
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_chamado_campos_chamado ON chamado_campos_valores(chamado_id)").catch(() => {});
+      } else if (nome === "chamado_anexos") {
+        await run(db, `CREATE TABLE IF NOT EXISTS _chamado_anexos_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chamado_id INTEGER NOT NULL REFERENCES chamados(id) ON DELETE CASCADE,
+          usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+          nome_arquivo TEXT NOT NULL,
+          tipo_mime TEXT NOT NULL,
+          tamanho_bytes INTEGER NOT NULL,
+          conteudo_base64 TEXT NOT NULL,
+          eh_privado INTEGER NOT NULL DEFAULT 0,
+          criado_em TEXT NOT NULL
+        )`).catch(() => {});
+        await run(db, "INSERT INTO _chamado_anexos_new (id, chamado_id, usuario_id, nome_arquivo, tipo_mime, tamanho_bytes, conteudo_base64, eh_privado, criado_em) SELECT id, chamado_id, usuario_id, nome_arquivo, tipo_mime, tamanho_bytes, conteudo_base64, COALESCE(eh_privado, 0), criado_em FROM chamado_anexos").catch(() => {});
+        await run(db, "DROP TABLE chamado_anexos").catch(() => {});
+        await run(db, "ALTER TABLE _chamado_anexos_new RENAME TO chamado_anexos").catch(() => {});
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_chamado_anexos_chamado ON chamado_anexos(chamado_id)").catch(() => {});
+      } else if (nome === "historico_auditoria") {
+        await run(db, `CREATE TABLE IF NOT EXISTS _historico_auditoria_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chamado_mae_id INTEGER NOT NULL REFERENCES chamados(id) ON DELETE CASCADE,
+          chamado_id INTEGER NOT NULL REFERENCES chamados(id) ON DELETE CASCADE,
+          usuario_id INTEGER REFERENCES usuarios(id),
+          usuario_nome TEXT NOT NULL,
+          acao TEXT NOT NULL,
+          detalhes TEXT NOT NULL,
+          criado_em TEXT NOT NULL
+        )`).catch(() => {});
+        await run(db, "INSERT INTO _historico_auditoria_new (id, chamado_mae_id, chamado_id, usuario_id, usuario_nome, acao, detalhes, criado_em) SELECT id, chamado_mae_id, chamado_id, usuario_id, usuario_nome, acao, detalhes, criado_em FROM historico_auditoria").catch(() => {});
+        await run(db, "DROP TABLE historico_auditoria").catch(() => {});
+        await run(db, "ALTER TABLE _historico_auditoria_new RENAME TO historico_auditoria").catch(() => {});
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_historico_chamado_mae ON historico_auditoria(chamado_mae_id)").catch(() => {});
+      }
+    }
+
+    await run(db, "PRAGMA foreign_keys = ON").catch(() => {});
+    fksOrfasReparadas = true;
+  } catch (err) {
+    console.error("Falha ao reparar FKs órfãs de chamados:", err);
   }
 }
 
@@ -355,7 +471,10 @@ export async function chamadoComDetalhes(db, id) {
        s.nome AS setor_nome,
        COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
        e.nome AS etapa_nome,
-       e.tipo AS etapa_tipo,
+       CASE 
+         WHEN e.tipo = 'aprovacao' OR LOWER(COALESCE(e.nome, c.titulo, a.rotulo, '')) LIKE '%aprova%' THEN 'aprovacao'
+         ELSE COALESCE(e.tipo, 'tarefa')
+       END AS etapa_tipo,
        st.nome AS status_nome,
        st.cor AS status_cor,
        resp.nome AS responsavel_nome,
@@ -383,7 +502,61 @@ export async function chamadoComDetalhes(db, id) {
     hojeISO(),
     chamado.data_finalizacao != null || chamado.status_nome === "suspenso"
   );
-  return { ...chamado, bloqueado, situacao_prazo: situacao };
+  const ehChamadoMae = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
+  const permComentarios = await verificarPermissaoComentariosChamado(db, chamado);
+
+  return {
+    ...chamado,
+    eh_chamado_mae: ehChamadoMae,
+    pode_apontar_horas: !ehChamadoMae,
+    pode_comentar: permComentarios.permitido,
+    motivo_bloqueio_comentario: permComentarios.motivo || null,
+    bloqueado,
+    situacao_prazo: situacao,
+  };
+}
+
+/**
+ * Verifica se comentários/anexos são permitidos para um chamado.
+ * Regra: Na solicitação inicial (chamado mãe), comentários e anexos só são permitidos
+ * se a etapa 1 de aprovação ainda está como prevista (ou seja, ainda não foi aprovada).
+ */
+export async function verificarPermissaoComentariosChamado(db, chamado) {
+  const ehChamadoMae = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
+  if (!ehChamadoMae) {
+    return { permitido: true };
+  }
+
+  const etapasFilhas = await all(
+    db,
+    `SELECT c.id, c.status_id, st.nome AS status_nome, c.resultado, c.data_finalizacao, e.tipo AS etapa_tipo
+     FROM chamados c
+     LEFT JOIN status st ON st.id = c.status_id
+     LEFT JOIN etapas e ON e.id = c.etapa_id
+     WHERE c.chamado_mae_id = ?
+     ORDER BY c.id ASC`,
+    chamado.id
+  );
+
+  if (!etapasFilhas || etapasFilhas.length === 0) {
+    return { permitido: true };
+  }
+
+  // Identifica a primeira etapa de aprovação (ou a primeira etapa filha criada a partir da solicitação inicial)
+  const primeiraEtapaAprovacao = etapasFilhas.find((f) => f.etapa_tipo === "aprovacao") || etapasFilhas[0];
+  const statusNome = String(primeiraEtapaAprovacao?.status_nome || "").toLowerCase();
+  const estaPrevista = statusNome === "previsto" && !primeiraEtapaAprovacao?.data_finalizacao && !primeiraEtapaAprovacao?.resultado;
+
+  if (!estaPrevista) {
+    return {
+      permitido: false,
+      motivo: "Comentários e anexos na solicitação inicial só são permitidos enquanto a primeira etapa de aprovação estiver prevista (não aprovada).",
+      etapa_id: primeiraEtapaAprovacao?.id,
+      status_nome: primeiraEtapaAprovacao?.status_nome,
+    };
+  }
+
+  return { permitido: true };
 }
 
 /**
