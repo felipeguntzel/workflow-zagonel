@@ -233,8 +233,15 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
   const ehChamadoMae = Boolean(chamado.eh_chamado_mae || !chamado.chamado_mae_id || chamado.chamado_mae_id === 0);
 
-  const podeEditarStatus = permissaoChamados.editar;
-  const ehEtapaAprovacao = chamado.etapa_id && chamado.etapa_tipo === "aprovacao";
+  const souResponsavel = chamado.responsavel_id != null && Number(chamado.responsavel_id) === Number(usuario?.id);
+  const souDoSetor = chamado.setor_id != null && usuario?.setor_id != null && Number(chamado.setor_id) === Number(usuario?.setor_id);
+  const podeEditarChamado = Boolean(usuario?.admin || permissaoChamados.editar || souResponsavel || souDoSetor);
+
+  const ehEtapaAprovacao = Boolean(
+    chamado.etapa_tipo === "aprovacao" ||
+    String(chamado.titulo || "").toLowerCase().includes("aprova") ||
+    String(chamado.etapa_nome || "").toLowerCase().includes("aprova")
+  );
 
   const detalheEl = document.getElementById("detalhe");
   detalheEl.innerHTML = `
@@ -256,11 +263,18 @@ async function carregarDetalhe(chamadoRecebido = null) {
       <div class="cabecalho-lado-direito">
         <!-- Atualizar Status no Topo da Tela (Salva automaticamente ao selecionar) -->
         ${
-          podeEditarStatus && !ehEtapaAprovacao
+          podeEditarChamado
             ? `
           <div class="grupo-acao-status">
             <select id="select-status-topo" class="select-padrao select-acao-cabecalho" title="Alterar status do chamado">
               ${statusList
+                .filter((s) => {
+                  // Na etapa de aprovação, a finalização com avanço deve ser realizada pelos botões de decisão
+                  if (ehEtapaAprovacao && String(s.nome).toLowerCase() === "finalizado" && s.id !== chamado.status_id) {
+                    return false;
+                  }
+                  return true;
+                })
                 .map(
                   (s) =>
                     `<option value="${s.id}" ${s.id === chamado.status_id ? "selected" : ""}>${escaparHtml(s.nome)}</option>`
@@ -324,7 +338,7 @@ async function carregarDetalhe(chamadoRecebido = null) {
         </div>
 
         ${
-          !finalizado && permissaoChamados.editar
+          !finalizado && podeEditarChamado
             ? `
           <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; flex-wrap: wrap;">
             <select id="select-atribuir-responsavel" class="select-padrao" style="min-width: 230px; max-width: 320px; padding: 0.4rem 0.65rem; font-size: 0.85rem; height: 36px; box-sizing: border-box;" title="Selecione um responsável para atribuir imediatamente">
@@ -374,7 +388,7 @@ async function carregarDetalhe(chamadoRecebido = null) {
   }
 
   // Carrega lista de usuários em background sem travar a exibição da tela
-  if (!ehChamadoMae && !finalizado && permissaoChamados.editar) {
+  if (!ehChamadoMae && !finalizado && podeEditarChamado) {
     obterUsuarios().then((todos) => {
       const select = document.getElementById("select-atribuir-responsavel");
       if (!select) return;
@@ -421,6 +435,15 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
       const statusId = Number(selectStatusTopo.value);
       const statusEscolhido = statusList.find((s) => s.id === statusId);
+
+      if (ehEtapaAprovacao && String(statusEscolhido?.nome || "").toLowerCase() === "finalizado") {
+        if (erroStatus) {
+          erroStatus.textContent = "Para concluir ou aprovar esta etapa, utilize a seção 'Avaliação da Tarefa / Etapa' abaixo.";
+          erroStatus.hidden = false;
+        }
+        selectStatusTopo.value = String(statusAnterior);
+        return;
+      }
 
       if (chamado.bloqueado && String(statusEscolhido?.nome || "").toLowerCase() === "finalizado") {
         if (erroStatus) {
@@ -528,20 +551,8 @@ async function carregarDetalhe(chamadoRecebido = null) {
         chamadoAtual = respAtualizado;
         chamado.responsavel_id = respAtualizado.responsavel_id;
         chamado.responsavel_nome = respAtualizado.responsavel_nome;
-        // Se a transição automática mudou para previsto, sincroniza o status no select
-        if (respAtualizado.status_id && respAtualizado.status_id !== chamado.status_id) {
-          chamado.status_id = respAtualizado.status_id;
-          chamado.status_nome = respAtualizado.status_nome;
-          chamado.status_cor = respAtualizado.status_cor;
-          if (selectStatusTopo) selectStatusTopo.value = String(respAtualizado.status_id);
-          const badgeLegenda = document.querySelector(".cabecalho-legendas .badge-status");
-          if (badgeLegenda) {
-            badgeLegenda.style.background = respAtualizado.status_cor ? respAtualizado.status_cor + "18" : "var(--cor-fundo)";
-            badgeLegenda.style.color = respAtualizado.status_cor || "var(--cor-texto)";
-            badgeLegenda.style.borderColor = respAtualizado.status_cor ? respAtualizado.status_cor + "55" : "var(--cor-borda)";
-            badgeLegenda.innerHTML = `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${respAtualizado.status_cor || "var(--cor-primaria)"};"></span>Status: ${escaparHtml(respAtualizado.status_nome)}`;
-          }
-        }
+        // Recarrega o detalhe para refletir a nova responsabilidade nos cards e botões
+        await carregarDetalhe(chamadoAtual);
       }
       // Atualiza o histórico de auditoria em segundo plano
       carregarAuditoria();
@@ -575,7 +586,7 @@ async function carregarDetalhe(chamadoRecebido = null) {
   });
 
   const acaoContainer = document.getElementById("acao");
-  if (ehEtapaAprovacao && !finalizado && permissaoChamados.editar) {
+  if (ehEtapaAprovacao && !finalizado && podeEditarChamado) {
     acaoContainer.hidden = false;
     renderAprovacao(chamado);
   } else {
@@ -1488,17 +1499,21 @@ async function carregarAuditoria() {
 }
 
 async function renderAprovacao(chamado) {
-  let etapa = null;
-  try {
-    etapa = await api(`/etapas/${chamado.etapa_id}`);
-  } catch (e) {
-    return;
-  }
   const acaoContainer = document.getElementById("acao");
   if (!acaoContainer) return;
 
-  const acoesList = etapa.acoes || [];
+  let etapa = null;
+  if (chamado.etapa_id) {
+    try {
+      etapa = await api(`/etapas/${chamado.etapa_id}`);
+    } catch (e) {
+      console.warn("Aviso ao carregar ações da etapa:", e);
+    }
+  }
 
+  const acoesList = etapa?.acoes || [];
+
+  acaoContainer.hidden = false;
   acaoContainer.innerHTML = `
     <div class="formulario-secao-cabecalho" style="margin-bottom: 0.85rem;">
       <h3 style="margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 0.45rem;">

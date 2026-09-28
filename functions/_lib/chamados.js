@@ -455,7 +455,10 @@ export async function chamadoComDetalhes(db, id) {
        s.nome AS setor_nome,
        COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
        e.nome AS etapa_nome,
-       e.tipo AS etapa_tipo,
+       CASE 
+         WHEN e.tipo = 'aprovacao' OR LOWER(COALESCE(e.nome, c.titulo, a.rotulo, '')) LIKE '%aprova%' THEN 'aprovacao'
+         ELSE COALESCE(e.tipo, 'tarefa')
+       END AS etapa_tipo,
        st.nome AS status_nome,
        st.cor AS status_cor,
        resp.nome AS responsavel_nome,

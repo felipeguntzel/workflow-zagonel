@@ -1,7 +1,7 @@
 import { run, first } from "../../../_lib/db.js";
 import { json, error } from "../../../_lib/http.js";
 import { carregarEtapaComAcoes } from "../../../_lib/etapas.js";
-import { exigirPermissao } from "../../../_lib/permissoes.js";
+import { exigirUsuarioLogado, obterPermissoesDoUsuario } from "../../../_lib/permissoes.js";
 import {
   chamadoComDetalhes,
   finalizarComCascata,
@@ -14,7 +14,7 @@ import { registrarAuditoria } from "../../../_lib/auditoria.js";
 
 export async function onRequestPost(context) {
   try {
-    const { usuario, erro } = await exigirPermissao(context, "chamados", "editar");
+    const { usuario, erro } = await exigirUsuarioLogado(context);
     if (erro) return erro;
     const body = await context.request.json().catch(() => ({}));
     if (body.decisao !== "aprovado" && body.decisao !== "reprovado") {
@@ -22,7 +22,21 @@ export async function onRequestPost(context) {
     }
     const chamado = await chamadoComDetalhes(context.env.DB, context.params.id);
     if (!chamado) return error("Não encontrado", 404);
-    if (!chamado.etapa_id || chamado.etapa_tipo !== "aprovacao") {
+
+    const permissoes = await obterPermissoesDoUsuario(context.env.DB, usuario.id);
+    const temPermissaoEditar = usuario.admin === 1 || Boolean(permissoes?.chamados?.editar);
+    const ehResponsavel = chamado.responsavel_id != null && Number(chamado.responsavel_id) === Number(usuario.id);
+    const ehMesmoSetor = chamado.setor_id != null && usuario.setor_id != null && Number(chamado.setor_id) === Number(usuario.setor_id);
+
+    if (!temPermissaoEditar && !ehResponsavel && !ehMesmoSetor) {
+      return error("Você não tem permissão para registrar decisões neste chamado.", 403);
+    }
+
+    const ehAprovacao = chamado.etapa_tipo === "aprovacao" ||
+                        chamado.acao_origem_id != null ||
+                        String(chamado.titulo || "").toLowerCase().includes("aprova") ||
+                        String(chamado.etapa_nome || "").toLowerCase().includes("aprova");
+    if (!ehAprovacao) {
       return error("Este chamado não é uma etapa de aprovação");
     }
 
@@ -79,14 +93,19 @@ export async function onRequestPost(context) {
     });
 
     const atualizado = await chamadoComDetalhes(context.env.DB, chamado.id);
-    const etapa = await carregarEtapaComAcoes(context.env.DB, chamado.etapa_id);
-    const criados = await avancarFluxo(
-      context.env.DB,
-      atualizado,
-      etapa,
-      body.acoes ?? {},
-      body.observacoes_acoes ?? {}
-    );
+    let criados = [];
+    if (chamado.etapa_id) {
+      const etapa = await carregarEtapaComAcoes(context.env.DB, chamado.etapa_id);
+      if (etapa) {
+        criados = await avancarFluxo(
+          context.env.DB,
+          atualizado,
+          etapa,
+          body.acoes ?? {},
+          body.observacoes_acoes ?? {}
+        );
+      }
+    }
 
     for (const filho of criados) {
       const etapaFilho = filho.etapa_id ? await first(context.env.DB, "SELECT nome FROM etapas WHERE id = ?", filho.etapa_id) : null;

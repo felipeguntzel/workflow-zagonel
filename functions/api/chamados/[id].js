@@ -10,7 +10,7 @@ import {
   repararFksOrfasChamados,
 } from "../../_lib/chamados.js";
 import { carregarEtapaComAcoes } from "../../_lib/etapas.js";
-import { exigirPermissao } from "../../_lib/permissoes.js";
+import { exigirPermissao, exigirUsuarioLogado, obterPermissoesDoUsuario } from "../../_lib/permissoes.js";
 import { registrarAuditoria, registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 import { atualizarContadorId } from "../../_lib/dependencias.js";
 
@@ -28,7 +28,7 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPut(context) {
-  const { usuario, erro } = await exigirPermissao(context, "chamados", "editar");
+  const { usuario, erro } = await exigirUsuarioLogado(context);
   if (erro) return erro;
   const body = await context.request.json();
   const camposPermitidos = ["status_id", "responsavel_id", "prazo"];
@@ -37,6 +37,17 @@ export async function onRequestPut(context) {
 
   const chamadoAntes = await chamadoComDetalhes(context.env.DB, context.params.id);
   if (!chamadoAntes) return error("Não encontrado", 404);
+
+  // Usuário pode editar se for admin, tiver permissão de edição em chamados,
+  // for o responsável atual, ou pertencer ao mesmo setor da etapa/tarefa
+  const permissoes = await obterPermissoesDoUsuario(context.env.DB, usuario.id);
+  const temPermissaoEditar = usuario.admin === 1 || Boolean(permissoes?.chamados?.editar);
+  const ehResponsavel = chamadoAntes.responsavel_id != null && Number(chamadoAntes.responsavel_id) === Number(usuario.id);
+  const ehMesmoSetor = chamadoAntes.setor_id != null && usuario.setor_id != null && Number(chamadoAntes.setor_id) === Number(usuario.setor_id);
+
+  if (!temPermissaoEditar && !ehResponsavel && !ehMesmoSetor) {
+    return error("Você não tem permissão para editar este chamado.", 403);
+  }
 
   // Validação de atribuição de responsável:
   // "somente usuários que são do setor daquela etapa, o chamado pode ser trocado de responsável dentro do mesmo setor"

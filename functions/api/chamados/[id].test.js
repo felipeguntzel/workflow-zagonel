@@ -87,3 +87,128 @@ test("onRequestDelete remove subarvore e limpa dependencias com sucesso", async 
   );
   assert.equal(deleteChamado, true);
 });
+
+test("onRequestPut permite que o usuario responsavel altere o status do chamado", async () => {
+  const { onRequestPut } = await import("./[id].js");
+  const token = await gerarToken(5, SEGREDO);
+
+  const dbMock = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes("FROM usuarios WHERE id = ?")) {
+                // Usuário comum, não admin, setor 2
+                return { id: 5, nome: "Operador Dev", setor_id: 2, admin: 0, deve_trocar_senha: 0 };
+              }
+              if (sql.includes("FROM chamados c")) {
+                // Chamado onde responsavel_id = 5
+                return {
+                  id: 3,
+                  responsavel_id: 5,
+                  setor_id: 2,
+                  status_id: 1,
+                  status_nome: "previsto",
+                  titulo: "Aprovação 2 - Desenvolvimento",
+                  etapa_id: 2,
+                  etapa_tipo: "aprovacao"
+                };
+              }
+              if (sql.includes("FROM status WHERE id = ?")) {
+                return { nome: "em desenvolvimento" };
+              }
+              return null;
+            },
+            async all() {
+              if (sql.includes("FROM usuario_grupos")) {
+                return { results: [] };
+              }
+              if (sql.includes("PRAGMA table_info")) {
+                return { results: [{ name: "titulo" }, { name: "prioridade" }, { name: "observacao" }, { name: "empresa_id" }] };
+              }
+              return { results: [] };
+            },
+            async run() {
+              return { meta: { changes: 1 } };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const ctx = {
+    request: new Request("http://localhost/api/chamados/3", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status_id: 2 }),
+    }),
+    params: { id: "3" },
+    env: { DB: dbMock, SESSAO_SEGREDO: SEGREDO },
+  };
+
+  const res = await onRequestPut(ctx);
+  assert.equal(res.status, 200);
+});
+
+test("onRequestPut rejeita alteração se usuário não for responsável, nem do setor, nem tiver permissão", async () => {
+  const { onRequestPut } = await import("./[id].js");
+  const token = await gerarToken(9, SEGREDO);
+
+  const dbMock = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes("FROM usuarios WHERE id = ?")) {
+                // Usuário comum de outro setor (setor 9)
+                return { id: 9, nome: "Outro Usuário", setor_id: 9, admin: 0, deve_trocar_senha: 0 };
+              }
+              if (sql.includes("FROM chamados c")) {
+                // Chamado do setor 2 com outro responsável
+                return {
+                  id: 3,
+                  responsavel_id: 5,
+                  setor_id: 2,
+                  status_id: 1,
+                  status_nome: "previsto",
+                  titulo: "Aprovação 2",
+                  etapa_id: 2
+                };
+              }
+              return null;
+            },
+            async all() {
+              return { results: [] };
+            },
+            async run() {
+              return { meta: { changes: 1 } };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const ctx = {
+    request: new Request("http://localhost/api/chamados/3", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status_id: 2 }),
+    }),
+    params: { id: "3" },
+    env: { DB: dbMock, SESSAO_SEGREDO: SEGREDO },
+  };
+
+  const res = await onRequestPut(ctx);
+  assert.equal(res.status, 403);
+});
+
