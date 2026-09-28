@@ -112,7 +112,7 @@ formLogin?.addEventListener("submit", async (ev) => {
       document.getElementById("btn-atalho-redefinir")?.addEventListener("click", abrirRecuperacao);
     } else {
       if (msg.includes("Login ou senha inválidos") && !loginDigitado.includes(".") && !loginDigitado.includes("@")) {
-        msg += " (Dica: o login utiliza o formato nome.sobrenome, ex: felipe.guntzel, ou seu e-mail corporativo).";
+        msg += " (Dica: o login utiliza o formato nome.sobrenome ou seu e-mail corporativo).";
       }
       mostrarErro(mensagemErro, new Error(msg));
     }

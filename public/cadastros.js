@@ -78,8 +78,8 @@ if (usuario) {
         label: "Login",
         obrigatorio: true,
         desabilitadoNaEdicao: true,
-        placeholder: "Ex: felipe.guntzel ou projetoszagonel",
-        dica: "Usado para entrar no sistema. Permite letras minúsculas, números, ponto e sublinhado (ex: felipe.guntzel ou projetoszagonel).",
+        placeholder: "Ex: nome.sobrenome ou projetoszagonel",
+        dica: "Usado para entrar no sistema. Permite letras minúsculas, números, ponto e sublinhado (ex: nome.sobrenome ou projetoszagonel).",
       },
       {
         nome: "email",

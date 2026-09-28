@@ -89,7 +89,7 @@ export async function onRequestPut(context) {
     login = String(body.login || "").trim().toLowerCase();
     if (!validarFormatoLogin(login)) {
       return error(
-        "Login inválido: use apenas letras, números, ponto ou sublinhado (ex: felipe.guntzel ou projetoszagonel), sem espaços ou símbolos."
+        "Login inválido: use apenas letras, números, ponto ou sublinhado (ex: nome.sobrenome ou projetoszagonel), sem espaços ou símbolos."
       );
     }
     const existente = await first(
