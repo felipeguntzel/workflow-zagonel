@@ -68,6 +68,7 @@ let colunasChamadosGarantidas = false;
 export async function garantirColunasChamados(db) {
   if (colunasChamadosGarantidas) return;
   try {
+    await repararFksOrfasChamados(db);
     const cols = await all(db, "PRAGMA table_info(chamados)");
     const nomes = new Set(cols.map((c) => c.name.toLowerCase()));
     if (!nomes.has("titulo")) {
@@ -207,16 +208,31 @@ export async function repararFksOrfasChamados(db) {
         await run(db, "ALTER TABLE _apontamentos_horas_new RENAME TO apontamentos_horas").catch(() => {});
         await run(db, "CREATE INDEX IF NOT EXISTS idx_apontamentos_chamado_data ON apontamentos_horas(chamado_id, data)").catch(() => {});
       } else if (nome === "chamado_campos_valores") {
-        await run(db, `CREATE TABLE IF NOT EXISTS _chamado_campos_valores_new (
+        await run(db, "DROP TABLE IF EXISTS _chamado_campos_valores_new").catch(() => {});
+        await run(db, `CREATE TABLE _chamado_campos_valores_new (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           chamado_id INTEGER NOT NULL REFERENCES chamados(id) ON DELETE CASCADE,
-          campo_id INTEGER NOT NULL REFERENCES campos_etapa(id) ON DELETE CASCADE,
+          campo_id INTEGER NOT NULL,
           valor TEXT,
           UNIQUE(chamado_id, campo_id)
         )`).catch(() => {});
-        await run(db, "INSERT INTO _chamado_campos_valores_new (id, chamado_id, campo_id, valor) SELECT id, chamado_id, campo_id, valor FROM chamado_campos_valores").catch(() => {});
+        const colsVal = await all(db, "PRAGMA table_info(chamado_campos_valores)").catch(() => []);
+        const nomesVal = new Set(colsVal.map((c) => c.name.toLowerCase()));
+        const colCampo = nomesVal.has("campo_id")
+          ? "campo_id"
+          : nomesVal.has("etapa_campo_id")
+          ? "etapa_campo_id"
+          : nomesVal.has("campo_etapa_id")
+          ? "campo_etapa_id"
+          : "NULL";
+        await run(
+          db,
+          `INSERT OR REPLACE INTO _chamado_campos_valores_new (id, chamado_id, campo_id, valor)
+           SELECT id, chamado_id, ${colCampo}, valor FROM chamado_campos_valores WHERE ${colCampo} IS NOT NULL`
+        ).catch(() => {});
         await run(db, "DROP TABLE chamado_campos_valores").catch(() => {});
         await run(db, "ALTER TABLE _chamado_campos_valores_new RENAME TO chamado_campos_valores").catch(() => {});
+        await run(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_chamado_campos_valores_chamado_campo ON chamado_campos_valores(chamado_id, campo_id)").catch(() => {});
         await run(db, "CREATE INDEX IF NOT EXISTS idx_chamado_campos_chamado ON chamado_campos_valores(chamado_id)").catch(() => {});
       } else if (nome === "chamado_anexos") {
         await run(db, `CREATE TABLE IF NOT EXISTS _chamado_anexos_new (

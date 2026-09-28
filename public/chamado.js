@@ -624,7 +624,7 @@ async function carregarCamposDinamicos(chamadoRecebido = null, camposPromiseRece
     const podeEditarChamado = (!ehMae || ehSolicitante || ehAdmin) && !statusFinalizado;
 
     const temCamposEditaveis = camposComValores.some((c) => {
-      const ehSomenteLeitura = Boolean(c.somente_leitura || (c.da_solicitacao && !ehMae));
+      const ehSomenteLeitura = Boolean(c.somente_leitura);
       return podeEditarChamado && !ehSomenteLeitura;
     });
 
@@ -647,7 +647,7 @@ async function carregarCamposDinamicos(chamadoRecebido = null, camposPromiseRece
       <form id="form-campos-dinamicos" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.85rem;">
         ${camposComValores
           .map((c) => {
-            const ehSomenteLeitura = Boolean(c.somente_leitura || (c.da_solicitacao && !ehMae));
+            const ehSomenteLeitura = Boolean(c.somente_leitura);
             const disabledAttr = (podeEditarChamado && !ehSomenteLeitura) ? "" : "disabled";
             const val = c.valor != null ? String(c.valor) : "";
             const tipoNorm = String(c.tipo || "texto").toLowerCase();
