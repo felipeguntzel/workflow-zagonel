@@ -880,7 +880,7 @@ async function iniciar(container, mensagemErro) {
                             return `<div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
                               ${ids.map((id) => {
                                 const e = etapasAtuais.find((et) => et.id === id);
-                                return `<span class="badge badge--sucesso">${escaparHtml(e?.nome ?? `#${id}`)}</span>`;
+                                return `<span class="badge-status-etapa-destino" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0; font-weight: 600; font-size: 0.78rem; padding: 0.15rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center;">${escaparHtml(e?.nome ?? `#${id}`)}</span>`;
                               }).join("")}
                             </div>`;
                           })()}</td>

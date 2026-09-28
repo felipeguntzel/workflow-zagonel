@@ -322,15 +322,53 @@ main h3, main h4, main h5 { margin-top: 2rem; margin-bottom: 0.75rem; }
 
 .badge {
   display: inline-block;
-  padding: 0.15rem 0.5rem;
+  padding: 0.15rem 0.55rem;
   border-radius: 1rem;
-  color: var(--cor-status-texto);
-  border: var(--cor-borda-largura) solid transparent;
+  color: var(--cor-texto);
+  background: var(--cor-fundo-elevado);
+  border: var(--cor-borda-largura) solid var(--cor-borda);
   font-size: 0.8rem;
+  line-height: 1.3;
 }
-.badge-vencido { background: var(--cor-vencido); }
-.badge-alerta { background: var(--cor-alerta); }
-.badge-ok { background: var(--cor-ok); }
+.badge-vencido { background: var(--cor-vencido); color: #ffffff !important; border-color: transparent; }
+.badge-alerta { background: var(--cor-alerta); color: #ffffff !important; border-color: transparent; }
+.badge-ok { background: var(--cor-ok); color: #ffffff !important; border-color: transparent; }
+.badge--sucesso,
+.badge-sucesso,
+.badge-status-etapa-destino {
+  background: #eaf3ee !important;
+  color: #1d4a35 !important;
+  border: 1px solid #bbf7d0 !important;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 4px;
+}
+:root[data-tema="escuro"] .badge--sucesso,
+:root[data-tema="escuro"] .badge-sucesso,
+:root[data-tema="escuro"] .badge-status-etapa-destino {
+  background: #132a1f !important;
+  color: #86efac !important;
+  border-color: #166534 !important;
+}
+.badge--info,
+.badge-info {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  border: 1px solid #bae6fd !important;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 4px;
+}
+:root[data-tema="escuro"] .badge--info,
+:root[data-tema="escuro"] .badge-info {
+  background: #082f49 !important;
+  color: #7dd3fc !important;
+  border-color: #0369a1 !important;
+}
 :root[data-tema="alto-contraste"] .badge { border-color: var(--cor-borda); font-weight: 700; }
 
 form.formulario { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }
