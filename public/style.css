@@ -727,6 +727,7 @@ form.formulario[hidden] { display: none; }
   cursor: pointer;
   text-align: left;
   transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
 }
 .sidebar__usuario-menu .sidebar__usuario-item:hover {
   background: var(--cor-fundo);

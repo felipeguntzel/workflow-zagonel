@@ -343,11 +343,11 @@ function construirSidebar(usuario, modalBusca) {
           <span>Preferências</span>
         </a>
         <a href="#" id="link-atualizar-app" class="sidebar__usuario-item" title="Forçar limpeza de cache e recarregar a versão mais recente">
-          <span>🔄 Atualizar app (v${VERSAO_CLIENTE})</span>
+          <span>Atualizar app</span>
         </a>
         <hr class="sidebar__usuario-divisor">
-        <a href="#" id="link-logout-todos" class="sidebar__usuario-item sidebar__usuario-item--alerta">
-          <span>Sair de todos os dispositivos</span>
+        <a href="#" id="link-logout-todos" class="sidebar__usuario-item sidebar__usuario-item--alerta" title="Sair de todos os dispositivos">
+          <span>Sair de todos</span>
         </a>
         <a href="#" id="link-sair" class="sidebar__usuario-item sidebar__usuario-item--sair">
           <span>Sair</span>
