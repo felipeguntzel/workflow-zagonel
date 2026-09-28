@@ -716,13 +716,13 @@ async function iniciar(usuarioLogado) {
         }
       }
 
-      // Redireciona direto para o chamado recém-criado com mensagem amigável
+      // Redireciona direto para a visão geral do chamado com mensagem amigável
       sessionStorage.setItem(
         "workflow_toast_sucesso",
         `✓ Chamado #${chamadoIdCriado} aberto com sucesso!`
       );
 
-      window.location.href = `/chamado?id=${chamadoIdCriado}`;
+      window.location.href = `/geral?id=${chamadoIdCriado}`;
     } catch (e) {
       mostrarErro(msgErro, e);
       btnSubmit.disabled = false;

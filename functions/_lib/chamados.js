@@ -483,7 +483,61 @@ export async function chamadoComDetalhes(db, id) {
     hojeISO(),
     chamado.data_finalizacao != null || chamado.status_nome === "suspenso"
   );
-  return { ...chamado, bloqueado, situacao_prazo: situacao };
+  const ehChamadoMae = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
+  const permComentarios = await verificarPermissaoComentariosChamado(db, chamado);
+
+  return {
+    ...chamado,
+    eh_chamado_mae: ehChamadoMae,
+    pode_apontar_horas: !ehChamadoMae,
+    pode_comentar: permComentarios.permitido,
+    motivo_bloqueio_comentario: permComentarios.motivo || null,
+    bloqueado,
+    situacao_prazo: situacao,
+  };
+}
+
+/**
+ * Verifica se comentários/anexos são permitidos para um chamado.
+ * Regra: Na solicitação inicial (chamado mãe), comentários e anexos só são permitidos
+ * se a etapa 1 de aprovação ainda está como prevista (ou seja, ainda não foi aprovada).
+ */
+export async function verificarPermissaoComentariosChamado(db, chamado) {
+  const ehChamadoMae = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
+  if (!ehChamadoMae) {
+    return { permitido: true };
+  }
+
+  const etapasFilhas = await all(
+    db,
+    `SELECT c.id, c.status_id, st.nome AS status_nome, c.resultado, c.data_finalizacao, e.tipo AS etapa_tipo
+     FROM chamados c
+     LEFT JOIN status st ON st.id = c.status_id
+     LEFT JOIN etapas e ON e.id = c.etapa_id
+     WHERE c.chamado_mae_id = ?
+     ORDER BY c.id ASC`,
+    chamado.id
+  );
+
+  if (!etapasFilhas || etapasFilhas.length === 0) {
+    return { permitido: true };
+  }
+
+  // Identifica a primeira etapa de aprovação (ou a primeira etapa filha criada a partir da solicitação inicial)
+  const primeiraEtapaAprovacao = etapasFilhas.find((f) => f.etapa_tipo === "aprovacao") || etapasFilhas[0];
+  const statusNome = String(primeiraEtapaAprovacao?.status_nome || "").toLowerCase();
+  const estaPrevista = statusNome === "previsto" && !primeiraEtapaAprovacao?.data_finalizacao && !primeiraEtapaAprovacao?.resultado;
+
+  if (!estaPrevista) {
+    return {
+      permitido: false,
+      motivo: "Comentários e anexos na solicitação inicial só são permitidos enquanto a primeira etapa de aprovação estiver prevista (não aprovada).",
+      etapa_id: primeiraEtapaAprovacao?.id,
+      status_nome: primeiraEtapaAprovacao?.status_nome,
+    };
+  }
+
+  return { permitido: true };
 }
 
 /**

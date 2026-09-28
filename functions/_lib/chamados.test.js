@@ -46,10 +46,10 @@ test("garantirColunasChamados adiciona titulo, prioridade e observacao se faltar
 
 test("chamadoComDetalhes utiliza tabela fluxo_templates e consulta status_cor", async () => {
   const { chamadoComDetalhes } = await import("./chamados.js");
-  let sqlExecutado = "";
+  const sqlsExecutados = [];
   const mockDb = {
     prepare(sql) {
-      sqlExecutado = sql;
+      sqlsExecutados.push(sql);
       return {
         bind() { return this; },
         async first() {
@@ -68,8 +68,8 @@ test("chamadoComDetalhes utiliza tabela fluxo_templates e consulta status_cor", 
     },
   };
   const res = await chamadoComDetalhes(mockDb, 1);
-  assert.ok(sqlExecutado.includes("LEFT JOIN fluxo_templates ft ON ft.id = c.fluxo_template_id"));
-  assert.ok(!sqlExecutado.includes("fluxos_template"));
+  assert.ok(sqlsExecutados.some((s) => s.includes("LEFT JOIN fluxo_templates ft ON ft.id = c.fluxo_template_id")));
+  assert.ok(!sqlsExecutados.some((s) => s.includes("fluxos_template")));
   assert.equal(res.status_cor, "#2563eb");
 });
 
@@ -346,5 +346,58 @@ test("criarChamado aplica fallback caso o banco legado falhe com CHECK constrain
   assert.ok(tentouComAcao);
   assert.ok(usouFallback);
   assert.equal(chamado.id, 4);
+});
+
+test("verificarPermissaoComentariosChamado permite comentários em subchamados normais", async () => {
+  const { verificarPermissaoComentariosChamado } = await import("./chamados.js");
+  const subchamado = { id: 2, chamado_mae_id: 1 };
+  const mockDb = {};
+  const res = await verificarPermissaoComentariosChamado(mockDb, subchamado);
+  assert.equal(res.permitido, true);
+});
+
+test("verificarPermissaoComentariosChamado permite comentários no chamado mãe enquanto etapa 1 está prevista", async () => {
+  const { verificarPermissaoComentariosChamado } = await import("./chamados.js");
+  const chamadoMae = { id: 1, chamado_mae_id: null };
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind() { return this; },
+        async all() {
+          return {
+            results: [
+              { id: 2, status_nome: "previsto", resultado: null, data_finalizacao: null, etapa_tipo: "aprovacao" },
+              { id: 3, status_nome: "previsto", resultado: null, data_finalizacao: null, etapa_tipo: "aprovacao" },
+            ],
+          };
+        },
+      };
+    },
+  };
+  const res = await verificarPermissaoComentariosChamado(mockDb, chamadoMae);
+  assert.equal(res.permitido, true);
+});
+
+test("verificarPermissaoComentariosChamado bloqueia comentários no chamado mãe quando etapa 1 foi aprovada/finalizada", async () => {
+  const { verificarPermissaoComentariosChamado } = await import("./chamados.js");
+  const chamadoMae = { id: 1, chamado_mae_id: null };
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind() { return this; },
+        async all() {
+          return {
+            results: [
+              { id: 2, status_nome: "finalizado", resultado: "aprovado", data_finalizacao: "2026-09-28", etapa_tipo: "aprovacao" },
+              { id: 3, status_nome: "previsto", resultado: null, data_finalizacao: null, etapa_tipo: "aprovacao" },
+            ],
+          };
+        },
+      };
+    },
+  };
+  const res = await verificarPermissaoComentariosChamado(mockDb, chamadoMae);
+  assert.equal(res.permitido, false);
+  assert.ok(res.motivo.includes("primeira etapa de aprovação estiver prevista"));
 });
 

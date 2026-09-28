@@ -185,6 +185,16 @@ async function carregarTudo() {
 
   try {
     const chamado = await chamadoPromise;
+    chamadoAtual = chamado;
+
+    // Regra: A visão padrão da solicitação inicial (chamado mãe) é a Visão Geral
+    const params = new URLSearchParams(window.location.search);
+    const ehChamadoMae = Boolean(chamado.eh_chamado_mae || !chamado.chamado_mae_id || chamado.chamado_mae_id === 0);
+    if (ehChamadoMae && params.get("modo") !== "detalhes") {
+      window.location.replace(`/geral?id=${chamado.id}`);
+      return;
+    }
+
     // Renderiza os dados obrigatórios e campos imediatamente
     await Promise.all([
       carregarDetalhe(chamado),
@@ -220,6 +230,8 @@ async function carregarDetalhe(chamadoRecebido = null) {
     }
     return `<span class="badge-status badge-legenda" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0; font-weight: 600;">Normal</span>`;
   }
+
+  const ehChamadoMae = Boolean(chamado.eh_chamado_mae || !chamado.chamado_mae_id || chamado.chamado_mae_id === 0);
 
   const podeEditarStatus = permissaoChamados.editar;
   const ehEtapaAprovacao = chamado.etapa_id && chamado.etapa_tipo === "aprovacao";
@@ -298,7 +310,10 @@ async function carregarDetalhe(chamadoRecebido = null) {
           : ""
       }
 
-      <!-- Atribuição de Responsável no Canto Esquerdo com Visual Padronizado -->
+      <!-- Atribuição de Responsável (não deve existir no chamado da solicitação inicial) -->
+      ${
+        !ehChamadoMae
+          ? `
       <div class="bloco-atribuicao-responsavel" style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid var(--cor-borda); display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem;">
         <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
           <span style="font-weight: 600; font-size: 0.88rem; color: var(--cor-texto-secundario);">Responsável atual:</span>
@@ -325,6 +340,9 @@ async function carregarDetalhe(chamadoRecebido = null) {
             : ""
         }
       </div>
+      `
+          : ""
+      }
 
       ${chamado.resultado ? `<p style="margin-top: 0.5rem; font-weight: 600;">Resultado: ${escaparHtml(chamado.resultado)}</p>` : ""}
       ${
@@ -336,8 +354,27 @@ async function carregarDetalhe(chamadoRecebido = null) {
   `;
   detalheEl.hidden = false;
 
+  const linkGeral = document.getElementById("link-geral");
+  if (linkGeral) {
+    if (ehChamadoMae) {
+      linkGeral.textContent = "Voltar para visão geral";
+      linkGeral.href = `/geral?id=${chamado.id}`;
+    } else {
+      linkGeral.textContent = "Ver chamado geral";
+      linkGeral.href = `/geral?id=${chamado.chamado_mae_id || chamado.id}`;
+    }
+  }
+
+  // Ocultar apontamento de horas no chamado da solicitação inicial
+  if (ehChamadoMae) {
+    document.querySelectorAll(".btn-abrir-modal-horas, #btn-abrir-modal-horas").forEach((b) => {
+      b.style.display = "none";
+      b.hidden = true;
+    });
+  }
+
   // Carrega lista de usuários em background sem travar a exibição da tela
-  if (!finalizado && permissaoChamados.editar) {
+  if (!ehChamadoMae && !finalizado && permissaoChamados.editar) {
     obterUsuarios().then((todos) => {
       const select = document.getElementById("select-atribuir-responsavel");
       if (!select) return;
@@ -1165,6 +1202,33 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
         }
       });
     });
+
+    const formComentario = document.getElementById("form-comentario");
+    let avisoBloqueio = document.getElementById("aviso-bloqueio-comentarios-mae");
+
+    if (chamadoInfo && chamadoInfo.pode_comentar === false) {
+      if (formComentario) formComentario.style.display = "none";
+      if (!avisoBloqueio && formComentario && formComentario.parentNode) {
+        avisoBloqueio = document.createElement("div");
+        avisoBloqueio.id = "aviso-bloqueio-comentarios-mae";
+        avisoBloqueio.style.cssText = "background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-left: 4px solid #f59e0b; padding: 0.85rem 1rem; border-radius: 4px; font-size: 0.88rem; color: var(--cor-texto); margin-top: 0.5rem;";
+        formComentario.parentNode.insertBefore(avisoBloqueio, formComentario);
+      }
+      if (avisoBloqueio) {
+        avisoBloqueio.innerHTML = `🔒 <strong>Comentários e anexos encerrados:</strong> A primeira etapa de aprovação já foi avaliada. Novos comentários ou anexos não são mais permitidos na solicitação inicial.`;
+        avisoBloqueio.style.display = "block";
+      }
+    } else {
+      if (formComentario) formComentario.style.display = "";
+      if (avisoBloqueio) avisoBloqueio.style.display = "none";
+    }
+
+    if (chamadoInfo && (chamadoInfo.eh_chamado_mae || !chamadoInfo.chamado_mae_id)) {
+      document.querySelectorAll(".btn-abrir-modal-horas, #btn-abrir-modal-horas").forEach((b) => {
+        b.style.display = "none";
+        b.hidden = true;
+      });
+    }
   } catch (err) {
     listaEl.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem;">Erro ao carregar comentários.</li>`;
   }
@@ -1174,6 +1238,11 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
 async function atualizarResumoHoras() {
   const el = document.getElementById("indicador-horas-topo");
   if (!el) return;
+  if (chamadoAtual && (chamadoAtual.eh_chamado_mae || !chamadoAtual.chamado_mae_id)) {
+    el.textContent = "";
+    el.hidden = true;
+    return;
+  }
   try {
     const resumo = await api(`/chamados/${id}/horas`);
     const total = Number(resumo.total_horas) || 0;

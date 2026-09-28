@@ -13,10 +13,33 @@ export function inicializar() {
   const id = new URLSearchParams(window.location.search).get("id");
   if (usuario && id) {
     aplicarLayout(usuario);
+
+    const toastSalvo = sessionStorage.getItem("workflow_toast_sucesso");
+    if (toastSalvo) {
+      sessionStorage.removeItem("workflow_toast_sucesso");
+      let msgTexto = toastSalvo;
+      try {
+        const obj = JSON.parse(toastSalvo);
+        if (obj && obj.mensagem) msgTexto = obj.mensagem;
+      } catch (_) {}
+
+      const toastEl = document.getElementById("toast-geral-sucesso");
+      if (toastEl) {
+        toastEl.textContent = msgTexto;
+        toastEl.hidden = false;
+        toastEl.style.display = "block";
+        setTimeout(() => {
+          toastEl.hidden = true;
+          toastEl.style.display = "none";
+        }, 5000);
+      }
+    }
+
     const linkVoltar = document.getElementById("link-voltar-chamado");
     if (linkVoltar) {
-      linkVoltar.href = `/chamado?id=${id}`;
-      linkVoltar.textContent = `Chamado #${id}`;
+      linkVoltar.href = `/chamado?id=${id}&modo=detalhes`;
+      linkVoltar.textContent = `Solicitação #${id}`;
+      linkVoltar.title = "Ver campos e detalhes da solicitação inicial";
     }
 
     configurarControlesTopo();
@@ -174,9 +197,15 @@ export function renderHtmlCardEtapa(no, options = {}) {
           <button type="button" class="btn-toggle-card-etapa" title="Alternar detalhes">
             ${estaRecolhido ? "▼ Expandir" : "▲ Recolher"}
           </button>
-          <a href="/chamado?id=${no.id}" class="btn btn-secundario" style="height: 28px; padding: 0 0.55rem; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.25rem; text-decoration: none;" title="Abrir chamado #${no.id}">
-            Ver →
-          </a>
+          ${no.eh_mae || !no.chamado_mae_id ? `
+            <a href="/chamado?id=${no.id}&modo=detalhes" class="btn btn-secundario" style="height: 28px; padding: 0 0.55rem; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.25rem; text-decoration: none;" title="Ver detalhes da solicitação inicial #${no.id}">
+              Ver solicitação →
+            </a>
+          ` : `
+            <a href="/chamado?id=${no.id}" class="btn btn-secundario" style="height: 28px; padding: 0 0.55rem; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.25rem; text-decoration: none;" title="Abrir chamado #${no.id}">
+              Ver →
+            </a>
+          `}
         </div>
       </div>
 
@@ -186,7 +215,10 @@ export function renderHtmlCardEtapa(no, options = {}) {
             <strong>🏢 Setor:</strong> ${escaparHtml(no.setor_nome || "Não definido")}
           </div>
           <div>
-            <strong>👤 Responsável:</strong> ${no.responsavel_nome ? escaparHtml(no.responsavel_nome) : '<em style="color: var(--cor-texto-secundario);">Ninguém atribuído</em>'}
+            <strong>👤 Responsável:</strong> ${no.eh_mae || !no.chamado_mae_id
+              ? '<span style="color: var(--cor-texto-secundario); font-style: italic;">Não aplicável (solicitação inicial)</span>'
+              : (no.responsavel_nome ? escaparHtml(no.responsavel_nome) : '<em style="color: var(--cor-texto-secundario);">Ninguém atribuído</em>')
+            }
           </div>
           <div>
             <strong>📅 Prazo:</strong> ${formatarDataBR(no.prazo)}

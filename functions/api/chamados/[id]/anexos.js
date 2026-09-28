@@ -3,6 +3,7 @@ import { json, error } from "../../../_lib/http.js";
 import { obterUsuarioDaRequisicao } from "../../../_lib/permissoes.js";
 import { validarLimiteAnexo, salvarAnexo, listarAnexosDoChamado, obterAnexoPorId } from "../../../_lib/anexos.js";
 import { registrarAuditoria } from "../../../_lib/auditoria.js";
+import { verificarPermissaoComentariosChamado } from "../../../_lib/chamados.js";
 
 export async function onRequestGet(context) {
   const usuario = await obterUsuarioDaRequisicao(context.request, context.env);
@@ -54,6 +55,11 @@ export async function onRequestPost(context) {
     context.params.id
   );
   if (!chamado) return error("Chamado não encontrado", 404);
+
+  const perm = await verificarPermissaoComentariosChamado(context.env.DB, chamado);
+  if (!perm.permitido) {
+    return error(perm.motivo, 403);
+  }
 
   const body = await context.request.json();
   const { nome_arquivo, tipo_mime, tamanho_bytes, conteudo_base64, eh_privado = 0 } = body;

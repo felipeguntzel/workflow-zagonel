@@ -1,6 +1,6 @@
 import { all, first, run } from "../../../_lib/db.js";
 import { json, error } from "../../../_lib/http.js";
-import { hojeISO } from "../../../_lib/chamados.js";
+import { hojeISO, verificarPermissaoComentariosChamado } from "../../../_lib/chamados.js";
 import { obterUsuarioDaRequisicao } from "../../../_lib/permissoes.js";
 import { registrarAuditoria } from "../../../_lib/auditoria.js";
 
@@ -55,6 +55,11 @@ export async function onRequestPost(context) {
     context.params.id
   );
   if (!chamado) return error("Chamado não encontrado", 404);
+
+  const perm = await verificarPermissaoComentariosChamado(context.env.DB, chamado);
+  if (!perm.permitido) {
+    return error(perm.motivo, 403);
+  }
 
   const body = await context.request.json();
   const textoLimpo = String(body.texto || "").trim();
