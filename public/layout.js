@@ -1,7 +1,7 @@
 import { logout, permissaoDaTela } from "./auth.js";
 import { escaparHtml } from "./ui.js";
 import { api } from "./api.js";
-import { forcarAtualizacaoApp, inicializarMonitoramentoVersao, VERSAO_CLIENTE, DATA_VERSAO_CLIENTE } from "./versao.js";
+import { forcarAtualizacaoApp, inicializarMonitoramentoVersao, VERSAO_CLIENTE, DATA_HORA_VERSAO_CLIENTE } from "./versao.js";
 
 const CHAVE_COLAPSADA = "workflow_zagonel_sidebar_colapsada";
 
@@ -307,8 +307,8 @@ function construirSidebar(usuario, modalBusca) {
 
   sidebar.innerHTML = `
     <div class="sidebar__cabecalho">
-      <span class="sidebar__logo" title="WorkFlow v${VERSAO_CLIENTE} - Data: ${DATA_VERSAO_CLIENTE}">
-        <img src="favicon.svg" alt="WorkFlow" class="sidebar__logo-img" title="WorkFlow v${VERSAO_CLIENTE} - Data: ${DATA_VERSAO_CLIENTE}">
+      <span class="sidebar__logo" title="WorkFlow v${VERSAO_CLIENTE} - Data e Hora: ${DATA_HORA_VERSAO_CLIENTE}">
+        <img src="favicon.svg" alt="WorkFlow" class="sidebar__logo-img" title="WorkFlow v${VERSAO_CLIENTE} - Data e Hora: ${DATA_HORA_VERSAO_CLIENTE}">
         <span class="sidebar__logo-texto">WorkFlow</span>
       </span>
       <button type="button" class="sidebar__colapsar" id="btn-colapsar-sidebar" aria-label="Recolher menu">«</button>
