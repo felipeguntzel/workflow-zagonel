@@ -1437,6 +1437,19 @@ a.btn:active {
   max-height: none !important;
   min-height: 220px;
 }
+.modal-cadastro--tela-cheia .modal-corpo-acoes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.modal-cadastro--tela-cheia .modal-corpo-acoes .tabela-wrap {
+  max-height: 340px !important;
+}
+.modal-cadastro--tela-cheia .modal-corpo-acoes .multiselect-caixa {
+  max-height: 220px !important;
+}
 
 /* Botões do cabeçalho do modal */
 .modal-acoes-topo {

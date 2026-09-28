@@ -827,6 +827,10 @@ async function iniciar(container, mensagemErro) {
     }
 
     let acaoEditandoId = null;
+    let telaCheiaAtiva = false;
+    try {
+      telaCheiaAtiva = localStorage.getItem("workflow_modal_acoes_tela_cheia") === "1";
+    } catch (_) {}
 
     function renderConteudoAcoes() {
       const acoes = detalhesEtapa.acoes || [];
@@ -837,12 +841,18 @@ async function iniciar(container, mensagemErro) {
 
       modalAcaoWrap.innerHTML = `
         <div class="modal-fundo modal-fundo--cadastro" role="dialog" aria-modal="true">
-          <div class="modal-cadastro modal-cadastro--complexo" style="max-width: 880px;">
+          <div class="modal-cadastro modal-cadastro--complexo modal-cadastro--acoes ${telaCheiaAtiva ? "modal-cadastro--tela-cheia" : ""}" style="${telaCheiaAtiva ? "display: flex; flex-direction: column;" : "max-width: 960px;"}">
             <div class="modal-cabecalho">
               <h3>Ações de Aprovação: ${escaparHtml(etapa.nome)}</h3>
-              <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
+              <div class="modal-acoes-topo">
+                <button type="button" class="modal-btn-topo btn-toggle-tela-cheia" title="Alternar entre tela cheia e janela padrão" aria-label="Alternar tela cheia">
+                  <span class="icone-tela-cheia">${telaCheiaAtiva ? "🗗" : "⛶"}</span>
+                  <span class="texto-tela-cheia">${telaCheiaAtiva ? "Restaurar" : "Tela cheia"}</span>
+                </button>
+                <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
+              </div>
             </div>
-            <div style="padding: 1.25rem;">
+            <div class="modal-corpo-acoes" style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 1.25rem;">
               <p class="erro-modal-acao erro" hidden></p>
               
               <div style="margin-bottom: 1.25rem;">
@@ -1018,6 +1028,26 @@ async function iniciar(container, mensagemErro) {
 
       fundo.querySelector(".modal-fechar").addEventListener("click", fechar);
       fundo.querySelector(".btn-fechar-modal-acao").addEventListener("click", fechar);
+
+      const btnTelaCheia = fundo.querySelector(".btn-toggle-tela-cheia");
+      if (btnTelaCheia) {
+        btnTelaCheia.addEventListener("click", () => {
+          telaCheiaAtiva = !telaCheiaAtiva;
+          try {
+            localStorage.setItem("workflow_modal_acoes_tela_cheia", telaCheiaAtiva ? "1" : "0");
+          } catch (_) {}
+          const modalCadastro = fundo.querySelector(".modal-cadastro");
+          modalCadastro.classList.toggle("modal-cadastro--tela-cheia", telaCheiaAtiva);
+          modalCadastro.style.maxWidth = telaCheiaAtiva ? "none" : "960px";
+          modalCadastro.style.display = telaCheiaAtiva ? "flex" : "";
+          modalCadastro.style.flexDirection = telaCheiaAtiva ? "column" : "";
+          const icone = btnTelaCheia.querySelector(".icone-tela-cheia");
+          const texto = btnTelaCheia.querySelector(".texto-tela-cheia");
+          if (icone) icone.textContent = telaCheiaAtiva ? "🗗" : "⛶";
+          if (texto) texto.textContent = telaCheiaAtiva ? "Restaurar" : "Tela cheia";
+        });
+      }
+
       fundo.querySelectorAll(".btn-cancelar-edicao-acao").forEach((b) =>
         b.addEventListener("click", () => {
           acaoEditandoId = null;
