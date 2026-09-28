@@ -1,0 +1,24 @@
+# Configuração de Cache para Cloudflare Pages
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/*.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/*.css
+  Cache-Control: public, max-age=0, must-revalidate
+
+/sw.js
+  Cache-Control: public, max-age=0, no-cache, no-store, must-revalidate
+
+/versao.json
+  Cache-Control: public, max-age=0, no-cache, no-store, must-revalidate
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=0, must-revalidate
+
+/api/*
+  Cache-Control: no-cache, no-store, must-revalidate

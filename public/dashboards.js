@@ -143,6 +143,7 @@ function configurarFiltros() {
   const filtroPeriodo = document.getElementById("filtro-periodo");
   const filtroEmpresa = document.getElementById("filtro-empresa");
   const filtroSetor = document.getElementById("filtro-setor");
+  const filtroSituacao = document.getElementById("filtro-situacao");
   const btnAtualizar = document.getElementById("btn-atualizar-metricas");
   const btnExportarCsv = document.getElementById("btn-exportar-csv");
   const btnExportarPdf = document.getElementById("btn-exportar-pdf");
@@ -154,6 +155,7 @@ function configurarFiltros() {
     carregarDashboard();
   });
   filtroSetor?.addEventListener("change", () => carregarDashboard());
+  filtroSituacao?.addEventListener("change", () => carregarDashboard());
   btnAtualizar?.addEventListener("click", () => carregarDashboard());
 
   btnExportarPdf?.addEventListener("click", () => {
@@ -375,11 +377,13 @@ async function carregarDashboard() {
   const filtroPeriodo = document.getElementById("filtro-periodo");
   const filtroEmpresa = document.getElementById("filtro-empresa");
   const filtroSetor = document.getElementById("filtro-setor");
+  const filtroSituacao = document.getElementById("filtro-situacao");
 
   const queryParams = new URLSearchParams();
   if (filtroPeriodo?.value) queryParams.set("dias", filtroPeriodo.value);
   if (filtroEmpresa?.value) queryParams.set("empresa_id", filtroEmpresa.value);
   if (filtroSetor?.value) queryParams.set("setor_id", filtroSetor.value);
+  if (filtroSituacao?.value) queryParams.set("situacao", filtroSituacao.value);
 
   const qs = queryParams.toString() ? `?${queryParams.toString()}` : "";
 

@@ -706,16 +706,13 @@ async function iniciar(usuarioLogado) {
         }
       }
 
-      // Após gerar o chamado, continua na tela de chamados em aberto (não abre a tela de trabalho do chamado)
+      // Redireciona direto para o chamado recém-criado com mensagem amigável
       sessionStorage.setItem(
         "workflow_toast_sucesso",
-        JSON.stringify({
-          mensagem: `✓ Chamado #${chamadoIdCriado} ("${titulo}") aberto com sucesso!`,
-          id: chamadoIdCriado,
-        })
+        `✓ Chamado #${chamadoIdCriado} aberto com sucesso!`
       );
 
-      window.location.href = "/chamados";
+      window.location.href = `/chamado?id=${chamadoIdCriado}`;
     } catch (e) {
       mostrarErro(msgErro, e);
       btnSubmit.disabled = false;

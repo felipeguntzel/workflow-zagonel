@@ -554,8 +554,50 @@ async function carregarFluxoCompleto(chamadoId) {
     }
 
     renderizarFluxoAtivo();
+    carregarAuditoria(raiz ? raiz.id : id);
   } catch (e) {
     if (erroEl) mostrarErro(erroEl, e);
+  }
+}
+
+async function carregarAuditoria(chamadoId) {
+  const listaEl = document.getElementById("lista-historico-auditoria");
+  if (!listaEl) return;
+  try {
+    const historico = await api(`/chamados/${chamadoId}/historico`);
+    if (!Array.isArray(historico) || historico.length === 0) {
+      listaEl.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem; padding: 0.5rem 0;">Nenhum registro de auditoria disponível para este fluxo.</li>`;
+      return;
+    }
+
+    listaEl.innerHTML = historico
+      .map((item) => {
+        let dataFormatada = "-";
+        if (item.criado_em) {
+          const partes = item.criado_em.slice(0, 19).replace("T", " ").split(" ");
+          const dataBR = formatarDataBR(partes[0]);
+          const hora = partes[1] ? partes[1].slice(0, 5) : "";
+          dataFormatada = `${dataBR} ${hora}`.trim();
+        }
+        const nomeEtapa = item.etapa_nome || (item.eh_chamado_mae ? "Solicitação Inicial" : `Etapa #${item.chamado_id}`);
+        return `
+          <li style="font-size: 0.88rem; border-left: 3px solid var(--cor-primaria); padding: 0.4rem 0.65rem; background: var(--cor-fundo); border-radius: 0 4px 4px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                <strong style="color: var(--cor-primaria);">${escaparHtml(item.usuario_nome || "Sistema")}</strong>
+                <span style="font-size: 0.73rem; font-weight: 600; background: var(--cor-fundo-elevado); color: var(--cor-texto-secundario); border: 1px solid var(--cor-borda); border-radius: 3px; padding: 0.1rem 0.45rem;">
+                  📍 ${escaparHtml(nomeEtapa)}
+                </span>
+              </div>
+              <span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">${dataFormatada}</span>
+            </div>
+            <div style="color: var(--cor-texto); line-height: 1.4;">${escaparHtml(item.detalhes)}</div>
+          </li>
+        `;
+      })
+      .join("");
+  } catch (err) {
+    listaEl.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.88rem;">Não foi possível carregar o histórico de auditoria.</li>`;
   }
 }
 

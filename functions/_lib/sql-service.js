@@ -65,11 +65,15 @@ export function gerarPreComandos(tabela) {
   // Pré-comando DELETE com WHERE
   const cmdDelete = `DELETE FROM ${nomeTabela}\nWHERE ${nomePk} = 1;`;
 
+  // Pré-comando para Restaurar Contador de IDs (AUTOINCREMENT) para recomeçar do 1
+  const cmdResetId = `-- Restaura a numeração dos IDs (AUTOINCREMENT) para recomeçar do 1 (ou MAX(id)+1 caso haja registros restantes)\nDELETE FROM sqlite_sequence WHERE name = '${nomeTabela}';`;
+
   return {
     select: cmdSelect,
     insert: cmdInsert,
     update: cmdUpdate,
     delete: cmdDelete,
+    reset_id: cmdResetId,
   };
 }
 
@@ -161,5 +165,37 @@ export async function executarSql(db, sql) {
       tempoMs: Math.max(1, Math.round(resultado.meta?.duration || duracao)),
       mensagem: `Comando executado com sucesso: ${changes} linha(s) afetada(s).`,
     };
+  }
+}
+
+/**
+ * Restaura o contador AUTOINCREMENT de uma ou todas as tabelas em sqlite_sequence.
+ * Tabelas que estão vazias recomeçarão a numeração a partir do ID 1.
+ */
+export async function restaurarSequenciasIds(db, nomeTabela = null) {
+  try {
+    if (nomeTabela) {
+      const res = await db.prepare("DELETE FROM sqlite_sequence WHERE name = ?").bind(nomeTabela).run();
+      const changes = res.meta?.changes ?? 0;
+      return {
+        sucesso: true,
+        tipo: "execucao",
+        linhasAfetadas: changes,
+        tabela: nomeTabela,
+        mensagem: `Contador de IDs (AUTOINCREMENT) da tabela "${nomeTabela}" restaurado com sucesso. Se a tabela estiver vazia, o próximo registro receberá ID 1.`,
+      };
+    } else {
+      const res = await db.prepare("DELETE FROM sqlite_sequence").run();
+      const changes = res.meta?.changes ?? 0;
+      return {
+        sucesso: true,
+        tipo: "execucao",
+        linhasAfetadas: changes,
+        tabela: "todas",
+        mensagem: "Contadores de IDs (AUTOINCREMENT) de todas as tabelas restaurados com sucesso. Tabelas vazias recomeçarão do ID 1.",
+      };
+    }
+  } catch (err) {
+    throw new Error(`Erro ao restaurar contadores de IDs: ${err.message}`);
   }
 }

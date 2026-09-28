@@ -13,6 +13,7 @@ export async function onRequestGet(context) {
   const empresaId = url.searchParams.get("empresa_id") ? Number(url.searchParams.get("empresa_id")) : null;
   const setorId = url.searchParams.get("setor_id") ? Number(url.searchParams.get("setor_id")) : null;
   const diasFiltro = url.searchParams.get("dias") ? Number(url.searchParams.get("dias")) : null;
+  const situacaoFiltro = url.searchParams.get("situacao") || null;
 
   const verTodos = usuario.admin === 1 || permissoes.chamados.ver_todos_setores;
   const hoje = new Date().toISOString().slice(0, 10);
@@ -47,7 +48,7 @@ export async function onRequestGet(context) {
   );
 
   // Busca chamados detalhados
-  const chamados = await all(
+  let chamados = await all(
     context.env.DB,
     `SELECT
        c.id,
@@ -70,6 +71,31 @@ export async function onRequestGet(context) {
      ORDER BY c.id DESC`,
     ...params
   );
+
+  // Filtro de situação do chamado / prazo
+  if (situacaoFiltro) {
+    chamados = chamados.filter((c) => {
+      const ehFinalizado = c.status_nome === "finalizado" || c.data_finalizacao != null;
+      const sitPrazo = c.prazo ? situacaoPrazo(c.prazo, hoje, ehFinalizado) : "ok";
+
+      if (situacaoFiltro === "vencido") {
+        return (!ehFinalizado && sitPrazo === "vencido") || (ehFinalizado && c.prazo && c.data_finalizacao > c.prazo);
+      }
+      if (situacaoFiltro === "alerta") {
+        return !ehFinalizado && sitPrazo === "alerta";
+      }
+      if (situacaoFiltro === "ok") {
+        return (!ehFinalizado && sitPrazo === "ok") || (ehFinalizado && (!c.prazo || c.data_finalizacao <= c.prazo));
+      }
+      if (situacaoFiltro === "finalizado") {
+        return ehFinalizado;
+      }
+      if (situacaoFiltro === "andamento") {
+        return !ehFinalizado;
+      }
+      return true;
+    });
+  }
 
   // Agregações gerais
   let totalChamados = chamados.length;

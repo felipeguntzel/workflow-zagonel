@@ -60,6 +60,27 @@ function capturarImagemDoClipboard(e, callback) {
 }
 
 function iniciar() {
+  const toastSalvo = sessionStorage.getItem("workflow_toast_sucesso");
+  if (toastSalvo) {
+    sessionStorage.removeItem("workflow_toast_sucesso");
+    let msgTexto = toastSalvo;
+    try {
+      const obj = JSON.parse(toastSalvo);
+      if (obj && obj.mensagem) msgTexto = obj.mensagem;
+    } catch (_) {}
+
+    const toastEl = document.getElementById("toast-chamado-sucesso");
+    if (toastEl) {
+      toastEl.textContent = msgTexto;
+      toastEl.hidden = false;
+      toastEl.style.display = "block";
+      setTimeout(() => {
+        toastEl.hidden = true;
+        toastEl.style.display = "none";
+      }, 5000);
+    }
+  }
+
   document.getElementById("link-geral").addEventListener("click", async (ev) => {
     ev.preventDefault();
     try {
@@ -552,9 +573,14 @@ async function carregarCamposDinamicos(chamadoRecebido = null, camposPromiseRece
     const ehSolicitante = usuario.id === chamado.solicitante_id;
     const ehAdmin = usuario.admin === 1;
     const statusFinalizado = String(chamado.status_nome || "").toLowerCase() === "finalizado";
-    const podeEditar = (!ehMae || ehSolicitante || ehAdmin) && !statusFinalizado;
+    const podeEditarChamado = (!ehMae || ehSolicitante || ehAdmin) && !statusFinalizado;
 
-    btnSalvar.hidden = !podeEditar;
+    const temCamposEditaveis = camposComValores.some((c) => {
+      const ehSomenteLeitura = Boolean(c.somente_leitura || (c.da_solicitacao && !ehMae));
+      return podeEditarChamado && !ehSomenteLeitura;
+    });
+
+    btnSalvar.hidden = !temCamposEditaveis;
 
     const ladoEsquerdo = document.querySelector("#cabecalho-campos-dinamicos .cabecalho-lado-esquerdo");
     if (ladoEsquerdo) {
@@ -573,8 +599,8 @@ async function carregarCamposDinamicos(chamadoRecebido = null, camposPromiseRece
       <form id="form-campos-dinamicos" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.85rem;">
         ${camposComValores
           .map((c) => {
-            const ehSomenteLeitura = c.somente_leitura || c.da_solicitacao;
-            const disabledAttr = (podeEditar && !ehSomenteLeitura) ? "" : "disabled";
+            const ehSomenteLeitura = Boolean(c.somente_leitura || (c.da_solicitacao && !ehMae));
+            const disabledAttr = (podeEditarChamado && !ehSomenteLeitura) ? "" : "disabled";
             const val = c.valor != null ? String(c.valor) : "";
             const tipoNorm = String(c.tipo || "texto").toLowerCase();
             let inputHtml = "";
@@ -629,15 +655,20 @@ async function carregarCamposDinamicos(chamadoRecebido = null, camposPromiseRece
               inputHtml = `<input type="text" name="campo_${c.id}" data-id="${c.id}" data-nome="${c.nome}" value="${escaparHtml(val)}" ${disabledAttr} class="input-padrao" style="width: 100%;">`;
             }
 
-            const solicitacaoBadge = c.da_solicitacao
-              ? `<span style="font-size: 0.72rem; font-weight: normal; background: var(--cor-fundo-elevado); color: var(--cor-texto-secundario); padding: 0.15rem 0.45rem; border-radius: 3px; border: 1px solid var(--cor-borda); margin-left: 0.4rem;">Solicitação</span>`
+            const badgeOrigem = c.origem_etapa
+              ? `<span style="font-size: 0.72rem; font-weight: 500; background: var(--cor-fundo-elevado); color: var(--cor-texto-secundario); padding: 0.15rem 0.45rem; border-radius: 3px; border: 1px solid var(--cor-borda); margin-left: 0.4rem;">${escaparHtml(c.origem_etapa)}</span>`
+              : (c.da_solicitacao ? `<span style="font-size: 0.72rem; font-weight: normal; background: var(--cor-fundo-elevado); color: var(--cor-texto-secundario); padding: 0.15rem 0.45rem; border-radius: 3px; border: 1px solid var(--cor-borda); margin-left: 0.4rem;">Solicitação</span>` : "");
+
+            const orientacaoBox = c.orientacao
+              ? `<div style="font-size: 0.75rem; color: var(--cor-texto-secundario); margin-top: 0.15rem; margin-bottom: 0.35rem;">💡 ${escaparHtml(c.orientacao)}</div>`
               : "";
 
             return `
               <div class="campo-grupo" style="margin-bottom: 0;">
                 <label class="campo-rotulo" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 0.3rem;">
-                  ${escaparHtml(c.rotulo)} ${c.obrigatorio ? '<span class="campo-obrigatorio">*</span>' : ""}${solicitacaoBadge}
+                  ${escaparHtml(c.rotulo)} ${c.obrigatorio ? '<span class="campo-obrigatorio">*</span>' : ""}${badgeOrigem}
                 </label>
+                ${orientacaoBox}
                 ${inputHtml}
               </div>
             `;
@@ -653,6 +684,9 @@ async function carregarCamposDinamicos(chamadoRecebido = null, camposPromiseRece
       const form = document.getElementById("form-campos-dinamicos");
       const valores = {};
       for (const c of camposComValores) {
+        const ehSomenteLeitura = Boolean(c.somente_leitura || (c.da_solicitacao && !ehMae));
+        if (ehSomenteLeitura) continue;
+
         const el = form.elements[`campo_${c.id}`] || form.querySelector(`[data-id="${c.id}"]`);
         if (el) {
           const v = el.type === "checkbox" ? (el.checked ? "sim" : "nao") : el.value;
@@ -1355,7 +1389,7 @@ async function carregarAuditoria() {
   try {
     const historico = await api(`/chamados/${id}/historico`);
     if (!Array.isArray(historico) || historico.length === 0) {
-      listaEl.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem;">Nenhum registro de auditoria disponível.</li>`;
+      listaEl.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem; padding: 0.5rem 0;">Nenhum registro de auditoria disponível.</li>`;
       return;
     }
 
@@ -1368,13 +1402,19 @@ async function carregarAuditoria() {
           const hora = partes[1] ? partes[1].slice(0, 5) : "";
           dataFormatada = `${dataBR} ${hora}`.trim();
         }
+        const nomeEtapa = item.etapa_nome || (item.eh_chamado_mae ? "Solicitação Inicial" : `Etapa #${item.chamado_id}`);
         return `
-          <li style="font-size: 0.88rem; border-left: 3px solid var(--cor-primaria); padding: 0.35rem 0.6rem; background: var(--cor-fundo);">
-            <div style="display: flex; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.2rem;">
-              <strong style="color: var(--cor-primaria);">${escaparHtml(item.usuario_nome || "Sistema")}</strong>
+          <li style="font-size: 0.88rem; border-left: 3px solid var(--cor-primaria); padding: 0.4rem 0.65rem; background: var(--cor-fundo); border-radius: 0 4px 4px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                <strong style="color: var(--cor-primaria);">${escaparHtml(item.usuario_nome || "Sistema")}</strong>
+                <span style="font-size: 0.73rem; font-weight: 600; background: var(--cor-fundo-elevado); color: var(--cor-texto-secundario); border: 1px solid var(--cor-borda); border-radius: 3px; padding: 0.1rem 0.45rem;">
+                  📍 ${escaparHtml(nomeEtapa)}
+                </span>
+              </div>
               <span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">${dataFormatada}</span>
             </div>
-            <div style="color: var(--cor-texto);">${escaparHtml(item.detalhes)}</div>
+            <div style="color: var(--cor-texto); line-height: 1.4;">${escaparHtml(item.detalhes)}</div>
           </li>
         `;
       })

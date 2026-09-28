@@ -1126,7 +1126,7 @@ export async function renderCrud(container, config) {
         if (campo.nome === "login") {
           const loginLimpo = String(valor || "").trim().toLowerCase();
           if (!/^[a-z0-9]+([._][a-z0-9]+)*$/.test(loginLimpo)) {
-            erroValidacao = `Login inválido: use apenas letras, números, ponto ou sublinhado (ex: felipe.guntzel ou projetoszagonel), sem espaços ou símbolos.`;
+            erroValidacao = `Login inválido: use apenas letras, números, ponto ou sublinhado (ex: nome.sobrenome ou projetoszagonel), sem espaços ou símbolos.`;
             inputEl?.classList.add("campo-destaque-obrigatorio");
             inputEl?.focus();
             break;

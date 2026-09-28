@@ -239,7 +239,7 @@ export async function onRequestPost(context) {
       usuario_id: usuario.id,
       usuario_nome: usuario.nome,
       acao: "criacao",
-      detalhes: `Chamado mãe criado por ${usuario.nome} com base no fluxo "${etapa.nome}".`
+      detalhes: `Chamado aberto por ${usuario.nome} na etapa "${etapa.nome}".`
     });
 
     // O chamado mãe permanece ativo e suas etapas filhas são criadas
@@ -247,13 +247,15 @@ export async function onRequestPost(context) {
 
     // Registrar auditoria para as etapas filhas criadas
     for (const filho of criados) {
+      const etapaFilho = filho.etapa_id ? await first(context.env.DB, "SELECT nome FROM etapas WHERE id = ?", filho.etapa_id) : null;
+      const nomeFilho = etapaFilho?.nome || filho.titulo || `#${filho.id}`;
       await registrarAuditoria(context.env.DB, {
         chamado_mae_id: mae.id,
         chamado_id: filho.id,
         usuario_id: null,
         usuario_nome: "Sistema",
         acao: "criacao_subchamado",
-        detalhes: `Subchamado #${filho.id} gerado automaticamente pelo fluxo.`
+        detalhes: `Etapa "${nomeFilho}" iniciada (Chamado #${filho.id}) automaticamente pelo fluxo.`
       });
     }
 

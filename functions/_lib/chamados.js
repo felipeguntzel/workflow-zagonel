@@ -83,6 +83,49 @@ export async function garantirColunasChamados(db) {
       await run(db, "ALTER TABLE chamados ADD COLUMN empresa_id INTEGER REFERENCES empresas(id)").catch(() => {});
     }
 
+    // Garante que chamados possam ter etapa_id e acao_origem_id juntos (removendo restrição restritiva antiga se existir)
+    const tblChamados = await first(db, "SELECT sql FROM sqlite_master WHERE type='table' AND name='chamados'").catch(() => null);
+    if (tblChamados?.sql && tblChamados.sql.includes("!= (acao_origem_id IS NOT NULL)")) {
+      try {
+        await run(db, "PRAGMA foreign_keys = OFF").catch(() => {});
+        await run(db, "PRAGMA defer_foreign_keys = ON").catch(() => {});
+        await run(db, "ALTER TABLE chamados RENAME TO _chamados_old");
+        await run(db, `CREATE TABLE chamados (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          fluxo_template_id INTEGER NOT NULL REFERENCES fluxo_templates(id),
+          etapa_id INTEGER REFERENCES etapas(id),
+          acao_origem_id INTEGER REFERENCES acoes(id),
+          chamado_mae_id INTEGER REFERENCES chamados(id),
+          chamado_pai_id INTEGER REFERENCES chamados(id),
+          empresa_id INTEGER NOT NULL REFERENCES empresas(id),
+          status_id INTEGER NOT NULL REFERENCES status(id),
+          resultado TEXT CHECK (resultado IN ('aprovado','reprovado')),
+          solicitante_id INTEGER NOT NULL REFERENCES usuarios(id),
+          responsavel_id INTEGER REFERENCES usuarios(id),
+          data_abertura TEXT NOT NULL,
+          prazo TEXT NOT NULL,
+          data_finalizacao TEXT,
+          titulo TEXT,
+          prioridade TEXT NOT NULL DEFAULT 'normal',
+          observacao TEXT,
+          CHECK (etapa_id IS NOT NULL OR acao_origem_id IS NOT NULL)
+        )`);
+        const oldCols = await all(db, "PRAGMA table_info(_chamados_old)").catch(() => []);
+        const oldNomes = new Set(oldCols.map((c) => c.name.toLowerCase()));
+        const colTitulo = oldNomes.has("titulo") ? "titulo" : "NULL";
+        const colPrioridade = oldNomes.has("prioridade") ? "prioridade" : "'normal'";
+        const colObservacao = oldNomes.has("observacao") ? "observacao" : "NULL";
+        await run(db, `INSERT INTO chamados (id, fluxo_template_id, etapa_id, acao_origem_id, chamado_mae_id, chamado_pai_id, empresa_id, status_id, resultado, solicitante_id, responsavel_id, data_abertura, prazo, data_finalizacao, titulo, prioridade, observacao)
+          SELECT id, fluxo_template_id, etapa_id, acao_origem_id, chamado_mae_id, chamado_pai_id, empresa_id, status_id, resultado, solicitante_id, responsavel_id, data_abertura, prazo, data_finalizacao,
+                 ${colTitulo}, ${colPrioridade}, ${colObservacao}
+          FROM _chamados_old`);
+        await run(db, "DROP TABLE _chamados_old");
+        await run(db, "PRAGMA foreign_keys = ON").catch(() => {});
+      } catch (errMigracao) {
+        console.error("Aviso ao atualizar CHECK de chamados:", errMigracao);
+      }
+    }
+
     const statusCols = await all(db, "PRAGMA table_info(status)").catch(() => []);
     const statusNomes = new Set(statusCols.map((c) => c.name.toLowerCase()));
     if (!statusNomes.has("cor")) {
@@ -126,26 +169,56 @@ export async function criarChamado(db, spec) {
   const prioridade = spec.prioridade ?? "normal";
   const observacao = spec.observacao ?? null;
 
-  const resultado = await run(
-    db,
-    `INSERT INTO chamados
-       (fluxo_template_id, etapa_id, acao_origem_id, chamado_mae_id, chamado_pai_id,
-        empresa_id, status_id, solicitante_id, data_abertura, prazo, titulo, prioridade, observacao)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    spec.fluxo_template_id,
-    spec.etapa_id ?? null,
-    spec.acao_origem_id ?? null,
-    spec.chamado_mae_id ?? null,
-    spec.chamado_pai_id ?? null,
-    spec.empresa_id,
-    statusPrevisto,
-    spec.solicitante_id,
-    hoje,
-    prazo,
-    titulo,
-    prioridade,
-    observacao
-  );
+  let resultado;
+  try {
+    resultado = await run(
+      db,
+      `INSERT INTO chamados
+         (fluxo_template_id, etapa_id, acao_origem_id, chamado_mae_id, chamado_pai_id,
+          empresa_id, status_id, solicitante_id, data_abertura, prazo, titulo, prioridade, observacao)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      spec.fluxo_template_id,
+      spec.etapa_id ?? null,
+      spec.acao_origem_id ?? null,
+      spec.chamado_mae_id ?? null,
+      spec.chamado_pai_id ?? null,
+      spec.empresa_id,
+      statusPrevisto,
+      spec.solicitante_id,
+      hoje,
+      prazo,
+      titulo,
+      prioridade,
+      observacao
+    );
+  } catch (err) {
+    // Se falhar devido a restrição CHECK legada (etapa_id != acao_origem_id) em banco ainda não migrado
+    if (String(err?.message || "").includes("CHECK constraint failed") && spec.etapa_id && spec.acao_origem_id) {
+      console.warn("Aviso: CHECK constraint legada detectada ao criar chamado. Inserindo com fallback prioritário de etapa_id.");
+      resultado = await run(
+        db,
+        `INSERT INTO chamados
+           (fluxo_template_id, etapa_id, acao_origem_id, chamado_mae_id, chamado_pai_id,
+            empresa_id, status_id, solicitante_id, data_abertura, prazo, titulo, prioridade, observacao)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        spec.fluxo_template_id,
+        spec.etapa_id,
+        null,
+        spec.chamado_mae_id ?? null,
+        spec.chamado_pai_id ?? null,
+        spec.empresa_id,
+        statusPrevisto,
+        spec.solicitante_id,
+        hoje,
+        prazo,
+        titulo,
+        prioridade,
+        observacao
+      );
+    } else {
+      throw err;
+    }
+  }
   return first(db, "SELECT * FROM chamados WHERE id = ?", resultado.meta.last_row_id);
 }
 
@@ -281,6 +354,7 @@ export async function chamadoComDetalhes(db, id) {
        COALESCE(e.setor_id, a.setor_destino_id) AS setor_id,
        s.nome AS setor_nome,
        COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
+       e.nome AS etapa_nome,
        e.tipo AS etapa_tipo,
        st.nome AS status_nome,
        st.cor AS status_cor,

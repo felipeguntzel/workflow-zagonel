@@ -2400,6 +2400,110 @@ th.th-drop-alvo {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+/* ==========================================================================
+   Painel de Consultas Personalizadas e Filtros de Chamados
+   ========================================================================== */
+.painel-consultas-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--cor-fundo-elevado);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  flex-wrap: wrap;
+}
+
+.painel-consultas-grupo-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.painel-consultas-grupo-select label {
+  font-weight: 700;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.painel-consultas-grupo-select select {
+  width: 220px;
+  max-width: 280px;
+  padding: 0.42rem 0.65rem;
+  font-size: 0.86rem;
+}
+
+#btn-toggle-filtros {
+  font-size: 0.82rem;
+  padding: 0.42rem 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.painel-consultas-grupo-botoes {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.painel-consultas-grupo-botoes .btn {
+  font-size: 0.82rem;
+  padding: 0.42rem 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.painel-filtros-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr auto;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+@media (max-width: 1024px) {
+  .painel-filtros-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
+.badge-padrao-consulta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  font-weight: 600;
+}
+
+:root[data-tema="escuro"] .badge-padrao-consulta {
+  background: #064e3b;
+  color: #a7f3d0;
+  border-color: #059669;
+}
+
 
 
 

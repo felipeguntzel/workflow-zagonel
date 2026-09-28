@@ -95,6 +95,14 @@ export async function onRequestPost(context) {
     body.observacao ?? null
   );
 
+  const etapa = chamado?.etapa_id ? await first(context.env.DB, "SELECT nome FROM etapas WHERE id = ?", chamado.etapa_id) : null;
+  const etapaNome = etapa?.nome || (chamado?.chamado_mae_id ? `Etapa #${context.params.id}` : "Solicitação Inicial");
+  let dataBR = body.data;
+  if (body.data && body.data.includes("-")) {
+    const [ano, mes, dia] = body.data.split("-");
+    dataBR = `${dia}/${mes}/${ano}`;
+  }
+
   const raizId = chamado ? (chamado.chamado_mae_id || chamado.id) : context.params.id;
   await registrarAuditoria(context.env.DB, {
     chamado_mae_id: raizId,
@@ -102,7 +110,7 @@ export async function onRequestPost(context) {
     usuario_id: usuario.id,
     usuario_nome: usuario.nome,
     acao: "apontamento_horas",
-    detalhes: `Apontou ${horasNum}h na data ${body.data}${body.observacao ? `: "${body.observacao}"` : ""}`
+    detalhes: `Apontou ${horasNum}h na etapa "${etapaNome}" em ${dataBR}${body.observacao ? `: "${body.observacao}"` : ""}`
   }).catch(() => {});
 
   return json(await resumoHoras(context.env.DB, context.params.id), 201);

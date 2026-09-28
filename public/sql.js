@@ -67,9 +67,13 @@ async function iniciarEditor(container) {
             <button type="button" class="btn btn-secundario btn-modelo-sql" data-acao="insert" title="Inserir modelo de INSERT" style="font-size: 0.82rem; padding: 0.45rem 0.7rem;">+ INSERT</button>
             <button type="button" class="btn btn-secundario btn-modelo-sql" data-acao="update" title="Inserir modelo de UPDATE com WHERE" style="font-size: 0.82rem; padding: 0.45rem 0.7rem;">+ UPDATE</button>
             <button type="button" class="btn btn-secundario btn-modelo-sql" data-acao="delete" title="Inserir modelo de DELETE com WHERE" style="font-size: 0.82rem; padding: 0.45rem 0.7rem;">+ DELETE</button>
+            <button type="button" class="btn btn-secundario btn-modelo-sql" data-acao="reset_id" title="Inserir comando SQL para restaurar contador de IDs (AUTOINCREMENT) para recomeçar do 1" style="font-size: 0.82rem; padding: 0.45rem 0.7rem;">↺ Resetar IDs</button>
           </div>
 
           <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <button type="button" id="btn-restaurar-ids-rapido" class="btn btn-secundario" title="Restaurar contador de IDs (AUTOINCREMENT) para recomeçar do 1 em tabelas vazias" style="font-size: 0.82rem; padding: 0.45rem 0.75rem;">
+              ↺ Restaurar IDs (AUTOINCREMENT)
+            </button>
             <button type="button" id="btn-abrir-esquema" class="btn btn-secundario" title="Ver estrutura de tabelas e colunas" style="font-size: 0.82rem; padding: 0.45rem 0.75rem;">
               Ver Estrutura das Tabelas
             </button>
@@ -195,6 +199,68 @@ async function iniciarEditor(container) {
 
   // Modal de Esquema do Banco
   btnAbrirEsquema.addEventListener("click", abrirModalEsquema);
+
+  // Ação rápida para Restaurar IDs (AUTOINCREMENT)
+  const btnRestaurarIdsRapido = document.getElementById("btn-restaurar-ids-rapido");
+  if (btnRestaurarIdsRapido) {
+    btnRestaurarIdsRapido.addEventListener("click", async () => {
+      const nomeTab = selectTabelaModelo.value;
+      const { confirmarAcao, mostrarAviso } = await import("./modal.js");
+
+      const textoConfirmacao = nomeTab
+        ? `Deseja restaurar o contador de IDs (AUTOINCREMENT) da tabela "${nomeTab}"?\n\nCaso a tabela esteja vazia, o próximo registro inserido recomeçará com ID 1. Se possuir registros, continuará a partir do MAX(id)+1.`
+        : `Deseja restaurar os contadores de IDs (AUTOINCREMENT) de TODAS as tabelas do banco?\n\nTodas as tabelas que estiverem vazias recomeçarão com ID 1.`;
+
+      const confirmado = await confirmarAcao(
+        nomeTab ? `Restaurar IDs da tabela "${nomeTab}"?` : "Restaurar IDs de todas as tabelas?",
+        textoConfirmacao
+      );
+      if (!confirmado) return;
+
+      const statusEl = document.getElementById("sql-status-execucao");
+      const areaEl = document.getElementById("sql-area-resultado");
+      if (statusEl) statusEl.innerHTML = `<span style="color: var(--cor-texto-secundario);">Restaurando contadores de auto-incremento...</span>`;
+
+      try {
+        const resp = await api("/sql", {
+          method: "POST",
+          body: {
+            acao: "resetar_sequencia",
+            tabela: nomeTab || null,
+          },
+        });
+
+        if (statusEl) {
+          statusEl.innerHTML = `
+            <span class="badge" style="background: #2f6f4f; color: #fff;">Sucesso</span>
+            <span style="color: var(--cor-texto); font-weight: 600;">${escaparHtml(resp.mensagem || "Contador restaurado com sucesso.")}</span>
+          `;
+        }
+
+        if (areaEl) {
+          areaEl.innerHTML = `
+            <div class="sql-msg-sucesso" style="padding: 1.5rem; text-align: center;">
+              <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">↺</div>
+              <h3 style="margin: 0 0 0.5rem; color: var(--cor-primaria);">Numeração de IDs Restaurada!</h3>
+              <p style="margin: 0; color: var(--cor-texto-secundario); font-size: 0.95rem;">
+                ${escaparHtml(resp.mensagem || "Os contadores foram resetados com sucesso.")}
+              </p>
+            </div>
+          `;
+        }
+
+        await carregarTabelas();
+      } catch (err) {
+        if (statusEl) {
+          statusEl.innerHTML = `
+            <span class="badge" style="background: var(--cor-perigo); color: #fff;">Erro</span>
+            <span style="color: var(--cor-perigo); font-weight: 600;">${escaparHtml(err.message || "Falha ao restaurar.")}</span>
+          `;
+        }
+        await mostrarAviso(err.message || "Erro ao restaurar IDs.", "Erro", "perigo");
+      }
+    });
+  }
 
   // Exportação
   btnExportarXlsx.addEventListener("click", () => {

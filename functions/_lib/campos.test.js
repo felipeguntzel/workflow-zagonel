@@ -275,3 +275,58 @@ test("garantirTabelaValores adiciona coluna campo_id e cria indice caso faltem",
   assert.ok(createIndex, "Deveria ter criado índice único para chamado_id e campo_id");
 });
 
+test("salvarValoresCamposChamado preenche etapa_campo_id quando a coluna existe no esquema legado", async () => {
+  const gravacoes = [];
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async run() {
+          if (sql.includes("INSERT INTO chamado_campos_valores")) {
+            gravacoes.push({ sql, params: this.params });
+          }
+          return { meta: {} };
+        },
+        async all() {
+          if (sql.includes("PRAGMA table_info(chamado_campos_valores)")) {
+            return {
+              results: [
+                { name: "id" },
+                { name: "chamado_id" },
+                { name: "campo_id" },
+                { name: "etapa_campo_id" },
+                { name: "valor" }
+              ]
+            };
+          }
+          if (sql.includes("SELECT * FROM campos_etapa WHERE etapa_id = ?")) {
+            return {
+              results: [
+                { id: 42, etapa_id: 1, nome: "produto_referencia", rotulo: "Produto de Referência", tipo: "texto" }
+              ]
+            };
+          }
+          return { results: [] };
+        },
+        async first() {
+          return null;
+        }
+      };
+    }
+  };
+
+  await salvarValoresCamposChamado(mockDb, 23, { produto_referencia: "Ducha 9000W" }, 1);
+
+  assert.equal(gravacoes.length, 1);
+  assert.ok(gravacoes[0].sql.includes("etapa_campo_id"), "SQL deve incluir etapa_campo_id");
+  assert.ok(gravacoes[0].sql.includes("campo_id"), "SQL deve incluir campo_id");
+  // params: chamado_id, campo_id, etapa_campo_id, valor
+  assert.equal(gravacoes[0].params[0], 23);
+  assert.equal(gravacoes[0].params[1], 42);
+  assert.equal(gravacoes[0].params[2], 42);
+  assert.equal(gravacoes[0].params[3], "Ducha 9000W");
+});
+

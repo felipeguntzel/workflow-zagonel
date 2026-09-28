@@ -356,11 +356,28 @@ export async function carregarCamposEValoresDoChamado(db, chamadoId, etapaId = n
   const campos = await listarCamposDaEtapa(db, idEtapa);
   if (!campos || campos.length === 0) return [];
 
+  let colNomes = new Set(["chamado_id", "campo_id", "valor"]);
+  try {
+    const cols = await all(db, "PRAGMA table_info(chamado_campos_valores)");
+    if (Array.isArray(cols) && cols.length > 0) {
+      colNomes = new Set(cols.map((c) => c.name.toLowerCase()));
+    }
+  } catch (_) {}
+
+  const colunasChave = [];
+  if (colNomes.has("campo_id")) colunasChave.push("campo_id");
+  if (colNomes.has("etapa_campo_id")) colunasChave.push("etapa_campo_id");
+  if (colNomes.has("campo_etapa_id")) colunasChave.push("campo_etapa_id");
+
+  const sqlCampoId = colunasChave.length > 1
+    ? `COALESCE(${colunasChave.join(", ")}) AS campo_id`
+    : (colunasChave[0] && colunasChave[0] !== "campo_id" ? `${colunasChave[0]} AS campo_id` : "campo_id");
+
   let valores = [];
   try {
     valores = await all(
       db,
-      "SELECT campo_id, valor FROM chamado_campos_valores WHERE chamado_id = ?",
+      `SELECT ${sqlCampoId}, valor FROM chamado_campos_valores WHERE chamado_id = ?`,
       chamadoId
     );
   } catch (_) {
@@ -383,7 +400,7 @@ export async function carregarCamposEValoresDoChamado(db, chamadoId, etapaId = n
     if (chamadoRow?.chamado_mae_id) {
       const valoresMae = await all(
         db,
-        "SELECT campo_id, valor FROM chamado_campos_valores WHERE chamado_id = ?",
+        `SELECT ${sqlCampoId}, valor FROM chamado_campos_valores WHERE chamado_id = ?`,
         chamadoRow.chamado_mae_id
       ).catch(() => []);
       for (const v of valoresMae || []) {
@@ -420,6 +437,7 @@ export async function carregarCamposEValoresDoChamado(db, chamadoId, etapaId = n
 /**
  * Salva múltiplos valores de campos para um chamado.
  * Suporta chaves numéricas por ID de campo, nomes de campo ou array de objetos.
+ * Garante compatibilidade total preenchendo todas as colunas de chave existentes no SQLite.
  */
 export async function salvarValoresCamposChamado(db, chamadoId, valoresObjeto, etapaId = null) {
   if (!valoresObjeto) return;
@@ -492,19 +510,49 @@ export async function salvarValoresCamposChamado(db, chamadoId, valoresObjeto, e
 
   for (const [campoId, valorStr] of mapaEntradas.entries()) {
     try {
+      const deleteConds = [];
+      const deleteParams = [chamadoId];
+      if (colNomes.has("campo_id")) {
+        deleteConds.push("campo_id = ?");
+        deleteParams.push(campoId);
+      }
+      if (colNomes.has("etapa_campo_id")) {
+        deleteConds.push("etapa_campo_id = ?");
+        deleteParams.push(campoId);
+      }
+      if (colNomes.has("campo_etapa_id")) {
+        deleteConds.push("campo_etapa_id = ?");
+        deleteParams.push(campoId);
+      }
+      const whereDel = deleteConds.length > 0 ? `(${deleteConds.join(" OR ")})` : "1=1";
       await run(
         db,
-        "DELETE FROM chamado_campos_valores WHERE chamado_id = ? AND campo_id = ?",
-        chamadoId,
-        campoId
+        `DELETE FROM chamado_campos_valores WHERE chamado_id = ? AND ${whereDel}`,
+        ...deleteParams
       ).catch(() => {});
 
+      const colunasInsert = ["chamado_id"];
+      const valsInsert = [chamadoId];
+      if (colNomes.has("campo_id")) {
+        colunasInsert.push("campo_id");
+        valsInsert.push(campoId);
+      }
+      if (colNomes.has("etapa_campo_id")) {
+        colunasInsert.push("etapa_campo_id");
+        valsInsert.push(campoId);
+      }
+      if (colNomes.has("campo_etapa_id")) {
+        colunasInsert.push("campo_etapa_id");
+        valsInsert.push(campoId);
+      }
+      colunasInsert.push("valor");
+      valsInsert.push(valorStr);
+
+      const placeholders = colunasInsert.map(() => "?").join(", ");
       await run(
         db,
-        "INSERT INTO chamado_campos_valores (chamado_id, campo_id, valor) VALUES (?, ?, ?)",
-        chamadoId,
-        campoId,
-        valorStr
+        `INSERT INTO chamado_campos_valores (${colunasInsert.join(", ")}) VALUES (${placeholders})`,
+        ...valsInsert
       );
     } catch (err) {
       console.error(`Falha ao gravar campo personalizado ${campoId} para chamado ${chamadoId}:`, err);

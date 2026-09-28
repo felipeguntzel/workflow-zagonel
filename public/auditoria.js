@@ -56,14 +56,16 @@ export const inicializarAuditoria = async function () {
           <label for="filtro-entidade" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Entidade / Tabela</label>
           <select id="filtro-entidade" class="select-padrao" style="width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda); background: var(--cor-fundo-elevado); color: var(--cor-texto);">
             <option value="">Todas as entidades</option>
+            <option value="chamados">Chamados e Etapas</option>
             <option value="usuarios">Usuários</option>
             <option value="grupos_permissao">Grupos de Permissão</option>
             <option value="setores">Setores</option>
             <option value="empresas">Empresas</option>
             <option value="status">Status</option>
-            <option value="fluxos">Fluxos</option>
+            <option value="fluxo_templates">Modelos de Fluxo</option>
             <option value="etapas">Etapas</option>
             <option value="acoes">Ações</option>
+            <option value="sql_editor">Editor SQL</option>
           </select>
         </div>
 
@@ -71,7 +73,11 @@ export const inicializarAuditoria = async function () {
           <label for="filtro-acao" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Tipo de Ação</label>
           <select id="filtro-acao" class="select-padrao" style="width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--cor-borda); background: var(--cor-fundo-elevado); color: var(--cor-texto);">
             <option value="">Todas as ações</option>
-            <option value="insercao">Inserção / Criação</option>
+            <option value="criacao">Abertura de Chamado</option>
+            <option value="decisao_aprovada">Aprovação de Etapa</option>
+            <option value="decisao_reprovada">Reprovação de Etapa</option>
+            <option value="mudanca_status">Mudança de Status</option>
+            <option value="insercao">Inserção / Cadastro</option>
             <option value="edicao">Edição / Atualização</option>
             <option value="exclusao">Exclusão</option>
           </select>
@@ -81,7 +87,7 @@ export const inicializarAuditoria = async function () {
           <button type="button" id="btn-filtrar-auditoria" class="btn btn-primario">Filtrar</button>
           <button type="button" id="btn-limpar-filtros" class="btn btn-secundario">Limpar</button>
           <button type="button" id="btn-exportar-csv" class="btn btn-secundario" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Exportar registros filtrados para Excel/CSV">
-            <span>📥</span> Exportar CSV
+            <span>📥</span> Exportar
           </button>
         </div>
       </div>
@@ -297,7 +303,7 @@ async function exportarAuditoriaCsv() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = "<span>📥</span> Exportar CSV";
+      btn.innerHTML = "<span>📥</span> Exportar";
     }
   }
 }
@@ -426,20 +432,46 @@ function renderizarTabela(logs) {
   }
 
   const badgeAcao = (acao) => {
-    if (acao === "insercao") {
-      return '<span style="background: rgba(46, 125, 50, 0.15); color: #2e7d32; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.78rem;">Inserção</span>';
+    if (acao === "insercao" || acao === "criacao" || acao === "criacao_subchamado") {
+      return '<span style="background: rgba(46, 125, 50, 0.15); color: #2e7d32; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.78rem;">Criação</span>';
     }
-    if (acao === "edicao") {
-      return '<span style="background: rgba(25, 118, 210, 0.15); color: #1976d2; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.78rem;">Edição</span>';
+    if (acao === "edicao" || acao === "edicao_campo" || acao === "atribuicao" || acao === "anexo" || acao === "comentario" || acao === "apontamento_horas") {
+      return '<span style="background: rgba(25, 118, 210, 0.15); color: #1976d2; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.78rem;">Atualização</span>';
     }
-    if (acao === "exclusao") {
+    if (acao === "decisao_aprovada") {
+      return '<span style="background: rgba(46, 125, 50, 0.15); color: #2e7d32; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.78rem;">✓ Aprovado</span>';
+    }
+    if (acao === "decisao_reprovada") {
+      return '<span style="background: rgba(211, 47, 47, 0.15); color: #d32f2f; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.78rem;">✕ Reprovado</span>';
+    }
+    if (acao === "mudanca_status") {
+      return '<span style="background: rgba(147, 51, 234, 0.15); color: #9333ea; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.78rem;">Status</span>';
+    }
+    if (acao === "exclusao" || acao === "exclusao_anexo" || acao === "exclusao_horas") {
       return '<span style="background: rgba(211, 47, 47, 0.15); color: #d32f2f; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.78rem;">Exclusão</span>';
+    }
+    if (acao === "execucao_sql" || acao === "resetar_sequencia") {
+      return '<span style="background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.78rem;">SQL</span>';
     }
     return `<span style="background: var(--cor-fundo); padding: 2px 8px; border-radius: 12px; font-size: 0.78rem;">${escaparHtml(acao)}</span>`;
   };
 
   const formatarData = (str) => {
     if (!str) return "-";
+    try {
+      const iso = str.includes("T") ? str : str.replace(" ", "T") + "Z";
+      const d = new Date(iso);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+      }
+    } catch (_) {}
     return str.replace("T", " ").slice(0, 19);
   };
 

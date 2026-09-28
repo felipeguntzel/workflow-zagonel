@@ -36,14 +36,19 @@ export function normalizarRota(url) {
 const cachePaginas = new Map();
 const cacheModulos = new Map();
 
+export function limparCacheNavegacao() {
+  cachePaginas.clear();
+  cacheModulos.clear();
+}
+
 export async function preCarregarRota(url) {
   if (!url) return;
   const rota = normalizarRota(url);
   if (rota === "login" || rota === "trocar-senha" || cachePaginas.has(rota)) return;
   try {
     const arquivo = rota === "" ? "index.html" : `${rota}.html`;
-    let resp = await fetch(`/${arquivo}`);
-    if (!resp.ok) resp = await fetch(`/${rota}`);
+    let resp = await fetch(`/${arquivo}`, { cache: "no-cache" });
+    if (!resp.ok) resp = await fetch(`/${rota}`, { cache: "no-cache" });
     if (resp.ok) {
       const html = await resp.text();
       cachePaginas.set(rota, html);
@@ -117,8 +122,8 @@ export async function navegarPara(url, push = true) {
     let html = cachePaginas.get(rota);
     if (!html) {
       const arquivo = rota === "" ? "index.html" : `${rota}.html`;
-      let resp = await fetch(`/${arquivo}`);
-      if (!resp.ok) resp = await fetch(`/${rota}`);
+      let resp = await fetch(`/${arquivo}`, { cache: "no-cache" });
+      if (!resp.ok) resp = await fetch(`/${rota}`, { cache: "no-cache" });
       if (!resp.ok) {
         const dest = url.startsWith("/") ? url : `/${url}`;
         window.location.href = dest;
@@ -151,6 +156,15 @@ export async function navegarPara(url, push = true) {
         novoLink.href = href;
         document.head.appendChild(novoLink);
       }
+    });
+
+    // Sincronizar estilos embutidos da tela (<style>)
+    document.querySelectorAll("style[data-estilo-spa]").forEach((s) => s.remove());
+    doc.querySelectorAll("style").forEach((style) => {
+      const novoStyle = document.createElement("style");
+      novoStyle.setAttribute("data-estilo-spa", rota);
+      novoStyle.textContent = style.textContent;
+      document.head.appendChild(novoStyle);
     });
 
     // Sincronizar scripts externos adicionais
