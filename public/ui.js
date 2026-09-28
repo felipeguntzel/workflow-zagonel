@@ -22,6 +22,52 @@ export function formatarDataBR(str) {
   return s;
 }
 
+export function formatarDataHoraBR(str) {
+  if (!str) return "-";
+  const s = String(str).trim();
+  if (!s) return "-";
+
+  // Se não contiver horário (ex: apenas YYYY-MM-DD), formata apenas a data
+  if (!s.includes(":")) {
+    return formatarDataBR(s);
+  }
+
+  try {
+    let iso = s;
+    if (!iso.includes("T")) {
+      iso = iso.replace(" ", "T");
+    }
+    if (!iso.endsWith("Z") && !/[+-]\d{2}(:\d{2})?$/.test(iso)) {
+      iso += "Z";
+    }
+    const d = new Date(iso);
+    if (!isNaN(d.getTime())) {
+      const partes = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(d);
+
+      const mapa = {};
+      for (const p of partes) {
+        mapa[p.type] = p.value;
+      }
+      if (mapa.day && mapa.month && mapa.year && mapa.hour && mapa.minute) {
+        return `${mapa.day}/${mapa.month}/${mapa.year} ${mapa.hour}:${mapa.minute}`;
+      }
+    }
+  } catch (_) {}
+
+  const partes = s.slice(0, 19).replace("T", " ").split(" ");
+  const dataBR = formatarDataBR(partes[0]);
+  const hora = partes[1] ? partes[1].slice(0, 5) : "";
+  return `${dataBR} ${hora}`.trim();
+}
+
 export function traduzirTextoParaPtBr(mensagem) {
   if (!mensagem) return "Ocorreu um erro inesperado.";
   const str = String(mensagem);

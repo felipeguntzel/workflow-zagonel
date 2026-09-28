@@ -1,6 +1,6 @@
 import { exigirLogin } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { escaparHtml, formatarDataBR, mostrarErro } from "./ui.js";
+import { escaparHtml, formatarDataBR, formatarDataHoraBR, mostrarErro } from "./ui.js";
 import { api } from "./api.js";
 
 let nosAtuais = [];
@@ -572,13 +572,7 @@ async function carregarAuditoria(chamadoId) {
 
     listaEl.innerHTML = historico
       .map((item) => {
-        let dataFormatada = "-";
-        if (item.criado_em) {
-          const partes = item.criado_em.slice(0, 19).replace("T", " ").split(" ");
-          const dataBR = formatarDataBR(partes[0]);
-          const hora = partes[1] ? partes[1].slice(0, 5) : "";
-          dataFormatada = `${dataBR} ${hora}`.trim();
-        }
+        const dataFormatada = formatarDataHoraBR(item.criado_em);
         const nomeEtapa = item.etapa_nome || (item.eh_chamado_mae ? "Solicitação Inicial" : `Etapa #${item.chamado_id}`);
         return `
           <li style="font-size: 0.88rem; border-left: 3px solid var(--cor-primaria); padding: 0.4rem 0.65rem; background: var(--cor-fundo); border-radius: 0 4px 4px 0;">
