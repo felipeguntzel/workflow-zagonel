@@ -12,6 +12,8 @@ let chamadoAtual = null;
 let estadoRecolhimento = {
   detalhe: false,
   campos: false,
+  historico: false,
+  comentarios: false,
 };
 
 export function inicializar() {
@@ -126,6 +128,40 @@ function iniciar() {
         cabecalhoCampos.classList.toggle("painel-chamado-cabecalho--recolhido", estadoRecolhimento.campos);
       }
       btnRecolherCampos.textContent = estadoRecolhimento.campos ? "▼ Expandir" : "▲ Recolher";
+    });
+  }
+
+  // Evento de recolhimento do card de histórico unificado de ações
+  const btnRecolherHistorico = document.getElementById("btn-recolher-historico");
+  const cabecalhoHistorico = document.getElementById("cabecalho-historico");
+  const wrapHistorico = document.getElementById("historico-auditoria-wrap");
+  if (btnRecolherHistorico) {
+    btnRecolherHistorico.addEventListener("click", () => {
+      estadoRecolhimento.historico = !estadoRecolhimento.historico;
+      if (wrapHistorico) {
+        wrapHistorico.style.display = estadoRecolhimento.historico ? "none" : "";
+      }
+      if (cabecalhoHistorico) {
+        cabecalhoHistorico.classList.toggle("painel-chamado-cabecalho--recolhido", estadoRecolhimento.historico);
+      }
+      btnRecolherHistorico.textContent = estadoRecolhimento.historico ? "▼ Expandir" : "▲ Recolher";
+    });
+  }
+
+  // Evento de recolhimento do card de comentários e anexos
+  const btnRecolherComentarios = document.getElementById("btn-recolher-comentarios");
+  const cabecalhoComentarios = document.getElementById("cabecalho-comentarios");
+  const wrapComentarios = document.getElementById("conteudo-comentarios-wrap");
+  if (btnRecolherComentarios) {
+    btnRecolherComentarios.addEventListener("click", () => {
+      estadoRecolhimento.comentarios = !estadoRecolhimento.comentarios;
+      if (wrapComentarios) {
+        wrapComentarios.style.display = estadoRecolhimento.comentarios ? "none" : "";
+      }
+      if (cabecalhoComentarios) {
+        cabecalhoComentarios.classList.toggle("painel-chamado-cabecalho--recolhido", estadoRecolhimento.comentarios);
+      }
+      btnRecolherComentarios.textContent = estadoRecolhimento.comentarios ? "▼ Expandir" : "▲ Recolher";
     });
   }
 
@@ -1093,9 +1129,12 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
     }
 
     if (comentarios.length === 0 && anexos.length === 0) {
-      listaEl.innerHTML = `<li style="color: var(--cor-texto-secundario); font-size: 0.9rem; text-align: center; padding: 1rem 0;">Nenhum comentário ou anexo ainda.</li>`;
+      listaEl.innerHTML = "";
+      listaEl.style.display = "none";
       return;
     }
+
+    listaEl.style.display = "flex";
 
     let htmlItens = "";
 
