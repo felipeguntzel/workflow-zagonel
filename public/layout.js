@@ -119,18 +119,27 @@ export async function navegarPara(url, push = true) {
   barra.style.width = "45%";
 
   try {
-    let html = cachePaginas.get(rota);
-    if (!html) {
-      const arquivo = rota === "" ? "index.html" : `${rota}.html`;
-      let resp = await fetch(`/${arquivo}`, { cache: "no-cache" });
-      if (!resp.ok) resp = await fetch(`/${rota}`, { cache: "no-cache" });
-      if (!resp.ok) {
-        const dest = url.startsWith("/") ? url : `/${url}`;
-        window.location.href = dest;
-        return;
+    let html = null;
+    const arquivo = rota === "" ? "index.html" : `${rota}.html`;
+    try {
+      let resp = await fetch(`/${arquivo}`, { cache: "no-cache", headers: { Accept: "text/html" } });
+      if (!resp.ok) resp = await fetch(`/${rota}`, { cache: "no-cache", headers: { Accept: "text/html" } });
+      if (resp.ok) {
+        html = await resp.text();
+        cachePaginas.set(rota, html);
       }
-      html = await resp.text();
-      cachePaginas.set(rota, html);
+    } catch (_) {
+      html = cachePaginas.get(rota);
+    }
+
+    if (!html) {
+      html = cachePaginas.get(rota);
+    }
+
+    if (!html) {
+      const dest = url.startsWith("/") ? url : `/${url}`;
+      window.location.href = dest;
+      return;
     }
 
     barra.style.width = "80%";

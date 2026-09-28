@@ -11,10 +11,7 @@ let dadosResposta = null;
 let listaSetores = [];
 let listaUsuarios = [];
 
-let inicializado = false;
 export function inicializar() {
-  if (inicializado) return;
-  inicializado = true;
 
   usuarioAtual = exigirLogin();
   if (!usuarioAtual) return;
