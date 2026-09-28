@@ -2,6 +2,17 @@
 
 Este documento lista as pendencias, melhorias mapeadas e o roadmap de evolucao do sistema Workflow Zagonel. Os itens resolvidos anteriormente foram consolidados e removidos para manter o documento limpo e focado no ciclo atual.
 
+## 📌 Prioridades para Resolver Amanhã
+
+- [ ] **Fluxo de Reprovação de Etapa e Status Cancelado**:
+  - **Situação da etapa reprovada**: Quando uma etapa de aprovação for reprovada, sua situação/status individual deve passar para **Cancelada** (em vez de constar como "Finalizado").
+  - **Status geral do chamado/fluxo**: Ao haver a reprovação de uma etapa que encerra o fluxo, o **status geral** do chamado mãe deve ser marcado como **Cancelado** (em vez de "Finalizado 100%" ou "Em andamento").
+  - **Sincronização e visualização**: Atualizar os cálculos de progresso (`sincronizarProgressoChamadoMae`), indicadores da listagem de chamados (`chamados.html`), cards da árvore hierárquica e cabeçalho da visão geral (`geral.html`) para refletir o cancelamento decorrente da reprovação.
+
+- [ ] **Botão de Atalho para "Histórico Unificado de Ações" em Tela Sobreposta (Modal)**:
+  - **Ações na listagem**: Adicionar um botão de atalho direto (ícone/botão 📜 Histórico) na coluna "Ações" da listagem de chamados (`chamados.html`), ao lado dos botões existentes ("Geral" / "Ver").
+  - **Tela sobreposta**: Permitir abrir o histórico completo de auditoria do chamado em uma janela/modal sobreposta (`modal-historico-auditoria`), exibindo todos os eventos, aprovações, reprovações com justificativas, atribuições e comentários ordenados do mais recente para o menos recente, sem a necessidade de redirecionar ou sair da tela atual.
+
 ## 1. Etapa Atual: Motor de Fluxo e Regras de Negocio (Concluído)
 
 - [x] **Relatorios e consultas agregadas (Dashboard de Métricas)**:
