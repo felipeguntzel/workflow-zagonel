@@ -1,7 +1,7 @@
 import { json } from "../_lib/http.js";
 
-export const APP_VERSAO = "2.1.2";
-export const APP_BUILD = "2026-09-25-03";
+export const APP_VERSAO = "2.2.0";
+export const APP_BUILD = "2026-09-28-01";
 
 export async function onRequestGet() {
   return json(
