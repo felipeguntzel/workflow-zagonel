@@ -239,3 +239,112 @@ test("avancarFluxo padroniza titulo dos subchamados como 'Etapa tal - Ref Chamad
   const tituloGerado = paramsInsert.find((p) => typeof p === "string" && p.includes("Ref Chamado 19"));
   assert.equal(tituloGerado, "Criar Ficha Técnica - Ref Chamado 19");
 });
+
+test("criarChamado aceita etapa_id e acao_origem_id juntos", async () => {
+  const { criarChamado } = await import("./chamados.js");
+  const inseridos = [];
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM chamados WHERE id = ?")) {
+            return { id: 3, etapa_id: 10, acao_origem_id: 5 };
+          }
+          if (sql.includes("FROM status")) {
+            return { id: 1 };
+          }
+          if (sql.includes("FROM etapas")) {
+            return { setor_id: 2, prazo_padrao_dias: 3 };
+          }
+          return null;
+        },
+        async all() {
+          return { results: [] };
+        },
+        async run() {
+          if (sql.includes("INSERT INTO chamados")) {
+            inseridos.push({ sql, params: this.params });
+          }
+          return { meta: { last_row_id: 3 } };
+        },
+      };
+    },
+  };
+
+  const chamado = await criarChamado(mockDb, {
+    fluxo_template_id: 1,
+    etapa_id: 10,
+    acao_origem_id: 5,
+    chamado_mae_id: 1,
+    chamado_pai_id: 1,
+    empresa_id: 1,
+    solicitante_id: 1,
+  });
+
+  assert.equal(chamado.id, 3);
+  assert.equal(inseridos.length, 1);
+  assert.equal(inseridos[0].params[1], 10); // etapa_id
+  assert.equal(inseridos[0].params[2], 5);  // acao_origem_id
+});
+
+test("criarChamado aplica fallback caso o banco legado falhe com CHECK constraint", async () => {
+  const { criarChamado } = await import("./chamados.js");
+  let tentouComAcao = false;
+  let usouFallback = false;
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM chamados WHERE id = ?")) {
+            return { id: 4, etapa_id: 10, acao_origem_id: null };
+          }
+          if (sql.includes("FROM status")) {
+            return { id: 1 };
+          }
+          if (sql.includes("FROM etapas")) {
+            return { setor_id: 2, prazo_padrao_dias: 3 };
+          }
+          return null;
+        },
+        async all() {
+          return { results: [] };
+        },
+        async run() {
+          if (sql.includes("INSERT INTO chamados")) {
+            if (this.params[2] !== null && !tentouComAcao) {
+              tentouComAcao = true;
+              throw new Error("CHECK constraint failed: (etapa_id IS NOT NULL) != (acao_origem_id IS NOT NULL)");
+            }
+            if (this.params[2] === null) {
+              usouFallback = true;
+            }
+          }
+          return { meta: { last_row_id: 4 } };
+        },
+      };
+    },
+  };
+
+  const chamado = await criarChamado(mockDb, {
+    fluxo_template_id: 1,
+    etapa_id: 10,
+    acao_origem_id: 5,
+    chamado_mae_id: 1,
+    chamado_pai_id: 1,
+    empresa_id: 1,
+    solicitante_id: 1,
+  });
+
+  assert.ok(tentouComAcao);
+  assert.ok(usouFallback);
+  assert.equal(chamado.id, 4);
+});
+

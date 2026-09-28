@@ -101,6 +101,8 @@ export async function onRequestPut(context) {
 
   // Registrar auditoria para cada alteração efetuada
   const raizId = atualizado.chamado_mae_id || atualizado.id;
+  const etapaNome = atualizado.etapa_nome || (atualizado.chamado_mae_id ? `Etapa #${atualizado.id}` : "Solicitação Inicial");
+
   if (body.status_id !== undefined && body.status_id !== chamadoAntes.status_id) {
     await registrarAuditoria(context.env.DB, {
       chamado_mae_id: raizId,
@@ -108,7 +110,7 @@ export async function onRequestPut(context) {
       usuario_id: usuario.id,
       usuario_nome: usuario.nome,
       acao: "mudanca_status",
-      detalhes: `Status do chamado #${atualizado.id} alterado de "${chamadoAntes.status_nome}" para "${atualizado.status_nome}".`
+      detalhes: `Status da etapa "${etapaNome}" alterado de "${chamadoAntes.status_nome}" para "${atualizado.status_nome}".`
     });
   }
 
@@ -120,7 +122,7 @@ export async function onRequestPut(context) {
       usuario_id: usuario.id,
       usuario_nome: usuario.nome,
       acao: "atribuicao",
-      detalhes: `Chamado #${atualizado.id}: ${nomeNovo} por ${usuario.nome}.`
+      detalhes: `Etapa "${etapaNome}": ${nomeNovo} por ${usuario.nome}.`
     });
   }
 
@@ -131,7 +133,7 @@ export async function onRequestPut(context) {
       usuario_id: usuario.id,
       usuario_nome: usuario.nome,
       acao: "alteracao_prazo",
-      detalhes: `Prazo do chamado #${atualizado.id} alterado de ${chamadoAntes.prazo} para ${atualizado.prazo}.`
+      detalhes: `Prazo da etapa "${etapaNome}" alterado de ${chamadoAntes.prazo} para ${atualizado.prazo}.`
     });
   }
 

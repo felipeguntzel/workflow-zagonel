@@ -169,6 +169,7 @@
 
 .painel-filtros-apontamentos__acoes {
   display: flex !important;
+  flex-direction: row !important;
   gap: 0.65rem !important;
   align-items: flex-end !important;
 }
@@ -218,7 +219,7 @@
         <span>🖨️</span> Imprimir
       </button>
       <button type="button" id="btn-exportar-csv" class="btn btn-secundario btn-cabecalho-acao" title="Exportar para Excel / CSV">
-        <span>📥</span> Exportar CSV
+        <span>📥</span> Exportar
       </button>
       <button type="button" id="btn-novo-apontamento" class="btn btn-primario btn-cabecalho-acao">
         <span>⏱️</span> Lançar Horas
@@ -281,6 +282,11 @@
         </select>
       </div>
 
+      <div class="filtro-item painel-filtros-apontamentos__busca">
+        <label for="filtro-busca">Buscar</label>
+        <input type="text" id="filtro-busca" placeholder="Buscar por chamado, observação..." class="input-padrao" style="width: 100%; height: 40px; border-radius: 6px;">
+      </div>
+
       <div class="filtro-item">
         <label for="filtro-usuario">Usuário</label>
         <select id="filtro-usuario" class="select-padrao" style="width: 100%; height: 40px; border-radius: 6px;">
@@ -288,16 +294,11 @@
         </select>
       </div>
 
-      <div class="filtro-item painel-filtros-apontamentos__busca">
-        <label for="filtro-busca">Buscar</label>
-        <input type="text" id="filtro-busca" placeholder="Buscar por chamado, observação..." class="input-padrao" style="width: 100%; height: 40px; border-radius: 6px;">
-      </div>
-
-      <div class="filtro-item painel-filtros-apontamentos__acoes">
-        <button type="button" id="btn-filtrar" class="btn btn-primario" style="height: 40px; border-radius: 6px;">
+      <div class="filtro-item painel-filtros-apontamentos__acoes" style="display: flex !important; flex-direction: row !important; align-items: flex-end !important; gap: 0.65rem !important;">
+        <button type="button" id="btn-filtrar" class="btn btn-primario" style="flex: 1; height: 40px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;">
           <span>🔍</span> Filtrar
         </button>
-        <button type="button" id="btn-limpar-filtros" class="btn btn-secundario" style="height: 40px; border-radius: 6px;">
+        <button type="button" id="btn-limpar-filtros" class="btn btn-secundario" style="flex: 1; height: 40px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;">
           Limpar
         </button>
       </div>

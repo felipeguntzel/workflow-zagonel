@@ -46,7 +46,7 @@ export async function onRequestPost(context) {
 
   const chamado = await first(
     context.env.DB,
-    `SELECT c.*, COALESCE(e.setor_id, a.setor_destino_id) AS setor_id
+    `SELECT c.*, COALESCE(e.setor_id, a.setor_destino_id) AS setor_id, e.nome AS etapa_nome
      FROM chamados c
      LEFT JOIN etapas e ON e.id = c.etapa_id
      LEFT JOIN acoes a ON a.id = c.acao_origem_id
@@ -93,13 +93,14 @@ export async function onRequestPost(context) {
     eh_privado ? 1 : 0
   ).catch((e) => console.error("Falha ao registrar comentário do anexo:", e));
 
+  const etapaNome = chamado.etapa_nome || (chamado.chamado_mae_id ? `Etapa #${chamado.id}` : "Solicitação Inicial");
   await registrarAuditoria(context.env.DB, {
     chamado_mae_id: raizId,
     chamado_id: chamado.id,
     usuario_id: usuario.id,
     usuario_nome: usuario.nome,
     acao: "anexo",
-    detalhes: `Anexou arquivo "${nome_arquivo}" (${(tamanho_bytes / 1024).toFixed(1)} KB)${eh_privado ? " (privado)" : ""}`
+    detalhes: `Anexou "${nome_arquivo}" (${(tamanho_bytes / 1024).toFixed(1)} KB) na etapa "${etapaNome}"${eh_privado ? " (privado)" : ""}`
   });
 
   return json(anexoSalvo, 201);
@@ -136,13 +137,16 @@ export async function onRequestDelete(context) {
 
   const raizId = chamado.chamado_mae_id || chamado.id;
 
+  const etapa = chamado.etapa_id ? await first(context.env.DB, "SELECT nome FROM etapas WHERE id = ?", chamado.etapa_id) : null;
+  const etapaNomeDel = etapa?.nome || (chamado.chamado_mae_id ? `Etapa #${chamado.id}` : "Solicitação Inicial");
+
   await registrarAuditoria(context.env.DB, {
     chamado_mae_id: raizId,
     chamado_id: context.params.id,
     usuario_id: usuario.id,
     usuario_nome: usuario.nome,
     acao: "exclusao_anexo",
-    detalhes: `Removeu anexo "${anexo.nome_arquivo}"`
+    detalhes: `Removeu anexo "${anexo.nome_arquivo}" da etapa "${etapaNomeDel}"`
   });
 
   return json({ ok: true });

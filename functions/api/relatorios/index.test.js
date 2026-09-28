@@ -138,3 +138,52 @@ test("onRequestGet retorna relatórios agregados por setor e identifica gargalos
   assert.equal(qualidade.tempo_medio_dias, 4);
   assert.equal(qualidade.taxa_pontualidade, 100);
 });
+
+test("onRequestGet filtra por situacao=vencido e situacao=finalizado", async () => {
+  const db = criarMockDbRelatorios();
+  const { gerarToken } = await import("../../_lib/sessao.js");
+  const token = await gerarToken(999, "segredo-teste");
+
+  const originalPrepare = db.prepare.bind(db);
+  db.prepare = (query) => {
+    const prep = originalPrepare(query);
+    return {
+      bind(...args) {
+        const bound = prep.bind(...args);
+        return {
+          ...bound,
+          async first() {
+            if (query.includes("FROM usuarios WHERE id = ?")) {
+              return { id: 999, nome: "Admin Teste", admin: 1, setor_id: 1 };
+            }
+            return null;
+          },
+        };
+      },
+    };
+  };
+
+  // Teste com situacao=vencido
+  const ctxVencido = {
+    request: new Request("https://workflow.teste/api/relatorios?situacao=vencido"),
+    env: { DB: db, SESSAO_SEGREDO: "segredo-teste" },
+  };
+  ctxVencido.request.headers.set("Authorization", `Bearer ${token}`);
+  const resVencido = await onRequestGet(ctxVencido);
+  const dadosVencido = await resVencido.json();
+  assert.equal(dadosVencido.metricas_gerais.total_chamados, 2);
+  assert.equal(dadosVencido.metricas_gerais.atrasados, 2);
+  assert.equal(dadosVencido.metricas_gerais.finalizados, 0);
+
+  // Teste com situacao=finalizado
+  const ctxFinalizado = {
+    request: new Request("https://workflow.teste/api/relatorios?situacao=finalizado"),
+    env: { DB: db, SESSAO_SEGREDO: "segredo-teste" },
+  };
+  ctxFinalizado.request.headers.set("Authorization", `Bearer ${token}`);
+  const resFinalizado = await onRequestGet(ctxFinalizado);
+  const dadosFinalizado = await resFinalizado.json();
+  assert.equal(dadosFinalizado.metricas_gerais.total_chamados, 1);
+  assert.equal(dadosFinalizado.metricas_gerais.finalizados, 1);
+  assert.equal(dadosFinalizado.metricas_gerais.atrasados, 0);
+});

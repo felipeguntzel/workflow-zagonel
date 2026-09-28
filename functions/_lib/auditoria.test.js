@@ -105,3 +105,74 @@ test("listarAuditoriaSistema filtra por entidade e acao", async () => {
   assert.equal(logsExclusao.length, 1);
   assert.equal(logsExclusao[0].entidade, "empresas");
 });
+
+test("registrarAuditoria espelha eventos de chamados em auditoria_sistema", async () => {
+  const { registrarAuditoria } = await import("./auditoria.js");
+  const sqls = [];
+  const db = {
+    prepare(query) {
+      return {
+        bind(...args) {
+          sqls.push({ query, args });
+          return {
+            async run() {
+              return { meta: { changes: 1 } };
+            },
+            async all() {
+              return { results: [] };
+            },
+            async first() {
+              return null;
+            },
+          };
+        },
+      };
+    },
+  };
+
+  await registrarAuditoria(db, {
+    chamado_mae_id: 10,
+    chamado_id: 11,
+    usuario_id: 2,
+    usuario_nome: "Maria",
+    acao: "decisao_aprovada",
+    detalhes: 'Etapa "Aprovação" APROVADA por Maria.',
+  });
+
+  const temHistorico = sqls.some((s) => s.query.includes("INSERT INTO historico_auditoria"));
+  const temSistema = sqls.some((s) => s.query.includes("INSERT INTO auditoria_sistema"));
+  assert.ok(temHistorico, "Deve registrar em historico_auditoria");
+  assert.ok(temSistema, "Deve espelhar em auditoria_sistema");
+
+  const regSistema = sqls.find((s) => s.query.includes("INSERT INTO auditoria_sistema"));
+  assert.equal(regSistema.args[2], "chamados"); // entidade
+  assert.equal(regSistema.args[3], 11);         // entidade_id
+  assert.equal(regSistema.args[4], "decisao_aprovada"); // acao
+});
+
+test("excluirLogsAuditoria apaga registros de auditoria_sistema e historico_auditoria", async () => {
+  const { excluirLogsAuditoria } = await import("./auditoria.js");
+  const sqls = [];
+  const db = {
+    prepare(query) {
+      return {
+        bind(...args) {
+          sqls.push({ query, args });
+          return {
+            async run() {
+              return { meta: { changes: 5 } };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const removidos = await excluirLogsAuditoria(db, { tudo: true });
+  assert.ok(removidos >= 5);
+  const deletouSistema = sqls.some((s) => s.query.includes("DELETE FROM auditoria_sistema"));
+  const deletouHistorico = sqls.some((s) => s.query.includes("DELETE FROM historico_auditoria"));
+  assert.ok(deletouSistema, "Deve deletar de auditoria_sistema");
+  assert.ok(deletouHistorico, "Deve deletar de historico_auditoria quando tudo=true");
+});
+

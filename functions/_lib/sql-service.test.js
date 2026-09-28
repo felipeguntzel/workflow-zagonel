@@ -29,6 +29,7 @@ test("gerarPreComandos cria select, insert, update e delete para tabela", () => 
   assert.match(cmds.insert, /INSERT INTO empresas \(nome, codigo\)/);
   assert.match(cmds.update, /UPDATE empresas\nSET [\s\S]*WHERE id = 1;/);
   assert.match(cmds.delete, /DELETE FROM empresas\nWHERE id = 1;/);
+  assert.match(cmds.reset_id, /DELETE FROM sqlite_sequence WHERE name = 'empresas';/);
 });
 
 test("executarSql executa SELECT e retorna linhas e colunas", async () => {
@@ -66,4 +67,33 @@ test("executarSql executa UPDATE/DELETE e retorna linhas afetadas", async () => 
   assert.equal(res.tipo, "execucao");
   assert.equal(res.linhasAfetadas, 3);
   assert.match(res.mensagem, /3 linha\(s\) afetada\(s\)/);
+});
+
+test("restaurarSequenciasIds executa DELETE em sqlite_sequence", async () => {
+  const { restaurarSequenciasIds } = await import("./sql-service.js");
+  const chamadas = [];
+  const dbMock = {
+    prepare: (sql) => ({
+      bind: (...args) => {
+        chamadas.push({ sql, args });
+        return {
+          run: async () => ({ meta: { changes: 1 } }),
+        };
+      },
+      run: async () => {
+        chamadas.push({ sql, args: [] });
+        return { meta: { changes: 5 } };
+      },
+    }),
+  };
+
+  const res1 = await restaurarSequenciasIds(dbMock, "chamados");
+  assert.equal(res1.sucesso, true);
+  assert.equal(res1.tabela, "chamados");
+  assert.ok(chamadas.some((c) => c.sql.includes("DELETE FROM sqlite_sequence WHERE name = ?") && c.args[0] === "chamados"));
+
+  const res2 = await restaurarSequenciasIds(dbMock);
+  assert.equal(res2.sucesso, true);
+  assert.equal(res2.tabela, "todas");
+  assert.ok(chamadas.some((c) => c.sql === "DELETE FROM sqlite_sequence"));
 });

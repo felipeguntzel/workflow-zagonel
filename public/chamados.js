@@ -43,7 +43,12 @@ export async function inicializar() {
     const toastMsg = sessionStorage.getItem("workflow_toast_sucesso");
     if (toastMsg) {
       sessionStorage.removeItem("workflow_toast_sucesso");
-      mostrarToast(toastMsg);
+      let msgTexto = toastMsg;
+      try {
+        const obj = JSON.parse(toastMsg);
+        if (obj && obj.mensagem) msgTexto = obj.mensagem;
+      } catch (_) {}
+      mostrarToast(msgTexto);
     }
   } catch (e) {
     mostrarErro(document.getElementById("mensagem-erro"), e);
@@ -254,16 +259,10 @@ function renderizarTabela() {
               ? `<button type="button" class="btn btn-secundario btn-apontar-tabela" data-chamado-id="${c.id}" data-chamado-titulo="${escaparAtributo(c.titulo || '')}" title="Lançar horas neste chamado">⏱️ Apontar</button>`
               : `<button type="button" class="btn btn-secundario btn-apontar-tabela" disabled style="opacity: 0.35; cursor: not-allowed;" title="Apenas o responsável pela atividade ou um administrador pode realizar apontamentos">⏱️ Apontar</button>`;
 
-            // Se o usuário logado for o solicitante OU se o chamado for o chamado original (sem chamado_mae),
-            // abrir o chamado leva à Visão Geral do fluxo para entender o andamento completo!
-            const ehSolicitante = Number(c.solicitante_id) === Number(usuarioLogado.id);
+            // Abrir o chamado leva direto para a visualização e execução do chamado
             const idChamadoGeral = c.chamado_mae_id || c.id;
-            const destinoLink = ehSolicitante || !c.chamado_mae_id
-              ? `/geral?id=${idChamadoGeral}`
-              : `/chamado?id=${c.id}`;
-            const tituloTooltip = ehSolicitante || !c.chamado_mae_id
-              ? "Ver andamento na Visão Geral do Fluxo"
-              : "Abrir chamado para execução";
+            const destinoLink = `/chamado?id=${c.id}`;
+            const tituloTooltip = "Abrir chamado";
 
             return `
               <tr>

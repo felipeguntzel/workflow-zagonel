@@ -20,6 +20,16 @@ export async function registrarAuditoria(db, { chamado_mae_id, chamado_id, usuar
       detalhes,
       agora
     );
+
+    // Também registra centralizadamente na tabela auditoria_sistema para visualização no painel de Auditoria do Sistema
+    await registrarAuditoriaSistema(db, {
+      usuario_id: usuario_id ?? null,
+      usuario_nome: usuario_nome || "Sistema",
+      entidade: "chamados",
+      entidade_id: chamado_id,
+      acao: acao,
+      detalhes: detalhes,
+    });
   } catch (e) {
     console.error("Erro ao registrar auditoria:", e);
   }
@@ -32,9 +42,19 @@ export async function listarAuditoriaDoChamado(db, chamadoMaeId) {
   try {
     return await all(
       db,
-      `SELECT h.*, u.nome AS usuario_nome_cadastrado
+      `SELECT h.*, u.nome AS usuario_nome_cadastrado,
+              c.etapa_id,
+              COALESCE(
+                e.nome,
+                (SELECT e2.nome FROM etapas e2 WHERE e2.fluxo_template_id = c.fluxo_template_id AND (e2.eh_inicial = 1 OR e2.id = c.etapa_id) LIMIT 1),
+                CASE WHEN c.chamado_mae_id IS NULL OR c.chamado_mae_id = 0 THEN 'Solicitação Inicial' ELSE ('Etapa #' || h.chamado_id) END
+              ) AS etapa_nome,
+              c.titulo AS chamado_titulo,
+              (c.chamado_mae_id IS NULL OR c.chamado_mae_id = 0) AS eh_chamado_mae
        FROM historico_auditoria h
        LEFT JOIN usuarios u ON u.id = h.usuario_id
+       LEFT JOIN chamados c ON c.id = h.chamado_id
+       LEFT JOIN etapas e ON e.id = c.etapa_id
        WHERE h.chamado_mae_id = ?
        ORDER BY h.id ASC`,
       chamadoMaeId
@@ -184,7 +204,22 @@ export async function excluirLogsAuditoria(db, { dias, dataLimite, tudo = false 
       }
     }
     const res = await run(db, sql, ...params);
-    return res?.meta?.changes ?? 0;
+    let removidos = res?.meta?.changes ?? 0;
+
+    // Se solicitado excluir tudo ou por período, expurga também o histórico de auditoria de chamados
+    if (tudo) {
+      const resHist = await run(db, "DELETE FROM historico_auditoria").catch(() => ({ meta: { changes: 0 } }));
+      removidos += (resHist?.meta?.changes ?? 0);
+      await run(db, "DELETE FROM sqlite_sequence WHERE name IN ('auditoria_sistema', 'historico_auditoria')").catch(() => {});
+    } else if (dias && Number(dias) > 0) {
+      const resHist = await run(db, "DELETE FROM historico_auditoria WHERE criado_em < datetime('now', '-' || ? || ' days')", Math.floor(Number(dias))).catch(() => ({ meta: { changes: 0 } }));
+      removidos += (resHist?.meta?.changes ?? 0);
+    } else if (dataLimite) {
+      const resHist = await run(db, "DELETE FROM historico_auditoria WHERE substr(criado_em, 1, 10) < ?", dataLimite).catch(() => ({ meta: { changes: 0 } }));
+      removidos += (resHist?.meta?.changes ?? 0);
+    }
+
+    return removidos;
   } catch (e) {
     console.error("Erro ao excluir logs de auditoria do sistema:", e);
     return 0;
