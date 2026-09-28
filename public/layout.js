@@ -153,6 +153,15 @@ export async function navegarPara(url, push = true) {
       }
     });
 
+    // Sincronizar estilos embutidos da tela (<style>)
+    document.querySelectorAll("style[data-estilo-spa]").forEach((s) => s.remove());
+    doc.querySelectorAll("style").forEach((style) => {
+      const novoStyle = document.createElement("style");
+      novoStyle.setAttribute("data-estilo-spa", rota);
+      novoStyle.textContent = style.textContent;
+      document.head.appendChild(novoStyle);
+    });
+
     // Sincronizar scripts externos adicionais
     doc.querySelectorAll("script:not([type='module'])").forEach((scr) => {
       const src = scr.getAttribute("src");
