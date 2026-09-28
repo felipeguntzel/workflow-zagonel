@@ -85,12 +85,11 @@ export async function onRequestPost(context) {
     textoLimpo,
     hojeISO()
   );
+  const ehAdmin = usuario.admin === 1;
+  const ehDoSetor = usuario.setor_id === chamado.setor_id;
+  const podeVerPrivados = ehAdmin || ehDoSetor || ehResponsavel || ehSolicitante;
+
   if (duplicado) {
-    const ehAdmin = usuario.admin === 1;
-    const ehDoSetor = usuario.setor_id === chamado.setor_id;
-    const ehResponsavel = usuario.id === chamado.responsavel_id;
-    const ehSolicitante = usuario.id === chamado.solicitante_id;
-    const podeVerPrivados = ehAdmin || ehDoSetor || ehResponsavel || ehSolicitante;
     return json(await listarComentarios(context.env.DB, context.params.id, podeVerPrivados), 200);
   }
 
@@ -117,12 +116,6 @@ export async function onRequestPost(context) {
     acao: "comentario",
     detalhes: `Comentário na etapa "${etapaNome}"${ehPrivado ? " (privado)" : ""}: "${body.texto.slice(0, 60)}${body.texto.length > 60 ? "..." : ""}"`
   });
-
-  const ehAdmin = usuario.admin === 1;
-  const ehDoSetor = usuario.setor_id === chamado.setor_id;
-  const ehResponsavel = usuario.id === chamado.responsavel_id;
-  const ehSolicitante = usuario.id === chamado.solicitante_id;
-  const podeVerPrivados = ehAdmin || ehDoSetor || ehResponsavel || ehSolicitante;
 
   return json(await listarComentarios(context.env.DB, context.params.id, podeVerPrivados), 201);
 }
