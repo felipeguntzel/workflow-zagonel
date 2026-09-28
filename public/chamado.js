@@ -298,18 +298,57 @@ async function carregarDetalhe(chamadoRecebido = null) {
     <p id="erro-status-topo" class="erro" style="margin-top: 0.4rem;" hidden></p>
 
     <!-- Conteúdo Recolhível dos Dados Obrigatórios -->
-    <div id="detalhe-conteudo-recolhivel" style="${estadoRecolhimento.detalhe ? 'display: none;' : ''} margin-top: 0.85rem;">
-      <p style="margin: 0 0 0.35rem; color: var(--cor-texto-secundario); font-size: 0.92rem;">
-        Fluxo: <strong>${escaparHtml(chamado.fluxo_nome || "-")}</strong> |
-        Empresa: <strong>${escaparHtml(chamado.empresa_nome || "Geral")}</strong> |
-        Setor: <strong>${escaparHtml(chamado.setor_nome || "-")}</strong> ${info("Setor responsável por esta etapa/tarefa.")}
-      </p>
+    <div id="detalhe-conteudo-recolhivel" style="${estadoRecolhimento.detalhe ? 'display: none;' : ''} margin-top: 0.75rem;">
+      <div class="detalhe-linha-principal" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap;">
+        <!-- Lado Esquerdo: Metadados da Solicitação -->
+        <div class="detalhe-metadados-esquerdo" style="flex: 1 1 380px; min-width: 280px; display: flex; flex-direction: column; gap: 0.35rem;">
+          <p style="margin: 0; color: var(--cor-texto-secundario); font-size: 0.92rem; line-height: 1.45;">
+            Fluxo: <strong>${escaparHtml(chamado.fluxo_nome || "-")}</strong> |
+            Empresa: <strong>${escaparHtml(chamado.empresa_nome || "Geral")}</strong> |
+            Setor: <strong>${escaparHtml(chamado.setor_nome || "-")}</strong> ${info("Setor responsável por esta etapa/tarefa.")}
+          </p>
 
-      <p style="margin: 0 0 0.45rem; font-size: 0.92rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem;">
-        <span>Solicitante: <strong>${escaparHtml(chamado.solicitante_nome || "-")}</strong></span>
-        ${linkWhatsApp(chamado.solicitante_telefone, chamado.id, chamado.titulo)}
-        <span>| Abertura: <strong>${formatarDataBR(chamado.data_abertura)}</strong> | Prazo: <strong>${formatarDataBR(chamado.prazo)}</strong> (${chamado.situacao_prazo})</span>
-      </p>
+          <p style="margin: 0; font-size: 0.92rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; line-height: 1.45;">
+            <span>Solicitante: <strong>${escaparHtml(chamado.solicitante_nome || "-")}</strong></span>
+            ${linkWhatsApp(chamado.solicitante_telefone, chamado.id, chamado.titulo)}
+            <span>| Abertura: <strong>${formatarDataBR(chamado.data_abertura)}</strong> | Prazo: <strong>${formatarDataBR(chamado.prazo)}</strong> (${chamado.situacao_prazo})</span>
+          </p>
+        </div>
+
+        <!-- Lado Direito: Responsável Atual e Ações de Atribuição (alinhado no mesmo espaço) -->
+        ${
+          !ehChamadoMae
+            ? `
+        <div class="bloco-atribuicao-responsavel" style="flex: 0 1 auto; min-width: 280px; display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem;">
+          <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; line-height: 1.45;">
+            <span style="font-weight: 600; font-size: 0.88rem; color: var(--cor-texto-secundario);">Responsável atual:</span>
+            <span id="valor-responsavel-atual" style="font-size: 0.92rem; font-weight: 700; color: var(--cor-texto);">
+              ${chamado.responsavel_nome ? escaparHtml(chamado.responsavel_nome) : `<em style="color: var(--cor-texto-secundario); font-weight: normal;">Ninguém atribuído</em>`}
+            </span>
+            <span id="wrap-whatsapp-responsavel">${chamado.responsavel_nome ? linkWhatsApp(chamado.responsavel_telefone, chamado.id, chamado.titulo) : ""}</span>
+          </div>
+
+          ${
+            !finalizado && podeEditarChamado
+              ? `
+            <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+              <select id="select-atribuir-responsavel" class="select-padrao" style="min-width: 210px; max-width: 270px; padding: 0.35rem 0.6rem; font-size: 0.85rem; height: 32px; box-sizing: border-box;" title="Selecione um responsável para atribuir imediatamente">
+                <option value="">Atribuir para alguém do setor…</option>
+              </select>
+              ${
+                chamado.responsavel_id === usuario.id
+                  ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario" style="height: 32px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Liberar</button>`
+                  : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario" style="height: 32px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Assumir</button>`
+              }
+            </div>
+          `
+              : ""
+          }
+        </div>
+        `
+            : ""
+        }
+      </div>
 
       ${
         chamado.observacao
@@ -320,40 +359,6 @@ async function carregarDetalhe(chamadoRecebido = null) {
           </strong>
           <div style="white-space: pre-wrap; line-height: 1.45; color: var(--cor-texto);">${escaparHtml(chamado.observacao)}</div>
         </div>
-      `
-          : ""
-      }
-
-      <!-- Atribuição de Responsável (não deve existir no chamado da solicitação inicial) -->
-      ${
-        !ehChamadoMae
-          ? `
-      <div class="bloco-atribuicao-responsavel" style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid var(--cor-borda); display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem;">
-        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-          <span style="font-weight: 600; font-size: 0.88rem; color: var(--cor-texto-secundario);">Responsável atual:</span>
-          <span style="font-size: 0.9rem; font-weight: 600;">
-            ${chamado.responsavel_nome ? escaparHtml(chamado.responsavel_nome) : `<em style="color: var(--cor-texto-secundario); font-weight: normal;">Ninguém atribuído</em>`}
-          </span>
-          ${chamado.responsavel_nome ? linkWhatsApp(chamado.responsavel_telefone, chamado.id, chamado.titulo) : ""}
-        </div>
-
-        ${
-          !finalizado && podeEditarChamado
-            ? `
-          <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; flex-wrap: wrap;">
-            <select id="select-atribuir-responsavel" class="select-padrao" style="min-width: 230px; max-width: 320px; padding: 0.4rem 0.65rem; font-size: 0.85rem; height: 36px; box-sizing: border-box;" title="Selecione um responsável para atribuir imediatamente">
-              <option value="">Atribuir para alguém do setor…</option>
-            </select>
-            ${
-              chamado.responsavel_id === usuario.id
-                ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario" style="height: 36px; padding: 0 1rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Liberar</button>`
-                : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario" style="height: 36px; padding: 0 1rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Assumir</button>`
-            }
-          </div>
-        `
-            : ""
-        }
-      </div>
       `
           : ""
       }
@@ -510,11 +515,18 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
     // 1. Atualização visual otimista instantânea na tela
     const containerResp = document.querySelector(".bloco-atribuicao-responsavel");
-    const spanNomeResp = containerResp?.querySelector("span:nth-child(2)");
+    const spanNomeResp = document.getElementById("valor-responsavel-atual") || containerResp?.querySelector("span:nth-child(2)");
     if (spanNomeResp) {
       spanNomeResp.innerHTML = usuarioEscolhido
         ? escaparHtml(usuarioEscolhido.nome)
         : `<em style="color: var(--cor-texto-secundario); font-weight: normal;">Ninguém atribuído</em>`;
+    }
+
+    const wrapWpp = document.getElementById("wrap-whatsapp-responsavel");
+    if (wrapWpp) {
+      wrapWpp.innerHTML = (usuarioEscolhido && usuarioEscolhido.telefone)
+        ? linkWhatsApp(usuarioEscolhido.telefone, chamado.id, chamado.titulo)
+        : "";
     }
 
     const selectResp = document.getElementById("select-atribuir-responsavel");
@@ -564,6 +576,11 @@ async function carregarDetalhe(chamadoRecebido = null) {
         spanNomeResp.innerHTML = responsavelAnteriorNome
           ? escaparHtml(responsavelAnteriorNome)
           : `<em style="color: var(--cor-texto-secundario); font-weight: normal;">Ninguém atribuído</em>`;
+      }
+      if (wrapWpp) {
+        wrapWpp.innerHTML = (chamado.responsavel_telefone)
+          ? linkWhatsApp(chamado.responsavel_telefone, chamado.id, chamado.titulo)
+          : "";
       }
       if (selectResp) selectResp.value = responsavelAnteriorId ? String(responsavelAnteriorId) : "";
       if (toastStatus) toastStatus.hidden = true;
