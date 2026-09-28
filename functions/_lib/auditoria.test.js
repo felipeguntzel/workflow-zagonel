@@ -178,6 +178,7 @@ test("excluirLogsAuditoria apaga registros de auditoria_sistema e historico_audi
 
 test("listarAuditoriaDoChamado normaliza nomes de fluxo e etapas legados no historico unificado", async () => {
   const { listarAuditoriaDoChamado } = await import("./auditoria.js");
+  let sqlHistoricoCapturado = "";
   const db = {
     prepare(query) {
       return {
@@ -200,6 +201,7 @@ test("listarAuditoriaDoChamado normaliza nomes de fluxo e etapas legados no hist
                 };
               }
               if (query.includes("FROM historico_auditoria")) {
+                sqlHistoricoCapturado = query;
                 return {
                   results: [
                     { id: 1, chamado_id: 10, usuario_id: 2, usuario_nome: "Felipe", acao: "criacao", detalhes: 'Chamado mãe criado por Felipe com base no fluxo "Solicitação Inicial".' },
@@ -231,5 +233,6 @@ test("listarAuditoriaDoChamado normaliza nomes de fluxo e etapas legados no hist
 
   // 4. Subchamado automático deve exibir o nome da etapa
   assert.equal(lista[3].detalhes, 'Etapa "Aprovação Desenvolvimento de Produto" iniciada automaticamente pelo fluxo.');
+  assert.ok(sqlHistoricoCapturado.includes("ORDER BY h.criado_em DESC, h.id DESC"), "Deve ordenar do mais recente para o menos recente");
 });
 

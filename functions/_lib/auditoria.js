@@ -93,7 +93,7 @@ export async function listarAuditoriaDoChamado(db, chamadoMaeId) {
        LEFT JOIN chamados c ON c.id = h.chamado_id
        LEFT JOIN etapas e ON e.id = c.etapa_id
        WHERE h.chamado_mae_id = ?
-       ORDER BY h.id ASC`,
+       ORDER BY h.criado_em DESC, h.id DESC`,
       chamadoMaeId
     );
 

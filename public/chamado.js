@@ -1529,7 +1529,14 @@ async function carregarAuditoria() {
       return;
     }
 
-    listaEl.innerHTML = historico
+    const historicoOrdenado = [...historico].sort((a, b) => {
+      const dataA = new Date(a.criado_em || 0).getTime();
+      const dataB = new Date(b.criado_em || 0).getTime();
+      if (dataB !== dataA) return dataB - dataA;
+      return (b.id || 0) - (a.id || 0);
+    });
+
+    listaEl.innerHTML = historicoOrdenado
       .map((item) => {
         const dataFormatada = formatarDataHoraBR(item.criado_em);
         const nomeEtapa = item.etapa_nome || (item.eh_chamado_mae ? "Solicitação Inicial" : `Etapa #${item.chamado_id}`);
