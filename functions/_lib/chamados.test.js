@@ -171,6 +171,112 @@ test("sincronizarProgressoChamadoMae finaliza mãe quando todos subchamados est�
   );
 });
 
+test("finalizarComCascata com resultado reprovado define status cancelado para a etapa", async () => {
+  const { finalizarComCascata } = await import("./chamados.js");
+  const sqlExecutados = [];
+
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM chamados WHERE id = ?")) {
+            return { id: 5, chamado_pai_id: null, resultado: null };
+          }
+          if (sql.includes("FROM status WHERE LOWER(nome) = LOWER(?)")) {
+            const nome = this.params[0]?.toLowerCase();
+            if (nome === "cancelado") return { id: 7 };
+            if (nome === "finalizado") return { id: 3 };
+          }
+          if (sql.includes("FROM status WHERE LOWER(nome) IN ('cancelado', 'cancelada')")) {
+            return { id: 7 };
+          }
+          return null;
+        },
+        async all() {
+          return { results: [] };
+        },
+        async run() {
+          sqlExecutados.push({ sql, params: this.params });
+          return { meta: {} };
+        },
+      };
+    },
+  };
+
+  await finalizarComCascata(mockDb, 5, { hoje: "2026-09-29", resultadoOrigem: "reprovado" });
+
+  const updateEtapa = sqlExecutados.find((e) => e.sql.includes("UPDATE chamados"));
+  assert.ok(updateEtapa, "Deveria executar UPDATE na etapa reprovada");
+  assert.equal(updateEtapa.params[0], 7, "Deveria definir status_id como o ID do status cancelado (7)");
+  assert.equal(updateEtapa.params[2], "reprovado", "Deveria definir resultado como 'reprovado'");
+});
+
+test("sincronizarProgressoChamadoMae marca chamado mãe como cancelado quando uma etapa é reprovada", async () => {
+  const { sincronizarProgressoChamadoMae } = await import("./chamados.js");
+  const sqlExecutados = [];
+
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM chamados WHERE id = ?")) {
+            return { id: 2, chamado_mae_id: 1, resultado: "reprovado" };
+          }
+          if (sql.includes("FROM status WHERE LOWER(nome) = LOWER(?)")) {
+            const nome = this.params[0]?.toLowerCase();
+            if (nome === "cancelado") return { id: 7 };
+            return { id: 3 };
+          }
+          if (sql.includes("FROM status WHERE LOWER(nome) IN ('cancelado', 'cancelada')")) {
+            return { id: 7 };
+          }
+          return null;
+        },
+        async all() {
+          if (sql.includes("WHERE chamado_mae_id = ?")) {
+            return {
+              results: [
+                { id: 2, status_id: 7, resultado: "reprovado", data_finalizacao: "2026-09-29", status_nome: "cancelado" },
+                { id: 3, status_id: 1, resultado: null, data_finalizacao: null, status_nome: "previsto" },
+              ],
+            };
+          }
+          return { results: [] };
+        },
+        async run() {
+          sqlExecutados.push({ sql, params: this.params });
+          return { meta: {} };
+        },
+      };
+    },
+  };
+
+  await sincronizarProgressoChamadoMae(mockDb, 2, "2026-09-29");
+
+  // Deve cancelar os subchamados pendentes
+  const updateFilhos = sqlExecutados.find((e) =>
+    e.sql.includes("WHERE chamado_mae_id = ? AND data_finalizacao IS NULL")
+  );
+  assert.ok(updateFilhos, "Deveria cancelar subchamados pendentes do fluxo");
+  assert.equal(updateFilhos.params[0], 7, "Status_id cancelado para subchamados pendentes");
+
+  // Deve atualizar o chamado mãe com status cancelado e resultado reprovado
+  const updateMae = sqlExecutados.find((e) =>
+    e.sql.includes("UPDATE chamados SET status_id = ?, data_finalizacao = COALESCE(data_finalizacao, ?), resultado = 'reprovado' WHERE id = ?")
+  );
+  assert.ok(updateMae, "Deveria marcar o chamado mãe com status Cancelado");
+  assert.equal(updateMae.params[0], 7, "Status_id do chamado mãe deve ser cancelado");
+  assert.equal(updateMae.params[2], 1, "ID do chamado mãe deve ser 1");
+});
+
 test("avancarFluxo padroniza titulo dos subchamados como 'Etapa tal - Ref Chamado X'", async () => {
   const { avancarFluxo } = await import("./chamados.js");
   const chamadosInseridos = [];

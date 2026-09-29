@@ -49,6 +49,11 @@ export async function onRequestGet(context) {
             LEFT JOIN status st2 ON st2.id = c2.status_id
             WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL
             ORDER BY c2.id DESC LIMIT 1),
+           (SELECT st2.nome
+            FROM chamados c2
+            LEFT JOIN status st2 ON st2.id = c2.status_id
+            WHERE c2.chamado_mae_id = c.id
+            ORDER BY c2.id DESC LIMIT 1),
            st.nome,
            '-'
          ) AS status_etapa_nome,
@@ -57,6 +62,11 @@ export async function onRequestGet(context) {
             FROM chamados c2
             LEFT JOIN status st2 ON st2.id = c2.status_id
             WHERE c2.chamado_mae_id = c.id AND c2.data_finalizacao IS NULL
+            ORDER BY c2.id DESC LIMIT 1),
+           (SELECT st2.cor
+            FROM chamados c2
+            LEFT JOIN status st2 ON st2.id = c2.status_id
+            WHERE c2.chamado_mae_id = c.id
             ORDER BY c2.id DESC LIMIT 1),
            st.cor
          ) AS status_etapa_cor,
@@ -113,16 +123,33 @@ export async function onRequestGet(context) {
       const total = Math.max(1, Number(c.total_etapas) || 1);
       const concluidas = Number(c.etapas_concluidas) || 0;
       const pendentes = Number(c.subchamados_pendentes) || 0;
-      const statusEtapaNome = c.status_etapa_nome || c.status_nome || "-";
-      const statusEtapaCor = c.status_etapa_cor || c.status_cor || null;
+      let statusEtapaNome = c.status_etapa_nome || c.status_nome || "-";
+      let statusEtapaCor = c.status_etapa_cor || c.status_cor || null;
 
       let statusGeralTexto = "";
-      let statusGeralTipo = "andamento"; // "andamento", "finalizado", "suspenso"
+      let statusGeralTipo = "andamento"; // "andamento", "finalizado", "suspenso", "cancelado"
 
       const etapaStatusLower = String(statusEtapaNome).toLowerCase();
       const cStatusLower = String(c.status_nome || "").toLowerCase();
+      const cResultadoLower = String(c.resultado || "").toLowerCase();
 
-      if (c.data_finalizacao && pendentes === 0 && concluidas >= total) {
+      if (
+        cStatusLower === "cancelado" ||
+        cStatusLower === "cancelada" ||
+        cResultadoLower === "reprovado" ||
+        etapaStatusLower === "cancelado" ||
+        etapaStatusLower === "cancelada"
+      ) {
+        const etapaAtualNum = Math.min(total, Math.max(1, concluidas));
+        statusGeralTexto = `Cancelado (${etapaAtualNum}/${total})`;
+        statusGeralTipo = "cancelado";
+        if (etapaStatusLower === "cancelado") {
+          statusEtapaNome = "Cancelada";
+        }
+        if (!statusEtapaCor) {
+          statusEtapaCor = "#dc2626";
+        }
+      } else if (c.data_finalizacao && pendentes === 0 && concluidas >= total) {
         statusGeralTexto = `Finalizado (${total}/${total})`;
         statusGeralTipo = "finalizado";
       } else if (etapaStatusLower === "suspenso" || cStatusLower === "suspenso") {

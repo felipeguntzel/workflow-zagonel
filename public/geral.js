@@ -49,6 +49,9 @@ export function inicializar() {
 
 export function situacaoPrazoBadge(prazo, dataFinalizacao, statusNome) {
   const nomeNorm = String(statusNome || "").toLowerCase();
+  if (nomeNorm === "cancelado" || nomeNorm === "cancelada") {
+    return `<span class="badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-weight: 700;">✕ Cancelada</span>`;
+  }
   if (dataFinalizacao || nomeNorm === "finalizado") {
     return `<span class="badge badge-ok" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0;">✓ Concluído</span>`;
   }
@@ -66,11 +69,13 @@ export function situacaoPrazoBadge(prazo, dataFinalizacao, statusNome) {
 
 export function badgeStatus(nome, cor) {
   if (!nome) return "";
-  const corBase = cor || "#64748b";
+  const nomeLower = String(nome).toLowerCase();
+  const nomeExibicao = nomeLower === "cancelado" ? "Cancelado" : nome;
+  const corBase = nomeLower.includes("cancelad") ? (cor || "#dc2626") : (cor || "#64748b");
   return `
     <span class="badge-status" style="background: ${corBase}15; color: ${corBase}; border: 1px solid ${corBase}40; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px; font-size: 0.8rem;">
       <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: ${corBase};"></span>
-      ${escaparHtml(nome)}
+      ${escaparHtml(nomeExibicao)}
     </span>
   `;
 }
@@ -165,7 +170,13 @@ export function formatarTituloEtapa(no) {
 }
 
 export function renderHtmlCardEtapa(no, options = {}) {
-  const corBorda = no.status_cor || "var(--cor-primaria)";
+  const resNorm = String(no.resultado || "").toLowerCase();
+  const statusNorm = String(no.status_nome || "").toLowerCase();
+  const ehReprovadoOuCancelado = resNorm === "reprovado" || statusNorm === "cancelado" || statusNorm === "cancelada";
+
+  const corBorda = ehReprovadoOuCancelado
+    ? (no.status_cor || "#dc2626")
+    : no.status_cor || (no.data_finalizacao ? "var(--cor-sucesso)" : "var(--cor-primaria)");
   const estaRecolhido = options.expandido !== undefined ? !options.expandido : !etapasExpandidas;
 
   let tagResultado = "";
@@ -182,6 +193,7 @@ export function renderHtmlCardEtapa(no, options = {}) {
   }
 
   const ehBpmn = Boolean(options.bpmn);
+  const statusExibicao = (!no.eh_mae && statusNorm === "cancelado") ? "Cancelada" : no.status_nome;
 
   return `
     <div class="card-etapa-geral ${ehBpmn ? "bpmn-card-etapa" : ""} ${estaRecolhido ? "card-etapa-geral--recolhido" : ""}" data-id="${no.id}" style="border-left-color: ${corBorda};">
@@ -190,7 +202,7 @@ export function renderHtmlCardEtapa(no, options = {}) {
           <span style="font-family: monospace; color: var(--cor-texto-secundario); font-size: 0.92rem; font-weight: 700;">#${no.id}</span>
           <span style="font-weight: 700;">${formatarTituloEtapa(no)}</span>
           ${badgeEtapaTipo(no.etapa_tipo)}
-          ${badgeStatus(no.status_nome, no.status_cor)}
+          ${badgeStatus(statusExibicao, no.status_cor || (ehReprovadoOuCancelado ? "#dc2626" : null))}
           ${tagResultado}
         </div>
         <div style="display: flex; align-items: center; gap: 0.35rem;">
@@ -227,7 +239,9 @@ export function renderHtmlCardEtapa(no, options = {}) {
             ${situacaoPrazoBadge(no.prazo, no.data_finalizacao, no.status_nome)}
           </div>
           ${
-            no.data_finalizacao
+            ehReprovadoOuCancelado && no.data_finalizacao
+              ? `<div><strong style="color: #dc2626;">✕ Cancelada em:</strong> ${formatarDataBR(no.data_finalizacao)}</div>`
+              : no.data_finalizacao
               ? `<div><strong style="color: var(--cor-primaria);">✓ Concluído em:</strong> ${formatarDataBR(no.data_finalizacao)}</div>`
               : ""
           }
@@ -521,9 +535,25 @@ async function carregarFluxoCompleto(chamadoId) {
     const raiz = nos.find((n) => !n.chamado_pai_id && !n.chamado_mae_id) || nos[0];
     const totalEtapas = nos.length;
     const finalizadas = nos.filter(
-      (n) => n.data_finalizacao || String(n.status_nome || "").toLowerCase() === "finalizado"
+      (n) => n.data_finalizacao || String(n.status_nome || "").toLowerCase() === "finalizado" || String(n.status_nome || "").toLowerCase() === "cancelado" || String(n.status_nome || "").toLowerCase() === "cancelada"
     ).length;
+    const temCancelamento = nos.some(
+      (n) => String(n.status_nome || "").toLowerCase().includes("cancelad") || String(n.resultado || "").toLowerCase() === "reprovado"
+    ) || String(raiz.status_nome || "").toLowerCase().includes("cancelad") || String(raiz.resultado || "").toLowerCase() === "reprovado";
+
     const pct = Math.round((finalizadas / totalEtapas) * 100);
+
+    const badgeProgressoGeral = temCancelamento
+      ? `<span class="badge-status" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-weight: 700; font-size: 0.8rem; padding: 0.2rem 0.55rem; border-radius: 4px;">✕ Fluxo Cancelado por Reprovação (${finalizadas}/${totalEtapas})</span>`
+      : `<span class="badge-status badge-legenda badge-legenda-secundaria">Progresso Geral: ${finalizadas}/${totalEtapas} etapas (${pct}%)</span>`;
+
+    const estiloBarraPreenchimento = temCancelamento
+      ? `width: ${pct}%; background: #dc2626;`
+      : `width: ${pct}%;`;
+
+    const textoProgressoBarra = temCancelamento
+      ? `Fluxo cancelado na etapa de reprovação (${pct}% percorrido)`
+      : `${pct}% concluído`;
 
     // Renderizar Card de Resumo do Fluxo no Padrão do App
     if (cardResumo) {
@@ -538,10 +568,8 @@ async function carregarFluxoCompleto(chamadoId) {
             </h3>
           </div>
           <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            ${badgeStatus(raiz.status_nome, raiz.status_cor)}
-            <span class="badge-status badge-legenda badge-legenda-secundaria">
-              Progresso Geral: ${finalizadas}/${totalEtapas} etapas (${pct}%)
-            </span>
+            ${badgeStatus(raiz.status_nome, raiz.status_cor || (temCancelamento ? "#dc2626" : null))}
+            ${badgeProgressoGeral}
           </div>
         </div>
 
@@ -575,10 +603,10 @@ async function carregarFluxoCompleto(chamadoId) {
         <div class="geral-progresso-wrap">
           <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; color: var(--cor-texto-secundario);">
             <span>Andamento do Fluxo</span>
-            <span>${pct}% concluído</span>
+            <span>${textoProgressoBarra}</span>
           </div>
           <div class="geral-progresso-barra-fundo">
-            <div class="geral-progresso-barra-preenchimento" style="width: ${pct}%;"></div>
+            <div class="geral-progresso-barra-preenchimento" style="${estiloBarraPreenchimento}"></div>
           </div>
         </div>
       `;

@@ -1,6 +1,6 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { mostrarErro, escaparAtributo, escaparHtml, debounce, exportarParaCsv, anunciarA11y, formatarDataBR, traduzirTextoParaPtBr } from "./ui.js";
+import { mostrarErro, escaparAtributo, escaparHtml, debounce, exportarParaCsv, anunciarA11y, formatarDataBR, formatarDataHoraBR, traduzirTextoParaPtBr } from "./ui.js";
 import { api } from "./api.js";
 import { tornarTabelaReordenavel } from "./tabela-colunas.js";
 import { confirmarAcao } from "./modal.js";
@@ -29,6 +29,7 @@ export async function inicializar() {
   configurarOrdenacao();
   configurarEventosConsultas();
   configurarModalApontamentoRapido();
+  configurarModalHistoricoAuditoria();
 
   const tabela = document.querySelector(".tabela-wrap table");
   if (tabela) {
@@ -56,7 +57,9 @@ export async function inicializar() {
 }
 
 function calcularSituacao(prazo, statusNome) {
-  if (statusNome === "finalizado" || statusNome === "suspenso") return "";
+  if (!prazo) return "";
+  const s = String(statusNome || "").toLowerCase();
+  if (s === "finalizado" || s === "suspenso" || s === "cancelado" || s === "cancelada") return "";
   const hoje = new Date().toISOString().slice(0, 10);
   const diff = Math.round((new Date(prazo) - new Date(hoje)) / 86400000);
   if (diff < 0) return "Vencido";
@@ -65,6 +68,10 @@ function calcularSituacao(prazo, statusNome) {
 }
 
 function situacaoBadge(prazo, statusNome) {
+  const s = String(statusNome || "").toLowerCase();
+  if (s === "cancelado" || s === "cancelada") {
+    return `<span class="badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">Cancelada</span>`;
+  }
   const sit = calcularSituacao(prazo, statusNome);
   if (!sit) return "";
   if (sit === "Vencido") return `<span class="badge badge-vencido">Vencido</span>`;
@@ -74,12 +81,25 @@ function situacaoBadge(prazo, statusNome) {
 
 function badgeStatusColorido(nome, cor) {
   if (!nome) return "-";
-  if (!cor) return escaparHtml(nome);
-  return `<span class="badge-status" style="background: ${cor}18; color: ${cor}; border: 1px solid ${cor}55; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${cor};"></span>${escaparHtml(nome)}</span>`;
+  const nomeLower = String(nome).toLowerCase();
+  const nomeExibicao = nomeLower === "cancelado" ? "Cancelada" : nome;
+  const corEfetiva = nomeLower.includes("cancelad") ? (cor || "#dc2626") : cor;
+  if (!corEfetiva) return escaparHtml(nomeExibicao);
+  return `<span class="badge-status" style="background: ${corEfetiva}18; color: ${corEfetiva}; border: 1px solid ${corEfetiva}55; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${corEfetiva};"></span>${escaparHtml(nomeExibicao)}</span>`;
 }
 
 function badgeStatusGeral(texto) {
   if (!texto) return "-";
+  const t = String(texto).toLowerCase();
+  if (t.includes("cancelad")) {
+    return `<span class="badge-status" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;">✕ ${escaparHtml(texto)}</span>`;
+  }
+  if (t.includes("finalizad")) {
+    return `<span class="badge-status" style="background: #dcfce7; color: #166534; border: 1px solid #86efac; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;">✓ ${escaparHtml(texto)}</span>`;
+  }
+  if (t.includes("suspens")) {
+    return `<span class="badge-status" style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;">⏸ ${escaparHtml(texto)}</span>`;
+  }
   return `<span style="color: var(--cor-texto); font-weight: 500;">${escaparHtml(texto)}</span>`;
 }
 
@@ -163,8 +183,14 @@ function filtrarDados() {
   return listaChamados.filter((c) => {
     // Filtro de status
     const ehFinalizado = c.status_geral_tipo === "finalizado" || c.status_nome === "finalizado" || c.status_etapa_nome === "finalizado";
-    if (statusFiltro === "ativos" && ehFinalizado) return false;
+    const ehCancelado = c.status_geral_tipo === "cancelado" ||
+      String(c.status_nome || "").toLowerCase().includes("cancelad") ||
+      String(c.status_etapa_nome || "").toLowerCase().includes("cancelad") ||
+      String(c.resultado || "").toLowerCase() === "reprovado";
+
+    if (statusFiltro === "ativos" && (ehFinalizado || ehCancelado)) return false;
     if (statusFiltro === "finalizado" && !ehFinalizado) return false;
+    if (statusFiltro === "cancelado" && !ehCancelado) return false;
 
     // Filtro de empresa
     if (empresaFiltro && c.empresa_nome !== empresaFiltro) {
@@ -282,8 +308,9 @@ function renderizarTabela() {
                 <td>${c.prazo ? escaparHtml(formatarDataBR(c.prazo)) : "-"}</td>
                 <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
                 <td style="text-align: center; white-space: nowrap;">
-                  <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: center;">
+                  <div style="display: inline-flex; gap: 0.3rem; align-items: center; justify-content: center; flex-wrap: nowrap;">
                     <a href="/geral?id=${idChamadoGeral}" class="btn btn-secundario btn-pequeno" title="Ver andamento geral de todas as etapas" style="padding: 0.2rem 0.45rem; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 4px; line-height: 1.2;">📊 Geral</a>
+                    <button type="button" class="btn btn-secundario btn-pequeno btn-historico-tabela" data-chamado-id="${c.id}" data-chamado-mae-id="${idChamadoGeral}" data-chamado-titulo="${escaparAtributo(c.titulo || '')}" data-chamado-etapa="${escaparAtributo(c.etapa_atual || '')}" data-status-geral="${escaparAtributo(c.status_geral_texto || '')}" title="Abrir histórico unificado de ações em tela sobreposta" style="padding: 0.2rem 0.45rem; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 4px; line-height: 1.2;">📜 Histórico</button>
                     ${btnApontarHtml}
                   </div>
                 </td>
@@ -298,6 +325,20 @@ function renderizarTabela() {
       const chamadoId = btn.dataset.chamadoId;
       const chamadoTitulo = btn.dataset.chamadoTitulo;
       abrirModalApontamentoRapido(chamadoId, chamadoTitulo);
+    });
+  });
+
+  // Anexa ouvintes de clique nos botões de histórico unificado da tabela
+  tbody.querySelectorAll(".btn-historico-tabela").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      abrirModalHistoricoAuditoria({
+        chamadoId: btn.dataset.chamadoId,
+        chamadoMaeId: btn.dataset.chamadoMaeId,
+        chamadoTitulo: btn.dataset.chamadoTitulo,
+        chamadoEtapa: btn.dataset.chamadoEtapa,
+        statusGeral: btn.dataset.statusGeral,
+      });
     });
   });
 
@@ -559,6 +600,181 @@ function abrirModalApontamentoRapido(chamadoId, chamadoTitulo) {
   modal.hidden = false;
   modal.style.display = "flex";
   setTimeout(() => inputHoras?.focus(), 100);
+}
+
+// ==========================================
+// Histórico Unificado de Ações (Modal Sobreposto)
+// ==========================================
+function configurarModalHistoricoAuditoria() {
+  const modal = document.getElementById("modal-historico-auditoria");
+  const btnFechar = document.getElementById("btn-fechar-modal-historico");
+  const btnFecharRodape = document.getElementById("btn-fechar-rodape-modal-historico");
+
+  const fechar = () => {
+    if (modal) {
+      modal.hidden = true;
+      modal.style.display = "none";
+    }
+  };
+
+  btnFechar?.addEventListener("click", fechar);
+  btnFecharRodape?.addEventListener("click", fechar);
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) fechar();
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal && !modal.hidden && modal.style.display !== "none") {
+      fechar();
+    }
+  });
+}
+
+async function abrirModalHistoricoAuditoria({ chamadoId, chamadoMaeId, chamadoTitulo, chamadoEtapa, statusGeral }) {
+  const modal = document.getElementById("modal-historico-auditoria");
+  const tituloEl = document.getElementById("modal-historico-titulo");
+  const infoEl = document.getElementById("historico-chamado-info");
+  const conteudoEl = document.getElementById("conteudo-historico-auditoria");
+  const linkGeral = document.getElementById("link-abrir-visao-geral-historico");
+
+  if (!modal || !conteudoEl) return;
+
+  const raizId = chamadoMaeId || chamadoId;
+
+  if (tituloEl) {
+    tituloEl.innerHTML = `<span>📜</span> Histórico Unificado de Ações #${chamadoId}`;
+  }
+
+  if (linkGeral) {
+    linkGeral.href = `/geral?id=${raizId}`;
+  }
+
+  if (infoEl) {
+    infoEl.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+        <div>
+          <strong style="color: var(--cor-primaria); font-size: 0.95rem;">Chamado #${chamadoId}:</strong>
+          <span style="font-weight: 700; color: var(--cor-texto);">${escaparHtml(chamadoTitulo || "Sem título")}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+          ${chamadoEtapa && chamadoEtapa !== "-" ? `<span class="badge-status badge-legenda" style="font-size: 0.76rem;">Etapa: ${escaparHtml(chamadoEtapa)}</span>` : ""}
+          ${statusGeral ? badgeStatusGeral(statusGeral) : ""}
+        </div>
+      </div>
+    `;
+  }
+
+  conteudoEl.innerHTML = `
+    <div style="text-align: center; color: var(--cor-texto-secundario); padding: 2rem;">
+      <div style="display: inline-block; width: 22px; height: 22px; border: 3px solid var(--cor-borda); border-top-color: var(--cor-primaria); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.5rem;"></div>
+      <div>Carregando histórico unificado...</div>
+    </div>
+  `;
+
+  modal.hidden = false;
+  modal.style.display = "flex";
+
+  try {
+    const historico = await api(`/chamados/${raizId}/historico`);
+    if (!Array.isArray(historico) || historico.length === 0) {
+      conteudoEl.innerHTML = `
+        <div style="text-align: center; color: var(--cor-texto-secundario); padding: 2.5rem 1rem;">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
+          <div style="font-weight: 600;">Nenhum registro de auditoria disponível para este chamado.</div>
+        </div>
+      `;
+      return;
+    }
+
+    const historicoOrdenado = [...historico].sort((a, b) => {
+      const dataA = new Date(a.criado_em || 0).getTime();
+      const dataB = new Date(b.criado_em || 0).getTime();
+      if (dataB !== dataA) return dataB - dataA;
+      return (b.id || 0) - (a.id || 0);
+    });
+
+    const itensHtml = historicoOrdenado
+      .map((item) => {
+        const dataFormatada = formatarDataHoraBR(item.criado_em);
+        const nomeEtapa = item.etapa_nome || (item.eh_chamado_mae ? "Solicitação Inicial" : `Etapa #${item.chamado_id}`);
+        const acao = String(item.acao || "").toLowerCase();
+        const detalhes = item.detalhes || "";
+
+        let iconeAcao = "ℹ️";
+        let corBorda = "var(--cor-borda)";
+        let fundoCard = "var(--cor-fundo)";
+        let badgeTipo = "";
+        let destaqueJustificativa = "";
+
+        if (acao === "decisao_reprovada" || detalhes.includes("REPROVADA")) {
+          iconeAcao = "✕";
+          corBorda = "#dc2626";
+          fundoCard = "#fef2f2";
+          badgeTipo = `<span class="badge-status" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-weight: 700; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">✕ Reprovação</span>`;
+          const matchJust = detalhes.match(/Justificativa:\s*"(.*?)"|Justificativa:\s*(.*)/i);
+          if (matchJust) {
+            const textoJust = matchJust[1] || matchJust[2];
+            destaqueJustificativa = `
+              <div style="margin-top: 0.45rem; padding: 0.45rem 0.65rem; background: #ffffff; border-left: 3px solid #dc2626; border-radius: 4px; color: #7f1d1d; font-size: 0.83rem;">
+                <strong>Motivo / Justificativa da Reprovação:</strong> ${escaparHtml(textoJust)}
+              </div>
+            `;
+          }
+        } else if (acao === "decisao_aprovada" || detalhes.includes("APROVADA")) {
+          iconeAcao = "✓";
+          corBorda = "#16a34a";
+          fundoCard = "#f0fdf4";
+          badgeTipo = `<span class="badge-status" style="background: #dcfce7; color: #166534; border: 1px solid #86efac; font-weight: 700; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">✓ Aprovação</span>`;
+        } else if (acao === "comentario") {
+          iconeAcao = "💬";
+          corBorda = "#2563eb";
+          badgeTipo = `<span class="badge-status" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">Comentário</span>`;
+        } else if (acao === "apontamento_horas") {
+          iconeAcao = "⏱️";
+          corBorda = "#9333ea";
+          badgeTipo = `<span class="badge-status" style="background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">Apontamento</span>`;
+        } else if (acao.includes("criacao")) {
+          iconeAcao = "🌱";
+          corBorda = "var(--cor-primaria)";
+          badgeTipo = `<span class="badge-status" style="background: var(--cor-fundo-elevado); color: var(--cor-primaria); border: 1px solid var(--cor-borda); font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">Abertura</span>`;
+        } else if (acao === "mudanca_status") {
+          iconeAcao = "🔄";
+          corBorda = "#0284c7";
+          badgeTipo = `<span class="badge-status" style="background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">Status</span>`;
+        } else if (acao === "anexo") {
+          iconeAcao = "📎";
+          corBorda = "#d97706";
+          badgeTipo = `<span class="badge-status" style="background: #fffbeb; color: #b45309; border: 1px solid #fde68a; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">Anexo</span>`;
+        }
+
+        return `
+          <div style="font-size: 0.86rem; border-left: 4px solid ${corBorda}; padding: 0.55rem 0.75rem; background: ${fundoCard}; border-radius: 0 6px 6px 0; margin-bottom: 0.6rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                <span style="font-size: 0.95rem;">${iconeAcao}</span>
+                <strong style="color: var(--cor-texto); font-size: 0.9rem;">${escaparHtml(item.usuario_nome || "Sistema")}</strong>
+                ${badgeTipo}
+                <span style="font-size: 0.74rem; font-weight: 600; background: var(--cor-fundo-elevado); color: var(--cor-texto-secundario); border: 1px solid var(--cor-borda); border-radius: 3px; padding: 0.1rem 0.45rem;">
+                  📍 ${escaparHtml(nomeEtapa)}
+                </span>
+              </div>
+              <span style="color: var(--cor-texto-secundario); font-size: 0.78rem; font-family: monospace;">${dataFormatada}</span>
+            </div>
+            <div style="color: var(--cor-texto); line-height: 1.45;">${escaparHtml(detalhes)}</div>
+            ${destaqueJustificativa}
+          </div>
+        `;
+      })
+      .join("");
+
+    conteudoEl.innerHTML = `<div style="display: flex; flex-direction: column;">${itensHtml}</div>`;
+  } catch (err) {
+    conteudoEl.innerHTML = `
+      <div style="padding: 1.5rem; text-align: center; color: var(--cor-perigo, #dc2626);">
+        Erro ao carregar o histórico: ${escaparHtml(err?.message || "Não foi possível obter os dados.")}
+      </div>
+    `;
+  }
 }
 
 // ==========================================
