@@ -30,9 +30,9 @@ export async function onRequestPost(context) {
     const ehSolicitante = Number(chamado.solicitante_id) === Number(usuario.id);
     const ehChamadoMae = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
 
-    // Regra: o usuário que abriu o chamado só vai conseguir aprovar e reprovar caso assuma a tarefa
-    if (ehSolicitante && !ehChamadoMae && !ehResponsavel) {
-      return error("O usuário que abriu o chamado só pode aprovar, reprovar ou executar ações caso assuma a tarefa.", 403);
+    // Regra: bloquear campos de aprovação e reprovação caso o chamado não esteja atribuído para ele
+    if (!ehChamadoMae && !ehResponsavel && usuario.admin !== 1) {
+      return error("Para aprovar ou reprovar esta etapa, o chamado deve estar atribuído para você.", 403);
     }
 
     if (!temPermissaoEditar && !ehResponsavel && !ehMesmoSetor) {

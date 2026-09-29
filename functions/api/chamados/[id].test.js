@@ -212,9 +212,11 @@ test("onRequestPut rejeita alteração se usuário não for responsável, nem do
   assert.equal(res.status, 403);
 });
 
-test("onRequestPut rejeita solicitante alterando status se nao tiver assumido a tarefa", async () => {
+test("onRequestPut atribui automaticamente o chamado ao usuario quando ele altera o status", async () => {
   const { onRequestPut } = await import("./[id].js");
   const token = await gerarToken(10, SEGREDO);
+
+  const sqlExecutados = [];
 
   const dbMock = {
     prepare(sql) {
@@ -222,6 +224,7 @@ test("onRequestPut rejeita solicitante alterando status se nao tiver assumido a 
         bind(...args) {
           return {
             async first() {
+              sqlExecutados.push({ sql, args, op: "first" });
               if (sql.includes("FROM usuarios WHERE id = ?")) {
                 return { id: 10, nome: "Jorge Ramos", setor_id: 1, admin: 0, deve_trocar_senha: 0 };
               }
@@ -230,19 +233,27 @@ test("onRequestPut rejeita solicitante alterando status se nao tiver assumido a 
                   id: 3,
                   chamado_mae_id: 1,
                   solicitante_id: 10, // É o solicitante
-                  responsavel_id: 5,  // Mas não é o responsável
+                  responsavel_id: 5,  // Antes era outro responsável
                   setor_id: 2,
                   status_id: 1,
                   status_nome: "previsto",
                   titulo: "Aprovação 2",
                 };
               }
+              if (sql.includes("FROM status WHERE id = ?")) {
+                return { id: 2, nome: "em desenvolvimento" };
+              }
               return null;
             },
             async all() {
+              sqlExecutados.push({ sql, args, op: "all" });
+              if (sql.includes("PRAGMA table_info")) {
+                return { results: [{ name: "titulo" }] };
+              }
               return { results: [] };
             },
             async run() {
+              sqlExecutados.push({ sql, args, op: "run" });
               return { meta: { changes: 1 } };
             },
           };
@@ -265,9 +276,14 @@ test("onRequestPut rejeita solicitante alterando status se nao tiver assumido a 
   };
 
   const res = await onRequestPut(ctx);
-  assert.equal(res.status, 403);
-  const data = await res.json();
-  assert.ok(data.error.includes("só pode alterar o status caso assuma a tarefa"));
+  assert.equal(res.status, 200);
+
+  // Verifica se o UPDATE em chamados incluiu responsavel_id com o ID do usuário (10)
+  const updateChamado = sqlExecutados.find(
+    (e) => e.op === "run" && e.sql.includes("UPDATE chamados SET") && e.sql.includes("responsavel_id = ?")
+  );
+  assert.ok(updateChamado, "UPDATE deve incluir responsavel_id ao alterar status");
+  assert.ok(updateChamado.args.includes(10), "Deve atribuir para o usuário logado (id 10)");
 });
 
 test("onRequestPut permite que solicitante assuma a tarefa mesmo sendo de outro setor", async () => {
@@ -324,5 +340,174 @@ test("onRequestPut permite que solicitante assuma a tarefa mesmo sendo de outro 
 
   const res = await onRequestPut(ctx);
   assert.equal(res.status, 200);
+});
+
+test("decisao: rejeita registrar decisao se a etapa nao estiver atribuida para o usuario", async () => {
+  const { onRequestPost } = await import("./[id]/decisao.js");
+  const token = await gerarToken(8, SEGREDO);
+
+  const dbMock = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes("FROM usuarios WHERE id = ?")) {
+                return { id: 8, nome: "Usuario Comum", setor_id: 2, admin: 0, deve_trocar_senha: 0 };
+              }
+              if (sql.includes("FROM chamados c")) {
+                return {
+                  id: 4,
+                  chamado_mae_id: 1, // É subchamado/etapa
+                  responsavel_id: 5,  // Atribuído para outro usuário (5)
+                  setor_id: 2,
+                  etapa_tipo: "aprovacao",
+                  titulo: "Aprovação Teste"
+                };
+              }
+              return null;
+            },
+            async all() {
+              return { results: [] };
+            },
+            async run() {
+              return { meta: { changes: 1 } };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const ctx = {
+    request: new Request("http://localhost/api/chamados/4/decisao", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ decisao: "aprovado" }),
+    }),
+    params: { id: "4" },
+    env: { DB: dbMock, SESSAO_SEGREDO: SEGREDO },
+  };
+
+  const res = await onRequestPost(ctx);
+  assert.equal(res.status, 403);
+  const data = await res.json();
+  assert.ok(data.error.includes("o chamado deve estar atribuído para você"));
+});
+
+test("comentarios: rejeita novo comentario se a etapa nao estiver atribuida para o usuario", async () => {
+  const { onRequestPost } = await import("./[id]/comentarios.js");
+  const token = await gerarToken(8, SEGREDO);
+
+  const dbMock = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes("FROM usuarios WHERE id = ?")) {
+                return { id: 8, nome: "Usuario Comum", setor_id: 2, admin: 0, deve_trocar_senha: 0 };
+              }
+              if (sql.includes("FROM chamados c")) {
+                return {
+                  id: 4,
+                  chamado_mae_id: 1,
+                  responsavel_id: 5, // Atribuído para outro
+                  setor_id: 2,
+                };
+              }
+              return null;
+            },
+            async all() {
+              return { results: [] };
+            },
+            async run() {
+              return { meta: { changes: 1 } };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const ctx = {
+    request: new Request("http://localhost/api/chamados/4/comentarios", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ texto: "Tentativa de comentário sem assumir" }),
+    }),
+    params: { id: "4" },
+    env: { DB: dbMock, SESSAO_SEGREDO: SEGREDO },
+  };
+
+  const res = await onRequestPost(ctx);
+  assert.equal(res.status, 403);
+  const data = await res.json();
+  assert.ok(data.error.includes("o chamado deve estar atribuído para você"));
+});
+
+test("anexos: rejeita novo anexo se a etapa nao estiver atribuida para o usuario", async () => {
+  const { onRequestPost } = await import("./[id]/anexos.js");
+  const token = await gerarToken(8, SEGREDO);
+
+  const dbMock = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes("FROM usuarios WHERE id = ?")) {
+                return { id: 8, nome: "Usuario Comum", setor_id: 2, admin: 0, deve_trocar_senha: 0 };
+              }
+              if (sql.includes("FROM chamados c")) {
+                return {
+                  id: 4,
+                  chamado_mae_id: 1,
+                  responsavel_id: 5, // Atribuído para outro
+                  setor_id: 2,
+                };
+              }
+              return null;
+            },
+            async all() {
+              return { results: [] };
+            },
+            async run() {
+              return { meta: { changes: 1 } };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const ctx = {
+    request: new Request("http://localhost/api/chamados/4/anexos", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        nome_arquivo: "documento.pdf",
+        tipo_mime: "application/pdf",
+        tamanho_bytes: 1024,
+        conteudo_base64: "SGVsbG8=",
+      }),
+    }),
+    params: { id: "4" },
+    env: { DB: dbMock, SESSAO_SEGREDO: SEGREDO },
+  };
+
+  const res = await onRequestPost(ctx);
+  assert.equal(res.status, 403);
+  const data = await res.json();
+  assert.ok(data.error.includes("o chamado deve estar atribuído para você"));
 });
 
