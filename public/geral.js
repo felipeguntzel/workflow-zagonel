@@ -291,10 +291,10 @@ function renderizarVisaoHorizontal(container, nos) {
   const { setores, totalFases, nosProcessados, raizId } = calcularEstruturaBpmn(nos);
 
   let html = `
-    <div style="margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--cor-texto-secundario); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
-      <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+    <div style="margin-bottom: 0.45rem; font-size: 0.82rem; color: var(--cor-texto-secundario); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.4rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
         <span><strong>Fluxo Horizontal (BPMN):</strong> Tarefas encadeadas da esquerda para a direita por raia de setor</span>
-        <span style="font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.4rem;">
           <span>🟢 Início</span>
           <span>•</span>
           <span>⚖️ Decisão / Aprovação</span>
@@ -302,7 +302,7 @@ function renderizarVisaoHorizontal(container, nos) {
           <span>🔴 Fim</span>
         </span>
       </div>
-      <span style="font-size: 0.8rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.2rem 0.5rem; border-radius: 4px;">
+      <span style="font-size: 0.78rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.15rem 0.45rem; border-radius: 4px;">
         ↔️ Arraste para o lado para navegar no fluxo
       </span>
     </div>
@@ -363,7 +363,7 @@ function renderizarVisaoHorizontal(container, nos) {
         html += `</div>`;
       } else {
         html += `
-          <div style="height: 100%; min-height: 50px; display: flex; align-items: center; justify-content: center; opacity: 0.35;">
+          <div style="height: 100%; min-height: 24px; display: flex; align-items: center; justify-content: center; opacity: 0.35;">
             <div style="width: 100%; border-top: 1px dashed var(--cor-borda);"></div>
           </div>
         `;
