@@ -492,7 +492,9 @@ export async function chamadoComDetalhes(db, id) {
        COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
        e.nome AS etapa_nome,
        CASE 
-         WHEN e.tipo = 'aprovacao' OR LOWER(COALESCE(e.nome, c.titulo, a.rotulo, '')) LIKE '%aprova%' THEN 'aprovacao'
+         WHEN e.tipo = 'aprovacao'
+           OR (SELECT COUNT(1) FROM acoes ac WHERE ac.etapa_id = c.etapa_id) > 0
+           OR LOWER(COALESCE(e.nome, c.titulo, a.rotulo, '')) LIKE '%aprova%' THEN 'aprovacao'
          ELSE COALESCE(e.tipo, 'tarefa')
        END AS etapa_tipo,
        st.nome AS status_nome,
