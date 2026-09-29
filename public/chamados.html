@@ -418,6 +418,72 @@
       </div>
     </div>
   </div>
+
+  <!-- Modal de Atribuir Tarefa para Colega da Equipe -->
+  <div id="modal-atribuir-tarefa" class="modal-fundo" hidden style="display: none;">
+    <div class="modal-cadastro" role="dialog" style="max-width: 480px; width: 92%;">
+      <div class="modal-cabecalho">
+        <h3 id="modal-atribuir-titulo" style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.45rem;">
+          <span>👥</span> Atribuir Tarefa
+        </h3>
+        <button type="button" class="modal-fechar" id="btn-fechar-modal-atribuir" title="Fechar (Esc)">✕</button>
+      </div>
+      <form id="form-atribuir-tarefa" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem;">
+        <input type="hidden" id="atribuir-chamado-id">
+        <div id="atribuir-chamado-info" style="font-size: 0.86rem; color: var(--cor-texto); background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 6px; padding: 0.65rem 0.85rem; line-height: 1.45;">
+        </div>
+
+        <div class="campo-grupo" style="margin-bottom: 0;">
+          <label for="select-novo-responsavel" class="campo-rotulo" style="font-weight: 600; font-size: 0.88rem; margin-bottom: 0.35rem; display: block;">
+            Selecione o membro da equipe:
+          </label>
+          <select id="select-novo-responsavel" class="select-padrao" required style="width: 100%; padding: 0.6rem 0.75rem; font-size: 0.92rem;">
+            <option value="">Carregando usuários do setor...</option>
+          </select>
+          <small style="color: var(--cor-texto-secundario); font-size: 0.78rem; margin-top: 0.25rem; display: block;">
+            Mostrando colegas do mesmo setor desta atividade.
+          </small>
+        </div>
+
+        <p id="msg-erro-atribuir" class="erro" hidden style="margin: 0;"></p>
+
+        <div class="modal-rodape" style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.4rem; padding-top: 0.85rem; border-top: 1px solid var(--cor-borda);">
+          <button type="button" class="btn btn-secundario" id="btn-cancelar-modal-atribuir">Cancelar</button>
+          <button type="submit" class="btn btn-primario" id="btn-confirmar-modal-atribuir">Atribuir tarefa</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Menu de Contexto Flutuante (Botão Direito do Mouse na Tabela) -->
+  <div id="menu-contexto-chamados" class="context-menu-chamados" style="display: none;" role="menu">
+    <div class="context-menu-cabecalho" id="context-menu-titulo">
+      Chamado
+    </div>
+    <button type="button" class="context-menu-item" id="context-acao-assumir" role="menuitem">
+      <span class="context-menu-icone">🙋‍♂️</span>
+      <span class="context-menu-texto" id="context-texto-assumir">Assumir tarefa</span>
+    </button>
+    <button type="button" class="context-menu-item" id="context-acao-atribuir" role="menuitem">
+      <span class="context-menu-icone">👥</span>
+      <span class="context-menu-texto">Atribuir tarefa...</span>
+    </button>
+    <div class="context-menu-divisor"></div>
+    <button type="button" class="context-menu-item" id="context-acao-historico" role="menuitem">
+      <span class="context-menu-icone">📜</span>
+      <span class="context-menu-texto">Ver histórico</span>
+    </button>
+    <button type="button" class="context-menu-item" id="context-acao-geral" role="menuitem">
+      <span class="context-menu-icone">📊</span>
+      <span class="context-menu-texto">Visão geral</span>
+    </button>
+    <div class="context-menu-divisor"></div>
+    <button type="button" class="context-menu-item" id="context-acao-apontar" role="menuitem">
+      <span class="context-menu-icone">⏱️</span>
+      <span class="context-menu-texto">Apontar</span>
+      <span class="context-menu-tag" id="context-tag-apontar" style="display: none;">Bloqueado</span>
+    </button>
+  </div>
 </main>
 <script type="module" src="chamados.js"></script>
 </body>

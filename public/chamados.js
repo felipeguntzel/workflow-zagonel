@@ -30,6 +30,8 @@ export async function inicializar() {
   configurarEventosConsultas();
   configurarModalApontamentoRapido();
   configurarModalHistoricoAuditoria();
+  configurarMenuContexto();
+  configurarModalAtribuirTarefa();
 
   const tabela = document.querySelector(".tabela-wrap table");
   if (tabela) {
@@ -295,7 +297,7 @@ function renderizarTabela() {
             const tituloTooltip = ehChamadoInicial ? "Ver visão geral do fluxo" : "Abrir chamado";
 
             return `
-              <tr>
+              <tr class="tr-chamado-linha" data-chamado-id="${c.id}" title="Clique com o botão direito para ações rápidas (Assumir, Atribuir, Histórico...)">
                 <td class="td-id"><a href="${destinoLink}" class="link-sem-sublinhado" title="${tituloTooltip}">#${c.id}</a></td>
                 <td title="${escaparAtributo(c.titulo)}"><a href="${destinoLink}" class="link-sem-sublinhado" title="${tituloTooltip}">${escaparHtml(c.titulo)}</a></td>
                 <td>${escaparHtml(c.etapa_atual || "-")}</td>
@@ -339,6 +341,17 @@ function renderizarTabela() {
         chamadoEtapa: btn.dataset.chamadoEtapa,
         statusGeral: btn.dataset.statusGeral,
       });
+    });
+  });
+
+  // Ouvintes de clique com botão direito do mouse para o Menu de Contexto
+  tbody.querySelectorAll("tr.tr-chamado-linha").forEach((tr) => {
+    tr.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const chamadoId = Number(tr.dataset.chamadoId);
+      const chamado = listaChamados.find((item) => Number(item.id) === chamadoId);
+      if (!chamado) return;
+      abrirMenuContexto(e, chamado, tr);
     });
   });
 
@@ -1208,6 +1221,356 @@ async function carregarChamados() {
   listaChamados = await api("/chamados");
   popularFiltrosSuperiores();
   renderizarTabela();
+}
+
+// ==========================================================================
+// Menu de Contexto (Botão Direito) & Atribuição de Atividades para Equipe
+// ==========================================================================
+let chamadoContextoAtivo = null;
+let trContextoAtivo = null;
+let cacheUsuariosParaAtribuicao = null;
+
+function fecharMenuContexto() {
+  const menu = document.getElementById("menu-contexto-chamados");
+  if (menu) {
+    menu.style.display = "none";
+  }
+  if (trContextoAtivo) {
+    trContextoAtivo.classList.remove("tr-contexto-ativo");
+    trContextoAtivo = null;
+  }
+  chamadoContextoAtivo = null;
+}
+
+function abrirMenuContexto(event, chamado, tr) {
+  fecharMenuContexto();
+  chamadoContextoAtivo = chamado;
+  trContextoAtivo = tr;
+  tr.classList.add("tr-contexto-ativo");
+
+  const menu = document.getElementById("menu-contexto-chamados");
+  if (!menu) return;
+
+  const tituloEl = document.getElementById("context-menu-titulo");
+  if (tituloEl) {
+    tituloEl.textContent = `#${chamado.id} - ${chamado.titulo || 'Chamado'}`;
+    tituloEl.title = `#${chamado.id} - ${chamado.titulo || 'Chamado'}`;
+  }
+
+  const btnAssumir = document.getElementById("context-acao-assumir");
+  const txtAssumir = document.getElementById("context-texto-assumir");
+  const btnAtribuir = document.getElementById("context-acao-atribuir");
+  const btnHistorico = document.getElementById("context-acao-historico");
+  const btnGeral = document.getElementById("context-acao-geral");
+  const btnApontar = document.getElementById("context-acao-apontar");
+  const tagApontar = document.getElementById("context-tag-apontar");
+
+  const ehAdmin = usuarioLogado?.admin === 1 || usuarioLogado?.admin === true;
+  const souResponsavel = chamado.responsavel_id != null && Number(chamado.responsavel_id) === Number(usuarioLogado.id);
+  const statusNorm = String(chamado.status_etapa_nome || chamado.status_nome || "").toLowerCase();
+  const ehFinalizadoOuCancelado = statusNorm.includes("finalizad") || statusNorm.includes("cancelad");
+  const ehChamadoInicial = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
+
+  // 1. Assumir Tarefa
+  if (btnAssumir) {
+    if (ehFinalizadoOuCancelado) {
+      btnAssumir.disabled = true;
+      if (txtAssumir) txtAssumir.textContent = "Assumir tarefa (Finalizada)";
+    } else if (souResponsavel) {
+      btnAssumir.disabled = false;
+      if (txtAssumir) txtAssumir.textContent = "Abrir tarefa (Já é sua)";
+    } else {
+      btnAssumir.disabled = false;
+      if (txtAssumir) txtAssumir.textContent = "Assumir tarefa";
+    }
+  }
+
+  // 2. Atribuir Tarefa
+  if (btnAtribuir) {
+    btnAtribuir.disabled = ehFinalizadoOuCancelado;
+  }
+
+  // 3. Ver Histórico
+  if (btnHistorico) {
+    btnHistorico.disabled = false;
+  }
+
+  // 4. Visão Geral
+  if (btnGeral) {
+    btnGeral.disabled = false;
+  }
+
+  // 5. Apontar (somente disponível se o usuário já está atribuído para aquela tarefa)
+  if (btnApontar) {
+    const podeApontar = !ehChamadoInicial && (ehAdmin || souResponsavel) && !ehFinalizadoOuCancelado;
+    if (podeApontar) {
+      btnApontar.disabled = false;
+      if (tagApontar) tagApontar.style.display = "none";
+    } else {
+      btnApontar.disabled = true;
+      if (tagApontar) {
+        tagApontar.style.display = "inline-block";
+        tagApontar.textContent = ehChamadoInicial ? "Não aplicável" : !souResponsavel ? "Não atribuído a você" : "Encerrado";
+      }
+    }
+  }
+
+  // Posicionamento inteligente
+  menu.style.visibility = "hidden";
+  menu.style.display = "block";
+
+  const menuLargura = menu.offsetWidth || 240;
+  const menuAltura = menu.offsetHeight || 220;
+
+  let x = event.clientX;
+  let y = event.clientY;
+
+  if (x + menuLargura > window.innerWidth - 10) {
+    x = window.innerWidth - menuLargura - 10;
+  }
+  if (y + menuAltura > window.innerHeight - 10) {
+    y = window.innerHeight - menuAltura - 10;
+  }
+
+  menu.style.left = `${Math.max(10, x)}px`;
+  menu.style.top = `${Math.max(10, y)}px`;
+  menu.style.visibility = "visible";
+}
+
+function configurarMenuContexto() {
+  const btnAssumir = document.getElementById("context-acao-assumir");
+  const btnAtribuir = document.getElementById("context-acao-atribuir");
+  const btnHistorico = document.getElementById("context-acao-historico");
+  const btnGeral = document.getElementById("context-acao-geral");
+  const btnApontar = document.getElementById("context-acao-apontar");
+
+  // Assumir tarefa
+  btnAssumir?.addEventListener("click", async () => {
+    const c = chamadoContextoAtivo;
+    fecharMenuContexto();
+    if (!c) return;
+
+    const souResponsavel = c.responsavel_id != null && Number(c.responsavel_id) === Number(usuarioLogado.id);
+    if (!souResponsavel) {
+      try {
+        await api(`/chamados/${c.id}`, {
+          method: "PUT",
+          body: { responsavel_id: usuarioLogado.id },
+        });
+      } catch (err) {
+        mostrarToast(err.message || "Erro ao assumir chamado.", "erro");
+        return;
+      }
+    }
+
+    // Se o usuário assumir, abrir tela do chamado direto para conseguir aprovar ou reprovar
+    window.location.href = `/chamado?id=${c.id}`;
+  });
+
+  // Atribuir tarefa para alguém da equipe
+  btnAtribuir?.addEventListener("click", () => {
+    const c = chamadoContextoAtivo;
+    fecharMenuContexto();
+    if (!c) return;
+    abrirModalAtribuirTarefa(c);
+  });
+
+  // Ver histórico (mesmo que clicar no botão de atalho do histórico)
+  btnHistorico?.addEventListener("click", () => {
+    const c = chamadoContextoAtivo;
+    fecharMenuContexto();
+    if (!c) return;
+    const idChamadoGeral = c.chamado_mae_id || c.id;
+    abrirModalHistoricoAuditoria({
+      chamadoId: c.id,
+      chamadoMaeId: idChamadoGeral,
+      chamadoTitulo: c.titulo || "",
+      chamadoEtapa: c.etapa_atual || "",
+      statusGeral: c.status_geral_texto || "",
+    });
+  });
+
+  // Visão geral (mesmo que clicar no botão de atalho geral)
+  btnGeral?.addEventListener("click", () => {
+    const c = chamadoContextoAtivo;
+    fecharMenuContexto();
+    if (!c) return;
+    const idChamadoGeral = c.chamado_mae_id || c.id;
+    window.location.href = `/geral?id=${idChamadoGeral}`;
+  });
+
+  // Apontar (mesmo que clicar no botão apontar)
+  btnApontar?.addEventListener("click", () => {
+    const c = chamadoContextoAtivo;
+    fecharMenuContexto();
+    if (!c) return;
+    abrirModalApontamentoRapido(c.id, c.titulo || "");
+  });
+
+  // Fechar ao clicar fora, ao fazer scroll ou pressionar Escape
+  window.addEventListener("click", (e) => {
+    const menu = document.getElementById("menu-contexto-chamados");
+    if (menu && menu.style.display !== "none" && !menu.contains(e.target)) {
+      fecharMenuContexto();
+    }
+  });
+
+  window.addEventListener("scroll", fecharMenuContexto, true);
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") fecharMenuContexto();
+  });
+}
+
+async function abrirModalAtribuirTarefa(chamado) {
+  const modal = document.getElementById("modal-atribuir-tarefa");
+  const infoEl = document.getElementById("atribuir-chamado-info");
+  const selectResp = document.getElementById("select-novo-responsavel");
+  const inputId = document.getElementById("atribuir-chamado-id");
+  const msgErro = document.getElementById("msg-erro-atribuir");
+  const btnConfirmar = document.getElementById("btn-confirmar-modal-atribuir");
+
+  if (!modal || !selectResp || !inputId) return;
+
+  inputId.value = String(chamado.id);
+  if (msgErro) {
+    msgErro.hidden = true;
+    msgErro.textContent = "";
+  }
+  if (btnConfirmar) {
+    btnConfirmar.disabled = false;
+    btnConfirmar.textContent = "Atribuir tarefa";
+  }
+
+  if (infoEl) {
+    infoEl.innerHTML = `
+      <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem; color: var(--cor-texto);">
+        #${chamado.id} - ${escaparHtml(chamado.titulo || "Sem título")}
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; font-size: 0.82rem; color: var(--cor-texto-secundario);">
+        <div><strong>Etapa:</strong> ${escaparHtml(chamado.etapa_atual || "-")}</div>
+        <div><strong>Setor:</strong> ${escaparHtml(chamado.setor_nome || "-")}</div>
+        <div style="grid-column: 1 / -1;">
+          <strong>Responsável atual:</strong> ${escaparHtml(chamado.responsavel_nome || "Ninguém atribuído")}
+        </div>
+      </div>
+    `;
+  }
+
+  selectResp.innerHTML = `<option value="">Carregando usuários do setor...</option>`;
+  selectResp.disabled = true;
+
+  modal.hidden = false;
+  modal.style.display = "flex";
+
+  try {
+    if (!cacheUsuariosParaAtribuicao) {
+      cacheUsuariosParaAtribuicao = await api("/usuarios");
+    }
+    const todosUsuarios = Array.isArray(cacheUsuariosParaAtribuicao) ? cacheUsuariosParaAtribuicao : [];
+
+    // Filtra membros do mesmo setor desta atividade
+    let usuariosDoSetor = todosUsuarios.filter(
+      (u) => u.ativo && (chamado.setor_id == null || Number(u.setor_id) === Number(chamado.setor_id))
+    );
+
+    // Se nenhum do setor for retornado e o usuário for admin, permite atribuir a qualquer ativo
+    if (usuariosDoSetor.length === 0 && usuarioLogado.admin === 1) {
+      usuariosDoSetor = todosUsuarios.filter((u) => u.ativo);
+    }
+
+    if (usuariosDoSetor.length === 0) {
+      selectResp.innerHTML = `<option value="">Nenhum usuário disponível para este setor</option>`;
+      selectResp.disabled = true;
+      return;
+    }
+
+    selectResp.disabled = false;
+    selectResp.innerHTML = `
+      <option value="">Selecione um membro da equipe...</option>
+      ${usuariosDoSetor
+        .map(
+          (u) =>
+            `<option value="${u.id}" ${Number(u.id) === Number(chamado.responsavel_id) ? "selected" : ""}>
+              ${escaparHtml(u.nome)} ${Number(u.id) === Number(usuarioLogado.id) ? "(Você)" : ""}
+            </option>`
+        )
+        .join("")}
+    `;
+    selectResp.focus();
+  } catch (err) {
+    selectResp.innerHTML = `<option value="">Erro ao carregar usuários</option>`;
+  }
+}
+
+function configurarModalAtribuirTarefa() {
+  const modal = document.getElementById("modal-atribuir-tarefa");
+  const form = document.getElementById("form-atribuir-tarefa");
+  const btnFechar = document.getElementById("btn-fechar-modal-atribuir");
+  const btnCancelar = document.getElementById("btn-cancelar-modal-atribuir");
+  const msgErro = document.getElementById("msg-erro-atribuir");
+  const btnConfirmar = document.getElementById("btn-confirmar-modal-atribuir");
+
+  const fechar = () => {
+    if (modal) {
+      modal.hidden = true;
+      modal.style.display = "none";
+    }
+  };
+
+  btnFechar?.addEventListener("click", fechar);
+  btnCancelar?.addEventListener("click", fechar);
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) fechar();
+  });
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const inputId = document.getElementById("atribuir-chamado-id");
+    const selectResp = document.getElementById("select-novo-responsavel");
+    if (!inputId || !selectResp) return;
+
+    const chamadoId = Number(inputId.value);
+    const novoResponsavelId = selectResp.value ? Number(selectResp.value) : null;
+
+    if (!novoResponsavelId) {
+      if (msgErro) {
+        msgErro.textContent = "Por favor, selecione um usuário para atribuir a tarefa.";
+        msgErro.hidden = false;
+      }
+      return;
+    }
+
+    const nomeEscolhido = selectResp.options[selectResp.selectedIndex]?.text?.trim() || "colega";
+
+    if (btnConfirmar) {
+      btnConfirmar.disabled = true;
+      btnConfirmar.textContent = "Atribuindo...";
+    }
+    if (msgErro) msgErro.hidden = true;
+
+    try {
+      await api(`/chamados/${chamadoId}`, {
+        method: "PUT",
+        body: { responsavel_id: novoResponsavelId },
+      });
+
+      fechar();
+      mostrarToast(`✓ Tarefa #${chamadoId} atribuída com sucesso para ${nomeEscolhido}!`);
+
+      // Atualiza lista de chamados na mesma tela sem sair
+      await carregarChamados();
+      renderizarTabela();
+    } catch (err) {
+      if (msgErro) {
+        msgErro.textContent = err.message || "Erro ao atribuir tarefa.";
+        msgErro.hidden = false;
+      }
+      if (btnConfirmar) {
+        btnConfirmar.disabled = false;
+        btnConfirmar.textContent = "Atribuir tarefa";
+      }
+    }
+  });
 }
 
 inicializar();
