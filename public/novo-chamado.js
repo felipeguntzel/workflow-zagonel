@@ -148,7 +148,7 @@ async function iniciar(usuarioLogado) {
                 Solicitante
               </label>
               <div class="campo-fixo-exibicao">
-                <span>👤 ${escaparHtml(usuario.nome)}</span>
+                <span title="${escaparHtml(usuario.nome)}">👤 ${escaparHtml(usuario.nome)}</span>
                 <span class="tag-automatico">Automático</span>
               </div>
             </div>
