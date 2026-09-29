@@ -1,6 +1,6 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
-import { mostrarErro, escaparAtributo, escaparHtml, debounce, exportarParaCsv, anunciarA11y, formatarDataBR, traduzirTextoParaPtBr } from "./ui.js";
+import { mostrarErro, escaparAtributo, escaparHtml, debounce, exportarParaCsv, anunciarA11y, formatarDataBR, formatarDataHoraBR, traduzirTextoParaPtBr } from "./ui.js";
 import { api } from "./api.js";
 import { tornarTabelaReordenavel } from "./tabela-colunas.js";
 import { confirmarAcao } from "./modal.js";
@@ -29,6 +29,9 @@ export async function inicializar() {
   configurarOrdenacao();
   configurarEventosConsultas();
   configurarModalApontamentoRapido();
+  configurarModalHistoricoAuditoria();
+  configurarMenuContexto();
+  configurarModalAtribuirTarefa();
 
   const tabela = document.querySelector(".tabela-wrap table");
   if (tabela) {
@@ -56,7 +59,9 @@ export async function inicializar() {
 }
 
 function calcularSituacao(prazo, statusNome) {
-  if (statusNome === "finalizado" || statusNome === "suspenso") return "";
+  if (!prazo) return "";
+  const s = String(statusNome || "").toLowerCase();
+  if (s === "finalizado" || s === "suspenso" || s === "cancelado" || s === "cancelada") return "";
   const hoje = new Date().toISOString().slice(0, 10);
   const diff = Math.round((new Date(prazo) - new Date(hoje)) / 86400000);
   if (diff < 0) return "Vencido";
@@ -65,6 +70,10 @@ function calcularSituacao(prazo, statusNome) {
 }
 
 function situacaoBadge(prazo, statusNome) {
+  const s = String(statusNome || "").toLowerCase();
+  if (s === "cancelado" || s === "cancelada") {
+    return `<span class="badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">Cancelada</span>`;
+  }
   const sit = calcularSituacao(prazo, statusNome);
   if (!sit) return "";
   if (sit === "Vencido") return `<span class="badge badge-vencido">Vencido</span>`;
@@ -74,12 +83,25 @@ function situacaoBadge(prazo, statusNome) {
 
 function badgeStatusColorido(nome, cor) {
   if (!nome) return "-";
-  if (!cor) return escaparHtml(nome);
-  return `<span class="badge-status" style="background: ${cor}18; color: ${cor}; border: 1px solid ${cor}55; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${cor};"></span>${escaparHtml(nome)}</span>`;
+  const nomeLower = String(nome).toLowerCase();
+  const nomeExibicao = nomeLower === "cancelado" ? "Cancelada" : nome;
+  const corEfetiva = nomeLower.includes("cancelad") ? (cor || "#dc2626") : cor;
+  if (!corEfetiva) return escaparHtml(nomeExibicao);
+  return `<span class="badge-status" style="background: ${corEfetiva}18; color: ${corEfetiva}; border: 1px solid ${corEfetiva}55; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${corEfetiva};"></span>${escaparHtml(nomeExibicao)}</span>`;
 }
 
 function badgeStatusGeral(texto) {
   if (!texto) return "-";
+  const t = String(texto).toLowerCase();
+  if (t.includes("cancelad")) {
+    return `<span class="badge-status" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;">✕ ${escaparHtml(texto)}</span>`;
+  }
+  if (t.includes("finalizad")) {
+    return `<span class="badge-status" style="background: #dcfce7; color: #166534; border: 1px solid #86efac; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;">✓ ${escaparHtml(texto)}</span>`;
+  }
+  if (t.includes("suspens")) {
+    return `<span class="badge-status" style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 4px;">⏸ ${escaparHtml(texto)}</span>`;
+  }
   return `<span style="color: var(--cor-texto); font-weight: 500;">${escaparHtml(texto)}</span>`;
 }
 
@@ -163,8 +185,14 @@ function filtrarDados() {
   return listaChamados.filter((c) => {
     // Filtro de status
     const ehFinalizado = c.status_geral_tipo === "finalizado" || c.status_nome === "finalizado" || c.status_etapa_nome === "finalizado";
-    if (statusFiltro === "ativos" && ehFinalizado) return false;
+    const ehCancelado = c.status_geral_tipo === "cancelado" ||
+      String(c.status_nome || "").toLowerCase().includes("cancelad") ||
+      String(c.status_etapa_nome || "").toLowerCase().includes("cancelad") ||
+      String(c.resultado || "").toLowerCase() === "reprovado";
+
+    if (statusFiltro === "ativos" && (ehFinalizado || ehCancelado)) return false;
     if (statusFiltro === "finalizado" && !ehFinalizado) return false;
+    if (statusFiltro === "cancelado" && !ehCancelado) return false;
 
     // Filtro de empresa
     if (empresaFiltro && c.empresa_nome !== empresaFiltro) {
@@ -269,7 +297,7 @@ function renderizarTabela() {
             const tituloTooltip = ehChamadoInicial ? "Ver visão geral do fluxo" : "Abrir chamado";
 
             return `
-              <tr>
+              <tr class="tr-chamado-linha" data-chamado-id="${c.id}" title="Clique com o botão direito para ações rápidas (Assumir, Atribuir, Histórico...)">
                 <td class="td-id"><a href="${destinoLink}" class="link-sem-sublinhado" title="${tituloTooltip}">#${c.id}</a></td>
                 <td title="${escaparAtributo(c.titulo)}"><a href="${destinoLink}" class="link-sem-sublinhado" title="${tituloTooltip}">${escaparHtml(c.titulo)}</a></td>
                 <td>${escaparHtml(c.etapa_atual || "-")}</td>
@@ -282,8 +310,9 @@ function renderizarTabela() {
                 <td>${c.prazo ? escaparHtml(formatarDataBR(c.prazo)) : "-"}</td>
                 <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
                 <td style="text-align: center; white-space: nowrap;">
-                  <div style="display: inline-flex; gap: 0.35rem; align-items: center; justify-content: center;">
+                  <div style="display: inline-flex; gap: 0.3rem; align-items: center; justify-content: center; flex-wrap: nowrap;">
                     <a href="/geral?id=${idChamadoGeral}" class="btn btn-secundario btn-pequeno" title="Ver andamento geral de todas as etapas" style="padding: 0.2rem 0.45rem; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 4px; line-height: 1.2;">📊 Geral</a>
+                    <button type="button" class="btn btn-secundario btn-pequeno btn-historico-tabela" data-chamado-id="${c.id}" data-chamado-mae-id="${idChamadoGeral}" data-chamado-titulo="${escaparAtributo(c.titulo || '')}" data-chamado-etapa="${escaparAtributo(c.etapa_atual || '')}" data-status-geral="${escaparAtributo(c.status_geral_texto || '')}" title="Abrir histórico unificado de ações em tela sobreposta" style="padding: 0.2rem 0.45rem; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 4px; line-height: 1.2;">📜 Histórico</button>
                     ${btnApontarHtml}
                   </div>
                 </td>
@@ -298,6 +327,31 @@ function renderizarTabela() {
       const chamadoId = btn.dataset.chamadoId;
       const chamadoTitulo = btn.dataset.chamadoTitulo;
       abrirModalApontamentoRapido(chamadoId, chamadoTitulo);
+    });
+  });
+
+  // Anexa ouvintes de clique nos botões de histórico unificado da tabela
+  tbody.querySelectorAll(".btn-historico-tabela").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      abrirModalHistoricoAuditoria({
+        chamadoId: btn.dataset.chamadoId,
+        chamadoMaeId: btn.dataset.chamadoMaeId,
+        chamadoTitulo: btn.dataset.chamadoTitulo,
+        chamadoEtapa: btn.dataset.chamadoEtapa,
+        statusGeral: btn.dataset.statusGeral,
+      });
+    });
+  });
+
+  // Ouvintes de clique com botão direito do mouse para o Menu de Contexto
+  tbody.querySelectorAll("tr.tr-chamado-linha").forEach((tr) => {
+    tr.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const chamadoId = Number(tr.dataset.chamadoId);
+      const chamado = listaChamados.find((item) => Number(item.id) === chamadoId);
+      if (!chamado) return;
+      abrirMenuContexto(e, chamado, tr);
     });
   });
 
@@ -559,6 +613,181 @@ function abrirModalApontamentoRapido(chamadoId, chamadoTitulo) {
   modal.hidden = false;
   modal.style.display = "flex";
   setTimeout(() => inputHoras?.focus(), 100);
+}
+
+// ==========================================
+// Histórico Unificado de Ações (Modal Sobreposto)
+// ==========================================
+function configurarModalHistoricoAuditoria() {
+  const modal = document.getElementById("modal-historico-auditoria");
+  const btnFechar = document.getElementById("btn-fechar-modal-historico");
+  const btnFecharRodape = document.getElementById("btn-fechar-rodape-modal-historico");
+
+  const fechar = () => {
+    if (modal) {
+      modal.hidden = true;
+      modal.style.display = "none";
+    }
+  };
+
+  btnFechar?.addEventListener("click", fechar);
+  btnFecharRodape?.addEventListener("click", fechar);
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) fechar();
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal && !modal.hidden && modal.style.display !== "none") {
+      fechar();
+    }
+  });
+}
+
+async function abrirModalHistoricoAuditoria({ chamadoId, chamadoMaeId, chamadoTitulo, chamadoEtapa, statusGeral }) {
+  const modal = document.getElementById("modal-historico-auditoria");
+  const tituloEl = document.getElementById("modal-historico-titulo");
+  const infoEl = document.getElementById("historico-chamado-info");
+  const conteudoEl = document.getElementById("conteudo-historico-auditoria");
+  const linkGeral = document.getElementById("link-abrir-visao-geral-historico");
+
+  if (!modal || !conteudoEl) return;
+
+  const raizId = chamadoMaeId || chamadoId;
+
+  if (tituloEl) {
+    tituloEl.innerHTML = `<span>📜</span> Histórico Unificado de Ações #${chamadoId}`;
+  }
+
+  if (linkGeral) {
+    linkGeral.href = `/geral?id=${raizId}`;
+  }
+
+  if (infoEl) {
+    infoEl.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+        <div>
+          <strong style="color: var(--cor-primaria); font-size: 0.95rem;">Chamado #${chamadoId}:</strong>
+          <span style="font-weight: 700; color: var(--cor-texto);">${escaparHtml(chamadoTitulo || "Sem título")}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+          ${chamadoEtapa && chamadoEtapa !== "-" ? `<span class="badge-status badge-legenda" style="font-size: 0.76rem;">Etapa: ${escaparHtml(chamadoEtapa)}</span>` : ""}
+          ${statusGeral ? badgeStatusGeral(statusGeral) : ""}
+        </div>
+      </div>
+    `;
+  }
+
+  conteudoEl.innerHTML = `
+    <div style="text-align: center; color: var(--cor-texto-secundario); padding: 2rem;">
+      <div style="display: inline-block; width: 22px; height: 22px; border: 3px solid var(--cor-borda); border-top-color: var(--cor-primaria); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.5rem;"></div>
+      <div>Carregando histórico unificado...</div>
+    </div>
+  `;
+
+  modal.hidden = false;
+  modal.style.display = "flex";
+
+  try {
+    const historico = await api(`/chamados/${raizId}/historico`);
+    if (!Array.isArray(historico) || historico.length === 0) {
+      conteudoEl.innerHTML = `
+        <div style="text-align: center; color: var(--cor-texto-secundario); padding: 2.5rem 1rem;">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
+          <div style="font-weight: 600;">Nenhum registro de auditoria disponível para este chamado.</div>
+        </div>
+      `;
+      return;
+    }
+
+    const historicoOrdenado = [...historico].sort((a, b) => {
+      const dataA = new Date(a.criado_em || 0).getTime();
+      const dataB = new Date(b.criado_em || 0).getTime();
+      if (dataB !== dataA) return dataB - dataA;
+      return (b.id || 0) - (a.id || 0);
+    });
+
+    const itensHtml = historicoOrdenado
+      .map((item) => {
+        const dataFormatada = formatarDataHoraBR(item.criado_em);
+        const nomeEtapa = item.etapa_nome || (item.eh_chamado_mae ? "Solicitação Inicial" : `Etapa #${item.chamado_id}`);
+        const acao = String(item.acao || "").toLowerCase();
+        const detalhes = item.detalhes || "";
+
+        let iconeAcao = "ℹ️";
+        let corBorda = "var(--cor-borda)";
+        let fundoCard = "var(--cor-fundo)";
+        let badgeTipo = "";
+        let destaqueJustificativa = "";
+
+        if (acao === "decisao_reprovada" || detalhes.includes("REPROVADA")) {
+          iconeAcao = "✕";
+          corBorda = "#dc2626";
+          fundoCard = "#fef2f2";
+          badgeTipo = `<span class="badge-status" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-weight: 700; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">✕ Reprovação</span>`;
+          const matchJust = detalhes.match(/Justificativa:\s*"(.*?)"|Justificativa:\s*(.*)/i);
+          if (matchJust) {
+            const textoJust = matchJust[1] || matchJust[2];
+            destaqueJustificativa = `
+              <div style="margin-top: 0.45rem; padding: 0.45rem 0.65rem; background: #ffffff; border-left: 3px solid #dc2626; border-radius: 4px; color: #7f1d1d; font-size: 0.83rem;">
+                <strong>Motivo / Justificativa da Reprovação:</strong> ${escaparHtml(textoJust)}
+              </div>
+            `;
+          }
+        } else if (acao === "decisao_aprovada" || detalhes.includes("APROVADA")) {
+          iconeAcao = "✓";
+          corBorda = "#16a34a";
+          fundoCard = "#f0fdf4";
+          badgeTipo = `<span class="badge-status" style="background: #dcfce7; color: #166534; border: 1px solid #86efac; font-weight: 700; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">✓ Aprovação</span>`;
+        } else if (acao === "comentario") {
+          iconeAcao = "💬";
+          corBorda = "#2563eb";
+          badgeTipo = `<span class="badge-status" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">Comentário</span>`;
+        } else if (acao === "apontamento_horas") {
+          iconeAcao = "⏱️";
+          corBorda = "#9333ea";
+          badgeTipo = `<span class="badge-status" style="background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">Apontamento</span>`;
+        } else if (acao.includes("criacao")) {
+          iconeAcao = "🌱";
+          corBorda = "var(--cor-primaria)";
+          badgeTipo = `<span class="badge-status" style="background: var(--cor-fundo-elevado); color: var(--cor-primaria); border: 1px solid var(--cor-borda); font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">Abertura</span>`;
+        } else if (acao === "mudanca_status") {
+          iconeAcao = "🔄";
+          corBorda = "#0284c7";
+          badgeTipo = `<span class="badge-status" style="background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">Status</span>`;
+        } else if (acao === "anexo") {
+          iconeAcao = "📎";
+          corBorda = "#d97706";
+          badgeTipo = `<span class="badge-status" style="background: #fffbeb; color: #b45309; border: 1px solid #fde68a; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 4px;">Anexo</span>`;
+        }
+
+        return `
+          <div style="font-size: 0.86rem; border-left: 4px solid ${corBorda}; padding: 0.55rem 0.75rem; background: ${fundoCard}; border-radius: 0 6px 6px 0; margin-bottom: 0.6rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                <span style="font-size: 0.95rem;">${iconeAcao}</span>
+                <strong style="color: var(--cor-texto); font-size: 0.9rem;">${escaparHtml(item.usuario_nome || "Sistema")}</strong>
+                ${badgeTipo}
+                <span style="font-size: 0.74rem; font-weight: 600; background: var(--cor-fundo-elevado); color: var(--cor-texto-secundario); border: 1px solid var(--cor-borda); border-radius: 3px; padding: 0.1rem 0.45rem;">
+                  📍 ${escaparHtml(nomeEtapa)}
+                </span>
+              </div>
+              <span style="color: var(--cor-texto-secundario); font-size: 0.78rem; font-family: monospace;">${dataFormatada}</span>
+            </div>
+            <div style="color: var(--cor-texto); line-height: 1.45;">${escaparHtml(detalhes)}</div>
+            ${destaqueJustificativa}
+          </div>
+        `;
+      })
+      .join("");
+
+    conteudoEl.innerHTML = `<div style="display: flex; flex-direction: column;">${itensHtml}</div>`;
+  } catch (err) {
+    conteudoEl.innerHTML = `
+      <div style="padding: 1.5rem; text-align: center; color: var(--cor-perigo, #dc2626);">
+        Erro ao carregar o histórico: ${escaparHtml(err?.message || "Não foi possível obter os dados.")}
+      </div>
+    `;
+  }
 }
 
 // ==========================================
@@ -992,6 +1221,356 @@ async function carregarChamados() {
   listaChamados = await api("/chamados");
   popularFiltrosSuperiores();
   renderizarTabela();
+}
+
+// ==========================================================================
+// Menu de Contexto (Botão Direito) & Atribuição de Atividades para Equipe
+// ==========================================================================
+let chamadoContextoAtivo = null;
+let trContextoAtivo = null;
+let cacheUsuariosParaAtribuicao = null;
+
+function fecharMenuContexto() {
+  const menu = document.getElementById("menu-contexto-chamados");
+  if (menu) {
+    menu.style.display = "none";
+  }
+  if (trContextoAtivo) {
+    trContextoAtivo.classList.remove("tr-contexto-ativo");
+    trContextoAtivo = null;
+  }
+  chamadoContextoAtivo = null;
+}
+
+function abrirMenuContexto(event, chamado, tr) {
+  fecharMenuContexto();
+  chamadoContextoAtivo = chamado;
+  trContextoAtivo = tr;
+  tr.classList.add("tr-contexto-ativo");
+
+  const menu = document.getElementById("menu-contexto-chamados");
+  if (!menu) return;
+
+  const tituloEl = document.getElementById("context-menu-titulo");
+  if (tituloEl) {
+    tituloEl.textContent = `#${chamado.id} - ${chamado.titulo || 'Chamado'}`;
+    tituloEl.title = `#${chamado.id} - ${chamado.titulo || 'Chamado'}`;
+  }
+
+  const btnAssumir = document.getElementById("context-acao-assumir");
+  const txtAssumir = document.getElementById("context-texto-assumir");
+  const btnAtribuir = document.getElementById("context-acao-atribuir");
+  const btnHistorico = document.getElementById("context-acao-historico");
+  const btnGeral = document.getElementById("context-acao-geral");
+  const btnApontar = document.getElementById("context-acao-apontar");
+  const tagApontar = document.getElementById("context-tag-apontar");
+
+  const ehAdmin = usuarioLogado?.admin === 1 || usuarioLogado?.admin === true;
+  const souResponsavel = chamado.responsavel_id != null && Number(chamado.responsavel_id) === Number(usuarioLogado.id);
+  const statusNorm = String(chamado.status_etapa_nome || chamado.status_nome || "").toLowerCase();
+  const ehFinalizadoOuCancelado = statusNorm.includes("finalizad") || statusNorm.includes("cancelad");
+  const ehChamadoInicial = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
+
+  // 1. Assumir Tarefa
+  if (btnAssumir) {
+    if (ehFinalizadoOuCancelado) {
+      btnAssumir.disabled = true;
+      if (txtAssumir) txtAssumir.textContent = "Assumir tarefa (Finalizada)";
+    } else if (souResponsavel) {
+      btnAssumir.disabled = false;
+      if (txtAssumir) txtAssumir.textContent = "Abrir tarefa (Já é sua)";
+    } else {
+      btnAssumir.disabled = false;
+      if (txtAssumir) txtAssumir.textContent = "Assumir tarefa";
+    }
+  }
+
+  // 2. Atribuir Tarefa
+  if (btnAtribuir) {
+    btnAtribuir.disabled = ehFinalizadoOuCancelado;
+  }
+
+  // 3. Ver Histórico
+  if (btnHistorico) {
+    btnHistorico.disabled = false;
+  }
+
+  // 4. Visão Geral
+  if (btnGeral) {
+    btnGeral.disabled = false;
+  }
+
+  // 5. Apontar (somente disponível se o usuário já está atribuído para aquela tarefa)
+  if (btnApontar) {
+    const podeApontar = !ehChamadoInicial && (ehAdmin || souResponsavel) && !ehFinalizadoOuCancelado;
+    if (podeApontar) {
+      btnApontar.disabled = false;
+      if (tagApontar) tagApontar.style.display = "none";
+    } else {
+      btnApontar.disabled = true;
+      if (tagApontar) {
+        tagApontar.style.display = "inline-block";
+        tagApontar.textContent = ehChamadoInicial ? "Não aplicável" : !souResponsavel ? "Não atribuído a você" : "Encerrado";
+      }
+    }
+  }
+
+  // Posicionamento inteligente
+  menu.style.visibility = "hidden";
+  menu.style.display = "block";
+
+  const menuLargura = menu.offsetWidth || 240;
+  const menuAltura = menu.offsetHeight || 220;
+
+  let x = event.clientX;
+  let y = event.clientY;
+
+  if (x + menuLargura > window.innerWidth - 10) {
+    x = window.innerWidth - menuLargura - 10;
+  }
+  if (y + menuAltura > window.innerHeight - 10) {
+    y = window.innerHeight - menuAltura - 10;
+  }
+
+  menu.style.left = `${Math.max(10, x)}px`;
+  menu.style.top = `${Math.max(10, y)}px`;
+  menu.style.visibility = "visible";
+}
+
+function configurarMenuContexto() {
+  const btnAssumir = document.getElementById("context-acao-assumir");
+  const btnAtribuir = document.getElementById("context-acao-atribuir");
+  const btnHistorico = document.getElementById("context-acao-historico");
+  const btnGeral = document.getElementById("context-acao-geral");
+  const btnApontar = document.getElementById("context-acao-apontar");
+
+  // Assumir tarefa
+  btnAssumir?.addEventListener("click", async () => {
+    const c = chamadoContextoAtivo;
+    fecharMenuContexto();
+    if (!c) return;
+
+    const souResponsavel = c.responsavel_id != null && Number(c.responsavel_id) === Number(usuarioLogado.id);
+    if (!souResponsavel) {
+      try {
+        await api(`/chamados/${c.id}`, {
+          method: "PUT",
+          body: { responsavel_id: usuarioLogado.id },
+        });
+      } catch (err) {
+        mostrarToast(err.message || "Erro ao assumir chamado.", "erro");
+        return;
+      }
+    }
+
+    // Se o usuário assumir, abrir tela do chamado direto para conseguir aprovar ou reprovar
+    window.location.href = `/chamado?id=${c.id}`;
+  });
+
+  // Atribuir tarefa para alguém da equipe
+  btnAtribuir?.addEventListener("click", () => {
+    const c = chamadoContextoAtivo;
+    fecharMenuContexto();
+    if (!c) return;
+    abrirModalAtribuirTarefa(c);
+  });
+
+  // Ver histórico (mesmo que clicar no botão de atalho do histórico)
+  btnHistorico?.addEventListener("click", () => {
+    const c = chamadoContextoAtivo;
+    fecharMenuContexto();
+    if (!c) return;
+    const idChamadoGeral = c.chamado_mae_id || c.id;
+    abrirModalHistoricoAuditoria({
+      chamadoId: c.id,
+      chamadoMaeId: idChamadoGeral,
+      chamadoTitulo: c.titulo || "",
+      chamadoEtapa: c.etapa_atual || "",
+      statusGeral: c.status_geral_texto || "",
+    });
+  });
+
+  // Visão geral (mesmo que clicar no botão de atalho geral)
+  btnGeral?.addEventListener("click", () => {
+    const c = chamadoContextoAtivo;
+    fecharMenuContexto();
+    if (!c) return;
+    const idChamadoGeral = c.chamado_mae_id || c.id;
+    window.location.href = `/geral?id=${idChamadoGeral}`;
+  });
+
+  // Apontar (mesmo que clicar no botão apontar)
+  btnApontar?.addEventListener("click", () => {
+    const c = chamadoContextoAtivo;
+    fecharMenuContexto();
+    if (!c) return;
+    abrirModalApontamentoRapido(c.id, c.titulo || "");
+  });
+
+  // Fechar ao clicar fora, ao fazer scroll ou pressionar Escape
+  window.addEventListener("click", (e) => {
+    const menu = document.getElementById("menu-contexto-chamados");
+    if (menu && menu.style.display !== "none" && !menu.contains(e.target)) {
+      fecharMenuContexto();
+    }
+  });
+
+  window.addEventListener("scroll", fecharMenuContexto, true);
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") fecharMenuContexto();
+  });
+}
+
+async function abrirModalAtribuirTarefa(chamado) {
+  const modal = document.getElementById("modal-atribuir-tarefa");
+  const infoEl = document.getElementById("atribuir-chamado-info");
+  const selectResp = document.getElementById("select-novo-responsavel");
+  const inputId = document.getElementById("atribuir-chamado-id");
+  const msgErro = document.getElementById("msg-erro-atribuir");
+  const btnConfirmar = document.getElementById("btn-confirmar-modal-atribuir");
+
+  if (!modal || !selectResp || !inputId) return;
+
+  inputId.value = String(chamado.id);
+  if (msgErro) {
+    msgErro.hidden = true;
+    msgErro.textContent = "";
+  }
+  if (btnConfirmar) {
+    btnConfirmar.disabled = false;
+    btnConfirmar.textContent = "Atribuir tarefa";
+  }
+
+  if (infoEl) {
+    infoEl.innerHTML = `
+      <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem; color: var(--cor-texto);">
+        #${chamado.id} - ${escaparHtml(chamado.titulo || "Sem título")}
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; font-size: 0.82rem; color: var(--cor-texto-secundario);">
+        <div><strong>Etapa:</strong> ${escaparHtml(chamado.etapa_atual || "-")}</div>
+        <div><strong>Setor:</strong> ${escaparHtml(chamado.setor_nome || "-")}</div>
+        <div style="grid-column: 1 / -1;">
+          <strong>Responsável atual:</strong> ${escaparHtml(chamado.responsavel_nome || "Ninguém atribuído")}
+        </div>
+      </div>
+    `;
+  }
+
+  selectResp.innerHTML = `<option value="">Carregando usuários do setor...</option>`;
+  selectResp.disabled = true;
+
+  modal.hidden = false;
+  modal.style.display = "flex";
+
+  try {
+    if (!cacheUsuariosParaAtribuicao) {
+      cacheUsuariosParaAtribuicao = await api("/usuarios");
+    }
+    const todosUsuarios = Array.isArray(cacheUsuariosParaAtribuicao) ? cacheUsuariosParaAtribuicao : [];
+
+    // Filtra membros do mesmo setor desta atividade
+    let usuariosDoSetor = todosUsuarios.filter(
+      (u) => u.ativo && (chamado.setor_id == null || Number(u.setor_id) === Number(chamado.setor_id))
+    );
+
+    // Se nenhum do setor for retornado e o usuário for admin, permite atribuir a qualquer ativo
+    if (usuariosDoSetor.length === 0 && usuarioLogado.admin === 1) {
+      usuariosDoSetor = todosUsuarios.filter((u) => u.ativo);
+    }
+
+    if (usuariosDoSetor.length === 0) {
+      selectResp.innerHTML = `<option value="">Nenhum usuário disponível para este setor</option>`;
+      selectResp.disabled = true;
+      return;
+    }
+
+    selectResp.disabled = false;
+    selectResp.innerHTML = `
+      <option value="">Selecione um membro da equipe...</option>
+      ${usuariosDoSetor
+        .map(
+          (u) =>
+            `<option value="${u.id}" ${Number(u.id) === Number(chamado.responsavel_id) ? "selected" : ""}>
+              ${escaparHtml(u.nome)} ${Number(u.id) === Number(usuarioLogado.id) ? "(Você)" : ""}
+            </option>`
+        )
+        .join("")}
+    `;
+    selectResp.focus();
+  } catch (err) {
+    selectResp.innerHTML = `<option value="">Erro ao carregar usuários</option>`;
+  }
+}
+
+function configurarModalAtribuirTarefa() {
+  const modal = document.getElementById("modal-atribuir-tarefa");
+  const form = document.getElementById("form-atribuir-tarefa");
+  const btnFechar = document.getElementById("btn-fechar-modal-atribuir");
+  const btnCancelar = document.getElementById("btn-cancelar-modal-atribuir");
+  const msgErro = document.getElementById("msg-erro-atribuir");
+  const btnConfirmar = document.getElementById("btn-confirmar-modal-atribuir");
+
+  const fechar = () => {
+    if (modal) {
+      modal.hidden = true;
+      modal.style.display = "none";
+    }
+  };
+
+  btnFechar?.addEventListener("click", fechar);
+  btnCancelar?.addEventListener("click", fechar);
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) fechar();
+  });
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const inputId = document.getElementById("atribuir-chamado-id");
+    const selectResp = document.getElementById("select-novo-responsavel");
+    if (!inputId || !selectResp) return;
+
+    const chamadoId = Number(inputId.value);
+    const novoResponsavelId = selectResp.value ? Number(selectResp.value) : null;
+
+    if (!novoResponsavelId) {
+      if (msgErro) {
+        msgErro.textContent = "Por favor, selecione um usuário para atribuir a tarefa.";
+        msgErro.hidden = false;
+      }
+      return;
+    }
+
+    const nomeEscolhido = selectResp.options[selectResp.selectedIndex]?.text?.trim() || "colega";
+
+    if (btnConfirmar) {
+      btnConfirmar.disabled = true;
+      btnConfirmar.textContent = "Atribuindo...";
+    }
+    if (msgErro) msgErro.hidden = true;
+
+    try {
+      await api(`/chamados/${chamadoId}`, {
+        method: "PUT",
+        body: { responsavel_id: novoResponsavelId },
+      });
+
+      fechar();
+      mostrarToast(`✓ Tarefa #${chamadoId} atribuída com sucesso para ${nomeEscolhido}!`);
+
+      // Atualiza lista de chamados na mesma tela sem sair
+      await carregarChamados();
+      renderizarTabela();
+    } catch (err) {
+      if (msgErro) {
+        msgErro.textContent = err.message || "Erro ao atribuir tarefa.";
+        msgErro.hidden = false;
+      }
+      if (btnConfirmar) {
+        btnConfirmar.disabled = false;
+        btnConfirmar.textContent = "Atribuir tarefa";
+      }
+    }
+  });
 }
 
 inicializar();

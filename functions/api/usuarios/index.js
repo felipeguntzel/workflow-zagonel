@@ -1,7 +1,7 @@
 import { all, first, run } from "../../_lib/db.js";
 import { json, error } from "../../_lib/http.js";
 import { hashSenha, validarFormatoLogin, validarComplexidadeSenha } from "../../_lib/auth.js";
-import { exigirPermissao } from "../../_lib/permissoes.js";
+import { exigirPermissao, exigirUsuarioLogado, obterPermissoesDoUsuario } from "../../_lib/permissoes.js";
 import { ensureColunasUsuario } from "../../_lib/usuarios.js";
 import { registrarAuditoriaSistema } from "../../_lib/auditoria.js";
 import { obterProximoIdDisponivel, atualizarContadorId } from "../../_lib/dependencias.js";
@@ -19,16 +19,29 @@ async function validarGruposExistem(db, grupos) {
 }
 
 export async function onRequestGet(context) {
-  const { erro } = await exigirPermissao(context, "usuarios", "visualizar");
+  const { usuario, erro } = await exigirUsuarioLogado(context);
   if (erro) return erro;
   await ensureColunasUsuario(context.env.DB);
+
+  const permissoes = await obterPermissoesDoUsuario(context.env.DB, usuario.id);
+  const podeGerenciar = usuario.admin === 1 || Boolean(permissoes?.usuarios?.visualizar);
+
+  if (podeGerenciar) {
+    const usuarios = await all(
+      context.env.DB,
+      "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha, ativo FROM usuarios ORDER BY id"
+    );
+    for (const u of usuarios) {
+      u.grupos = await carregarGruposDoUsuario(context.env.DB, u.id);
+    }
+    return json(usuarios);
+  }
+
+  // Usuários autenticados comuns (para seleção de responsáveis da equipe / atribuição em chamados)
   const usuarios = await all(
     context.env.DB,
-    "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha, ativo FROM usuarios ORDER BY id"
+    "SELECT id, nome, setor_id, ativo FROM usuarios WHERE ativo = 1 ORDER BY nome"
   );
-  for (const usuario of usuarios) {
-    usuario.grupos = await carregarGruposDoUsuario(context.env.DB, usuario.id);
-  }
   return json(usuarios);
 }
 

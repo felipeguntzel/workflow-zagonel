@@ -12,13 +12,23 @@ export function hojeISO() {
 }
 
 const cacheStatusId = new Map();
-async function statusIdPorNome(db, nome) {
+export async function statusIdPorNome(db, nome) {
   const chave = String(nome).toLowerCase();
   if (cacheStatusId.has(chave)) return cacheStatusId.get(chave);
-  const row = await first(db, "SELECT id FROM status WHERE LOWER(nome) = LOWER(?)", nome);
+  let row = await first(db, "SELECT id FROM status WHERE LOWER(nome) = LOWER(?)", nome);
+  if (!row && (chave === "cancelado" || chave === "cancelada")) {
+    row = await first(db, "SELECT id FROM status WHERE LOWER(nome) IN ('cancelado', 'cancelada') LIMIT 1");
+  }
   if (row) {
     cacheStatusId.set(chave, row.id);
     return row.id;
+  }
+  if (chave === "cancelado" || chave === "cancelada") {
+    const maxRow = await first(db, "SELECT MAX(id) AS max_id FROM status").catch(() => null);
+    const novoId = ((maxRow && maxRow.max_id) ? maxRow.max_id : 6) + 1;
+    await run(db, "INSERT INTO status (id, nome, cor) VALUES (?, 'cancelado', '#dc2626')", novoId).catch(() => {});
+    cacheStatusId.set(chave, novoId);
+    return novoId;
   }
   const fallback = await first(db, "SELECT id FROM status ORDER BY id ASC LIMIT 1");
   if (fallback) {
@@ -133,6 +143,13 @@ export async function garantirColunasChamados(db) {
     const statusNomes = new Set(statusCols.map((c) => c.name.toLowerCase()));
     if (!statusNomes.has("cor")) {
       await run(db, "ALTER TABLE status ADD COLUMN cor TEXT").catch(() => {});
+    }
+
+    const statusCancelado = await first(db, "SELECT id FROM status WHERE LOWER(nome) IN ('cancelado', 'cancelada')").catch(() => null);
+    if (!statusCancelado) {
+      const maxRow = await first(db, "SELECT MAX(id) AS max_id FROM status").catch(() => null);
+      const novoId = ((maxRow && maxRow.max_id) ? maxRow.max_id : 6) + 1;
+      await run(db, "INSERT INTO status (id, nome, cor) VALUES (?, 'cancelado', '#dc2626')", novoId).catch(() => {});
     }
 
     const fluxoCols = await all(db, "PRAGMA table_info(fluxo_templates)").catch(() => []);
@@ -401,16 +418,19 @@ export async function avancarFluxo(db, chamado, etapa, decisoesAcoes = {}, obser
 
 export async function finalizarComCascata(db, chamadoId, { hoje, resultadoOrigem = null }) {
   const statusFinalizado = await statusIdPorNome(db, "finalizado");
+  const statusCancelado = await statusIdPorNome(db, "cancelado").catch(() => statusFinalizado);
   let atual = await first(db, "SELECT * FROM chamados WHERE id = ?", chamadoId);
   let primeira = true;
   while (atual) {
     const resultado = primeira ? resultadoOrigem : atual.resultado;
+    const ehReprovado = resultado === "reprovado" || resultadoOrigem === "reprovado";
+    const statusAlvo = ehReprovado ? statusCancelado : statusFinalizado;
     await run(
       db,
       `UPDATE chamados
        SET status_id = ?, data_finalizacao = COALESCE(data_finalizacao, ?), resultado = ?
        WHERE id = ?`,
-      statusFinalizado,
+      statusAlvo,
       hoje,
       resultado,
       atual.id
@@ -472,7 +492,9 @@ export async function chamadoComDetalhes(db, id) {
        COALESCE(c.titulo, e.nome, a.rotulo) AS titulo,
        e.nome AS etapa_nome,
        CASE 
-         WHEN e.tipo = 'aprovacao' OR LOWER(COALESCE(e.nome, c.titulo, a.rotulo, '')) LIKE '%aprova%' THEN 'aprovacao'
+         WHEN e.tipo = 'aprovacao'
+           OR (SELECT COUNT(1) FROM acoes ac WHERE ac.etapa_id = c.etapa_id) > 0
+           OR LOWER(COALESCE(e.nome, c.titulo, a.rotulo, '')) LIKE '%aprova%' THEN 'aprovacao'
          ELSE COALESCE(e.tipo, 'tarefa')
        END AS etapa_tipo,
        st.nome AS status_nome,
@@ -497,10 +519,14 @@ export async function chamadoComDetalhes(db, id) {
   );
   if (!chamado) return null;
   const bloqueado = await computarBloqueado(db, chamado);
+  const finalizadoOuCancelado = chamado.data_finalizacao != null ||
+    chamado.status_nome === "suspenso" ||
+    chamado.status_nome === "cancelado" ||
+    chamado.status_nome === "cancelada";
   const situacao = situacaoPrazo(
     chamado.prazo,
     hojeISO(),
-    chamado.data_finalizacao != null || chamado.status_nome === "suspenso"
+    finalizadoOuCancelado
   );
   const ehChamadoMae = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
   const permComentarios = await verificarPermissaoComentariosChamado(db, chamado);
@@ -562,10 +588,11 @@ export async function verificarPermissaoComentariosChamado(db, chamado) {
 /**
  * Sincroniza o status do chamado mãe com o andamento das etapas filhas do fluxo.
  * O chamado mãe não é encerrado até que todo o fluxo seja concluído.
+ * Caso alguma etapa seja reprovada, o chamado mãe passa para Cancelado.
  */
 export async function sincronizarProgressoChamadoMae(db, chamadoId, hoje = null) {
   const dataHoje = hoje || hojeISO();
-  const chamado = await first(db, "SELECT id, chamado_mae_id FROM chamados WHERE id = ?", chamadoId);
+  const chamado = await first(db, "SELECT id, chamado_mae_id, resultado FROM chamados WHERE id = ?", chamadoId);
   if (!chamado) return;
 
   const raizId = chamado.chamado_mae_id || chamado.id;
@@ -573,17 +600,60 @@ export async function sincronizarProgressoChamadoMae(db, chamadoId, hoje = null)
   // Verifica subchamados do chamado mãe
   const filhos = await all(
     db,
-    "SELECT id, status_id, data_finalizacao FROM chamados WHERE chamado_mae_id = ?",
+    `SELECT c.id, c.status_id, c.resultado, c.data_finalizacao, st.nome AS status_nome
+     FROM chamados c
+     LEFT JOIN status st ON st.id = c.status_id
+     WHERE chamado_mae_id = ?`,
     raizId
   );
 
   // Se não existem subchamados gerados, o chamado mãe é o único
-  if (filhos.length === 0) return;
+  if (filhos.length === 0) {
+    if (chamado.resultado === "reprovado") {
+      const statusCancelado = await statusIdPorNome(db, "cancelado").catch(() => statusIdPorNome(db, "finalizado"));
+      await run(
+        db,
+        "UPDATE chamados SET status_id = ?, data_finalizacao = COALESCE(data_finalizacao, ?), resultado = 'reprovado' WHERE id = ?",
+        statusCancelado,
+        dataHoje,
+        raizId
+      );
+    }
+    return;
+  }
+
+  // Verifica se alguma etapa foi reprovada ou cancelada
+  const temReprovacao = filhos.some(
+    (f) => f.resultado === "reprovado" ||
+      String(f.status_nome || "").toLowerCase() === "cancelado" ||
+      String(f.status_nome || "").toLowerCase() === "cancelada"
+  );
+
+  if (temReprovacao) {
+    const statusCancelado = await statusIdPorNome(db, "cancelado").catch(() => statusIdPorNome(db, "finalizado"));
+    // Cancela subchamados ainda pendentes para não ficarem órfãos em aberto
+    await run(
+      db,
+      "UPDATE chamados SET status_id = ?, data_finalizacao = COALESCE(data_finalizacao, ?), resultado = COALESCE(resultado, 'cancelado') WHERE chamado_mae_id = ? AND data_finalizacao IS NULL",
+      statusCancelado,
+      dataHoje,
+      raizId
+    );
+    // Marca o chamado mãe como Cancelado
+    await run(
+      db,
+      "UPDATE chamados SET status_id = ?, data_finalizacao = COALESCE(data_finalizacao, ?), resultado = 'reprovado' WHERE id = ?",
+      statusCancelado,
+      dataHoje,
+      raizId
+    );
+    return;
+  }
 
   const pendentes = filhos.filter((f) => !f.data_finalizacao);
 
   if (pendentes.length === 0) {
-    // Todos os subchamados foram finalizados -> finaliza o chamado mãe
+    // Todos os subchamados foram finalizados com sucesso -> finaliza o chamado mãe
     const statusFinalizado = await statusIdPorNome(db, "finalizado");
     await run(
       db,

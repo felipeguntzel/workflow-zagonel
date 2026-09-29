@@ -115,3 +115,29 @@ test("badgeEtapaTipo diferencia aprovação e tarefa", () => {
   assert.match(badgeEtapaTipo("tarefa"), /📋 Tarefa/);
   assert.match(badgeEtapaTipo(""), /📋 Tarefa/);
 });
+
+test("renderHtmlCardEtapa com etapa reprovada renderiza status Cancelada, borda de perigo e data de cancelamento", () => {
+  const no = {
+    id: 18,
+    titulo: "Aprovação Engenharia",
+    etapa_tipo: "aprovacao",
+    resultado: "reprovado",
+    status_nome: "cancelado",
+    chamado_mae_id: 1,
+    eh_mae: false,
+    prazo: "2026-10-01",
+    data_finalizacao: "2026-09-29",
+  };
+
+  const html = renderHtmlCardEtapa(no, { expandido: true });
+
+  assert.match(html, /Cancelada/);
+  assert.match(html, /✕ reprovado/);
+  assert.match(html, /border-left-color:\s*#dc2626/);
+  assert.match(html, /Cancelada em:/);
+});
+
+test("situacaoPrazoBadge exibe Cancelada quando status for cancelado ou cancelada", () => {
+  assert.match(situacaoPrazoBadge("2026-09-20", "2026-09-29", "cancelado"), /✕ Cancelada/);
+  assert.match(situacaoPrazoBadge("2026-09-20", "2026-09-29", "cancelada"), /✕ Cancelada/);
+});

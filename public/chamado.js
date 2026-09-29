@@ -273,12 +273,9 @@ async function carregarDetalhe(chamadoRecebido = null) {
   const souDoSetor = chamado.setor_id != null && usuario?.setor_id != null && Number(chamado.setor_id) === Number(usuario?.setor_id);
   const ehSolicitante = Boolean(usuario?.id && Number(chamado.solicitante_id) === Number(usuario.id));
 
-  // Regra: o usuário que abriu o chamado só vai conseguir trocar o status, aprovar/reprovar ou comentar caso assuma a tarefa
-  const solicitanteSemAssumir = ehSolicitante && !ehChamadoMae && !souResponsavel;
-
-  // Trocar status só é liberado se não for solicitante sem assumir a tarefa
-  const podeTrocarStatus = !solicitanteSemAssumir && Boolean(
-    usuario?.admin || permissaoChamados.editar || souResponsavel || souDoSetor
+  // Regra: ao mudar o status da etapa, o chamado é atribuído automaticamente para quem mudou
+  const podeTrocarStatus = !finalizado && Boolean(
+    usuario?.admin || permissaoChamados.editar || souResponsavel || souDoSetor || ehSolicitante
   );
 
   const podeEditarChamado = Boolean(
@@ -525,8 +522,11 @@ async function carregarDetalhe(chamadoRecebido = null) {
         badgeLegenda.innerHTML = `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${statusEscolhido.cor || "var(--cor-primaria)"};"></span>Status: ${escaparHtml(statusEscolhido.nome)}`;
       }
 
+      const precisavaAssumir = !ehChamadoMae && Number(chamado.responsavel_id) !== Number(usuario?.id);
       if (toastStatus) {
-        toastStatus.textContent = "✓ Status alterado.";
+        toastStatus.textContent = precisavaAssumir
+          ? "✓ Status alterado e chamado atribuído para você."
+          : "✓ Status alterado.";
         toastStatus.hidden = false;
         clearTimeout(toastStatus._timeout);
         toastStatus._timeout = setTimeout(() => {
@@ -540,8 +540,8 @@ async function carregarDetalhe(chamadoRecebido = null) {
         chamadoAtual = chamadoAtualizado;
 
         const foiFinalizado = String(statusEscolhido?.nome || "").toLowerCase() === "finalizado";
-        if (foiFinalizado) {
-          // Quando finalizado, pode ter avançado fluxo e desbloqueado etapas seguintes
+        if (foiFinalizado || precisavaAssumir) {
+          // Quando finalizado ou quando a tarefa foi auto-atribuída, recarrega tudo para liberar ações e atualizar responsável
           await carregarTudo();
         } else {
           // Apenas atualiza auditoria em background sem recriar todo o DOM
@@ -620,8 +620,8 @@ async function carregarDetalhe(chamadoRecebido = null) {
         chamadoAtual = respAtualizado;
         chamado.responsavel_id = respAtualizado.responsavel_id;
         chamado.responsavel_nome = respAtualizado.responsavel_nome;
-        // Recarrega o detalhe para refletir a nova responsabilidade nos cards e botões
-        await carregarDetalhe(chamadoAtual);
+        // Recarrega o chamado por completo para refletir a nova responsabilidade nos cards e liberar formulários/ações
+        await carregarTudo();
       }
       // Atualiza o histórico de auditoria em segundo plano
       carregarAuditoria();
@@ -645,6 +645,9 @@ async function carregarDetalhe(chamadoRecebido = null) {
     }
   }
 
+  // Expõe a ação de assumir para botões inline em cards bloqueados
+  window.assumirTarefaDoChamado = () => definirResponsavel(usuario.id);
+
   // Delegação de cliques para botões de assumir e liberar responsável
   document.getElementById("detalhe")?.addEventListener("click", (e) => {
     if (e.target.closest("#btn-assumir-responsavel")) {
@@ -661,16 +664,7 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
   const acaoContainer = document.getElementById("acao");
   if (ehEtapaAprovacao && !finalizado) {
-    if (solicitanteSemAssumir) {
-      acaoContainer.hidden = false;
-      acaoContainer.innerHTML = `
-        <div class="painel" style="padding: 0.85rem 1.15rem; border-left: 4px solid #f59e0b; background: var(--cor-fundo); border-radius: 4px; margin-bottom: 1.5rem;">
-          <p style="margin: 0; font-size: 0.9rem; color: var(--cor-texto); line-height: 1.45;">
-            ℹ️ <strong>Você abriu este chamado:</strong> Para avaliar, aprovar, reprovar ou executar as ações desta etapa, você deve primeiro <strong>assumir a tarefa</strong> clicando em <em>Assumir</em> no bloco acima.
-          </p>
-        </div>
-      `;
-    } else if (podeEditarChamado) {
+    if (podeEditarChamado || podeAssumirOuAtribuir) {
       acaoContainer.hidden = false;
       renderAprovacao(chamado);
     } else {
@@ -1309,11 +1303,10 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
     let avisoBloqueio = document.getElementById("aviso-bloqueio-comentarios-mae");
 
     const ehChamadoMaeComentarios = Boolean(chamadoInfo?.eh_chamado_mae || !chamadoInfo?.chamado_mae_id || chamadoInfo?.chamado_mae_id === 0);
-    const ehSolicitanteComentarios = Boolean(usuario?.id && Number(chamadoInfo?.solicitante_id) === Number(usuario.id));
     const souResponsavelComentarios = chamadoInfo?.responsavel_id != null && Number(chamadoInfo.responsavel_id) === Number(usuario?.id);
-    const solicitantePrecisaAssumirParaComentar = ehSolicitanteComentarios && !ehChamadoMaeComentarios && !souResponsavelComentarios;
+    const naoEhResponsavelDaEtapa = !ehChamadoMaeComentarios && !souResponsavelComentarios && !usuario?.admin;
 
-    if (chamadoInfo && (chamadoInfo.pode_comentar === false || solicitantePrecisaAssumirParaComentar)) {
+    if (chamadoInfo && (chamadoInfo.pode_comentar === false || naoEhResponsavelDaEtapa)) {
       if (formComentario) formComentario.style.display = "none";
       if (!avisoBloqueio && formComentario && formComentario.parentNode) {
         avisoBloqueio = document.createElement("div");
@@ -1322,8 +1315,17 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
         formComentario.parentNode.insertBefore(avisoBloqueio, formComentario);
       }
       if (avisoBloqueio) {
-        if (solicitantePrecisaAssumirParaComentar) {
-          avisoBloqueio.innerHTML = `🔒 <strong>Comentários e anexos:</strong> Você abriu este chamado. Para fazer comentários ou enviar anexos nesta etapa, você deve primeiro <strong>assumir a tarefa</strong> clicando em <em>Assumir</em> no cabeçalho acima.`;
+        if (naoEhResponsavelDaEtapa) {
+          avisoBloqueio.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+              <div style="line-height: 1.45;">
+                🔒 <strong>Comentários e anexos bloqueados:</strong> Para adicionar comentários ou enviar anexos nesta etapa, o chamado deve estar atribuído para você.
+              </div>
+              <button type="button" class="btn btn-primario btn-pequeno btn-assumir-inline" onclick="window.assumirTarefaDoChamado &amp;&amp; window.assumirTarefaDoChamado()" style="font-size: 0.82rem; padding: 0.35rem 0.75rem;">
+                ✋ Assumir tarefa agora
+              </button>
+            </div>
+          `;
         } else {
           avisoBloqueio.innerHTML = `🔒 <strong>Comentários e anexos encerrados:</strong> A primeira etapa de aprovação já foi avaliada. Novos comentários ou anexos não são mais permitidos na solicitação inicial.`;
         }
@@ -1609,6 +1611,10 @@ async function renderAprovacao(chamado) {
   const acaoContainer = document.getElementById("acao");
   if (!acaoContainer) return;
 
+  const ehChamadoMae = Boolean(chamado.eh_chamado_mae || !chamado.chamado_mae_id || chamado.chamado_mae_id === 0);
+  const souResponsavel = chamado.responsavel_id != null && Number(chamado.responsavel_id) === Number(usuario?.id);
+  const bloqueadoPorNaoResponsavel = !ehChamadoMae && !souResponsavel && !usuario?.admin;
+
   let etapa = null;
   if (chamado.etapa_id) {
     try {
@@ -1633,6 +1639,21 @@ async function renderAprovacao(chamado) {
     </div>
 
     ${
+      bloqueadoPorNaoResponsavel
+        ? `
+        <div class="aviso-bloqueio-atribuicao" style="background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-left: 4px solid #f59e0b; padding: 0.85rem 1rem; border-radius: 4px; margin-bottom: 1.15rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+          <div style="font-size: 0.88rem; color: var(--cor-texto); line-height: 1.45;">
+            🔒 <strong>Campos de avaliação bloqueados:</strong> Para avaliar, aprovar ou reprovar esta etapa, o chamado deve estar atribuído para você.
+          </div>
+          <button type="button" class="btn btn-primario btn-pequeno btn-assumir-inline" onclick="window.assumirTarefaDoChamado &amp;&amp; window.assumirTarefaDoChamado()" style="font-size: 0.82rem; padding: 0.35rem 0.75rem;">
+            ✋ Assumir tarefa agora
+          </button>
+        </div>
+      `
+        : ""
+    }
+
+    ${
       acoesList.length > 0
         ? `
         <div style="margin-bottom: 1.25rem;">
@@ -1647,8 +1668,8 @@ async function renderAprovacao(chamado) {
               .map(
                 (a) => `
                 <div class="card-acao-decisao" style="background: var(--cor-fundo-elevado); border: 1px solid var(--cor-borda); border-radius: 6px; padding: 0.65rem 0.85rem;">
-                  <label class="acao-checkbox-item" style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-weight: 600; font-size: 0.92rem; margin: 0;">
-                    <input type="checkbox" name="acao-${a.id}" value="${a.id}" class="check-acao-decisao" style="width: 17px; height: 17px; cursor: pointer;">
+                  <label class="acao-checkbox-item" style="display: flex; align-items: center; gap: 0.6rem; cursor: ${bloqueadoPorNaoResponsavel ? 'not-allowed' : 'pointer'}; font-weight: 600; font-size: 0.92rem; margin: 0;">
+                    <input type="checkbox" name="acao-${a.id}" value="${a.id}" class="check-acao-decisao" ${bloqueadoPorNaoResponsavel ? 'disabled style="width: 17px; height: 17px; cursor: not-allowed;"' : 'style="width: 17px; height: 17px; cursor: pointer;"'}>
                     <span>${escaparHtml(a.rotulo)}</span>
                     <span style="font-size: 0.75rem; color: var(--cor-texto-secundario); font-weight: normal; margin-left: auto;">${a.vinculo === "mae" ? "Vínculo: Chamado mãe" : "Vínculo: Chamado pai"}</span>
                   </label>
@@ -1661,8 +1682,8 @@ async function renderAprovacao(chamado) {
                       name="obs-acao-${a.id}" 
                       rows="2" 
                       class="textarea-padrao" 
+                      ${bloqueadoPorNaoResponsavel ? 'disabled style="width: 100%; font-size: 0.85rem; cursor: not-allowed; opacity: 0.6;"' : 'style="width: 100%; font-size: 0.85rem;"'}
                       placeholder="Instruções ou orientações de como fazer esta ação..."
-                      style="width: 100%; font-size: 0.85rem;"
                     >${escaparHtml(a.observacao || "")}</textarea>
                   </div>
                 </div>
@@ -1683,15 +1704,15 @@ async function renderAprovacao(chamado) {
         </label>
         <span style="font-size: 0.78rem; color: var(--cor-texto-secundario);">Ficará registrada no histórico e comentários</span>
       </div>
-      <textarea id="justificativa" class="textarea-padrao" rows="2" style="width: 100%; resize: vertical;" placeholder="Informe o motivo da reprovação detalhado..."></textarea>
+      <textarea id="justificativa" class="textarea-padrao" rows="2" ${bloqueadoPorNaoResponsavel ? 'disabled style="width: 100%; resize: vertical; cursor: not-allowed; opacity: 0.6;" placeholder="Campos bloqueados. Assuma a tarefa para poder avaliar..."' : 'style="width: 100%; resize: vertical;" placeholder="Informe o motivo da reprovação detalhado..."'}></textarea>
     </div>
 
     <!-- Painel de Botões de Ação Padronizados -->
     <div class="painel-acoes-decisao">
-      <button type="button" id="btn-aprovar" class="btn btn-decisao btn-decisao-aprovar">
+      <button type="button" id="btn-aprovar" class="btn btn-decisao btn-decisao-aprovar" ${bloqueadoPorNaoResponsavel ? 'disabled style="cursor: not-allowed; opacity: 0.5;" title="Assuma a tarefa para poder aprovar"' : ''}>
         ✓ Aprovar e avançar
       </button>
-      <button type="button" id="btn-reprovar" class="btn btn-decisao btn-decisao-reprovar">
+      <button type="button" id="btn-reprovar" class="btn btn-decisao btn-decisao-reprovar" ${bloqueadoPorNaoResponsavel ? 'disabled style="cursor: not-allowed; opacity: 0.5;" title="Assuma a tarefa para poder reprovar"' : ''}>
         ✕ Reprovar etapa
       </button>
     </div>
@@ -1714,6 +1735,7 @@ async function renderAprovacao(chamado) {
   });
 
   async function enviarDecisao(corpo, botaoAcionado) {
+    if (bloqueadoPorNaoResponsavel) return;
     const erro = document.getElementById("erro-decisao");
     const btnAprovar = document.getElementById("btn-aprovar");
     const btnReprovar = document.getElementById("btn-reprovar");
@@ -1726,6 +1748,15 @@ async function renderAprovacao(chamado) {
         method: "POST",
         body: corpo,
       });
+
+      if (corpo.decisao === "aprovado") {
+        try {
+          sessionStorage.setItem("workflow_toast_sucesso", "✓ Chamado aprovado com sucesso.");
+        } catch (_) {}
+        window.location.href = "/chamados";
+        return;
+      }
+
       await carregarTudo();
     } catch (e) {
       if (erro) {
@@ -1733,12 +1764,13 @@ async function renderAprovacao(chamado) {
         erro.hidden = false;
       }
     } finally {
-      if (btnAprovar) btnAprovar.disabled = false;
-      if (btnReprovar) btnReprovar.disabled = false;
+      if (btnAprovar && !bloqueadoPorNaoResponsavel) btnAprovar.disabled = false;
+      if (btnReprovar && !bloqueadoPorNaoResponsavel) btnReprovar.disabled = false;
     }
   }
 
   document.getElementById("btn-aprovar")?.addEventListener("click", (e) => {
+    if (bloqueadoPorNaoResponsavel) return;
     const acoes = {};
     const observacoesAcoes = {};
     acoesList.forEach((a) => {
@@ -1757,6 +1789,7 @@ async function renderAprovacao(chamado) {
   });
 
   document.getElementById("btn-reprovar")?.addEventListener("click", (e) => {
+    if (bloqueadoPorNaoResponsavel) return;
     const campoJust = document.getElementById("justificativa");
     const justificativa = campoJust?.value.trim();
     if (!justificativa) {

@@ -47,12 +47,15 @@ export async function onRequestPut(context) {
   const ehSolicitante = Number(chamadoAntes.solicitante_id) === Number(usuario.id);
   const ehChamadoMae = !chamadoAntes.chamado_mae_id || chamadoAntes.chamado_mae_id === 0;
 
-  // Regra: o usuário que abriu o chamado só vai conseguir trocar o status caso assuma a tarefa
-  if (body.status_id !== undefined && ehSolicitante && !ehChamadoMae && !ehResponsavel) {
-    return error("O usuário que abriu o chamado só pode alterar o status caso assuma a tarefa.", 403);
+  // Regra: se o usuário mudar o status de uma etapa, atribuir o chamado automaticamente para ele
+  if (body.status_id !== undefined && !ehChamadoMae && body.responsavel_id === undefined) {
+    body.responsavel_id = usuario.id;
+    if (!colunas.includes("responsavel_id")) {
+      colunas.push("responsavel_id");
+    }
   }
 
-  // O solicitante pode assumir a tarefa diretamente
+  // O solicitante ou usuário pode assumir a tarefa diretamente ou ao alterar o status
   const ehAutoAtribuicao = body.responsavel_id !== undefined && Number(body.responsavel_id) === Number(usuario.id);
 
   if (!temPermissaoEditar && !ehResponsavel && !ehMesmoSetor && !(ehSolicitante && ehAutoAtribuicao)) {

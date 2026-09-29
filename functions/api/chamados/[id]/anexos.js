@@ -65,9 +65,9 @@ export async function onRequestPost(context) {
   const ehSolicitante = Number(chamado.solicitante_id) === Number(usuario.id);
   const ehResponsavel = chamado.responsavel_id != null && Number(chamado.responsavel_id) === Number(usuario.id);
 
-  // Regra: o usuário que abriu o chamado só vai conseguir enviar anexos caso assuma a tarefa
-  if (ehSolicitante && !ehChamadoMae && !ehResponsavel) {
-    return error("O usuário que abriu o chamado só pode enviar anexos caso assuma a tarefa.", 403);
+  // Regra: bloquear adição de anexos caso o chamado não esteja atribuído para ele
+  if (!ehChamadoMae && !ehResponsavel && usuario.admin !== 1) {
+    return error("Para adicionar anexos nesta etapa, o chamado deve estar atribuído para você.", 403);
   }
 
   const body = await context.request.json();

@@ -477,10 +477,7 @@ async function iniciar(container, mensagemErro) {
                     ? `<span class="badge-status" style="background: #dcfce7; color: #15803d; font-weight: 600;">✓ Sim</span>`
                     : '<span style="color: var(--cor-texto-secundario); font-size: 0.85rem;">Não</span>';
 
-                  const botaoAcoes =
-                    e.tipo === "aprovacao"
-                      ? `<button type="button" class="btn btn-pequeno btn-secundario btn-gerenciar-acoes" data-id="${e.id}">⚡ Configurar Ações</button>`
-                      : '<span style="color: var(--cor-texto-secundario); font-size: 0.8rem;">-</span>';
+                  const botaoAcoes = `<button type="button" class="btn btn-pequeno btn-secundario btn-gerenciar-acoes" data-id="${e.id}">⚡ Configurar Ações</button>`;
 
                   const botaoCampos = `<button type="button" class="btn btn-pequeno btn-secundario btn-gerenciar-campos" data-id="${e.id}">📋 Campos da Etapa</button>`;
 
