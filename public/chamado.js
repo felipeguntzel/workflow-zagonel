@@ -1748,6 +1748,15 @@ async function renderAprovacao(chamado) {
         method: "POST",
         body: corpo,
       });
+
+      if (corpo.decisao === "aprovado") {
+        try {
+          sessionStorage.setItem("workflow_toast_sucesso", "✓ Chamado aprovado com sucesso.");
+        } catch (_) {}
+        window.location.href = "/chamados";
+        return;
+      }
+
       await carregarTudo();
     } catch (e) {
       if (erro) {
