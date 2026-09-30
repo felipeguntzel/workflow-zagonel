@@ -6,6 +6,7 @@ import {
   chamadoComDetalhes,
   finalizarComCascata,
   avancarFluxo,
+  criarChamado,
   aplicarCascataAtraso,
   hojeISO,
   sincronizarProgressoChamadoMae,
@@ -111,6 +112,66 @@ export async function onRequestPost(context) {
           body.acoes ?? {},
           body.observacoes_acoes ?? {}
         );
+      }
+    } else if (chamado.acao_origem_id) {
+      const acaoOrigem = await first(
+        context.env.DB,
+        "SELECT id, rotulo, setor_destino_id, vinculo, etapa_destino_id, etapas_destino_ids, observacao FROM acoes WHERE id = ?",
+        chamado.acao_origem_id
+      );
+      if (acaoOrigem) {
+        let idsEtapas = [];
+        if (acaoOrigem.etapas_destino_ids) {
+          try {
+            idsEtapas = JSON.parse(acaoOrigem.etapas_destino_ids).map(Number).filter(Boolean);
+          } catch (_) {
+            idsEtapas = String(acaoOrigem.etapas_destino_ids).split(",").map(Number).filter(Boolean);
+          }
+        } else if (acaoOrigem.etapa_destino_id) {
+          idsEtapas = [Number(acaoOrigem.etapa_destino_id)];
+        }
+
+        const decisoes = body.acoes ?? {};
+
+        for (const destinoId of idsEtapas) {
+          const val = decisoes[destinoId];
+          const marcado = val === true || (val && typeof val === "object" && (val.marcado === true || val.selecionado === true));
+          if (!marcado) continue;
+
+          const etapaDestino = await first(context.env.DB, "SELECT * FROM etapas WHERE id = ?", destinoId);
+          const obsCustom = (body.observacoes_acoes && body.observacoes_acoes[destinoId]) ||
+                            (typeof val === "object" ? val?.observacao : null) ||
+                            acaoOrigem?.observacao ||
+                            chamado.observacao;
+
+          const tituloDestino = `${etapaDestino?.nome || "Etapa"} - Ref Chamado ${raizId}`;
+          const criado = await criarChamado(context.env.DB, {
+            fluxo_template_id: chamado.fluxo_template_id,
+            etapa_id: destinoId,
+            acao_origem_id: acaoOrigem.id,
+            chamado_mae_id: raizId,
+            chamado_pai_id: acaoOrigem.vinculo === "mae" ? raizId : chamado.id,
+            empresa_id: chamado.empresa_id,
+            solicitante_id: chamado.solicitante_id,
+            titulo: tituloDestino,
+            prioridade: chamado.prioridade,
+            observacao: obsCustom,
+          });
+
+          if (obsCustom && String(obsCustom).trim()) {
+            await run(
+              context.env.DB,
+              `INSERT INTO comentarios (chamado_id, usuario_id, data, texto, eh_justificativa, eh_privado)
+               VALUES (?, ?, ?, ?, 0, 0)`,
+              criado.id,
+              usuario.id,
+              hoje,
+              `📌 Observação/Orientação da Ação:\n${String(obsCustom).trim()}`
+            ).catch(() => {});
+          }
+
+          criados.push(criado);
+        }
       }
     }
 

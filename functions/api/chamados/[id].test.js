@@ -511,3 +511,140 @@ test("anexos: rejeita novo anexo se a etapa nao estiver atribuida para o usuario
   assert.ok(data.error.includes("o chamado deve estar atribuído para você"));
 });
 
+test("decisao: aprova chamado encadeado por acao_origem_id e cria subchamados para etapas marcadas", async () => {
+  const { onRequestPost } = await import("./[id]/decisao.js");
+  const token = await gerarToken(9, SEGREDO);
+
+  const chamadosCriados = [];
+  const dbMock = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes("FROM usuarios WHERE id = ?")) {
+                return { id: 9, nome: "Engenheiro Produto", setor_id: 4, admin: 0, deve_trocar_senha: 0 };
+              }
+              if (sql.includes("FROM chamados c")) {
+                return {
+                  id: 20,
+                  fluxo_template_id: 1,
+                  chamado_mae_id: 17,
+                  responsavel_id: 9, // Atribuído para o próprio usuário
+                  setor_id: 4,
+                  acao_origem_id: 1,
+                  etapa_id: null,
+                  etapa_tipo: "aprovacao",
+                  titulo: "Criar Produto/ Ficha - Ref Chamado 17",
+                  prazo: "2026-10-10",
+                  status_id: 1,
+                  status_nome: "previsto",
+                  resultado: "aprovado",
+                  solicitante_id: 2,
+                  empresa_id: 1,
+                  prioridade: "normal",
+                  observacao: null,
+                };
+              }
+              if (sql.includes("FROM acoes WHERE id = ?")) {
+                return {
+                  id: 1,
+                  rotulo: "Criar Produto/ Ficha",
+                  setor_destino_id: 4,
+                  vinculo: "mae",
+                  etapas_destino_ids: "[4, 5]",
+                  observacao: "Orientação teste",
+                };
+              }
+              if (sql.includes("FROM etapas WHERE id = ?")) {
+                const idEtapa = args[0];
+                return {
+                  id: idEtapa,
+                  nome: idEtapa === 4 ? "Desenvolver/Atualizar Roteiro de Produção" : "Desenvolver/Atualizar IT",
+                  setor_id: 3,
+                };
+              }
+              if (sql.includes("SELECT s.id AS setor_id, s.prazo_padrao_dias")) {
+                return { setor_id: 3, prazo_padrao_dias: 5 };
+              }
+              if (sql.includes("SELECT id, prazo_padrao_dias FROM setores")) {
+                return { id: 3, prazo_padrao_dias: 5 };
+              }
+              if (sql.includes("FROM status")) {
+                return { id: 1 };
+              }
+              if (sql.includes("SELECT * FROM chamados WHERE id = ?")) {
+                return {
+                  id: 20,
+                  chamado_mae_id: 17,
+                  responsavel_id: 9,
+                  status_id: 3,
+                  resultado: "aprovado",
+                };
+              }
+              return null;
+            },
+            async all() {
+              if (sql.includes("PRAGMA table_info(chamados)")) {
+                return {
+                  results: [
+                    { name: "id" }, { name: "titulo" }, { name: "prioridade" },
+                    { name: "observacao" }, { name: "empresa_id" }
+                  ]
+                };
+              }
+              if (sql.includes("PRAGMA table_info(acoes)")) {
+                return { results: [{ name: "id" }, { name: "modo_execucao" }] };
+              }
+              if (sql.includes("FROM acoes WHERE etapa_id = ?")) {
+                return { results: [] };
+              }
+              if (sql.includes("FROM chamados WHERE chamado_pai_id = ?")) {
+                return { results: [] };
+              }
+              if (sql.includes("FROM chamados WHERE chamado_mae_id = ?")) {
+                return { results: [] };
+              }
+              return { results: [] };
+            },
+            async run() {
+              if (sql.includes("INSERT INTO chamados")) {
+                const novoId = 30 + chamadosCriados.length;
+                chamadosCriados.push({ id: novoId, args });
+                return { meta: { last_row_id: novoId, changes: 1 } };
+              }
+              return { meta: { changes: 1 } };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const ctx = {
+    request: new Request("http://localhost/api/chamados/20/decisao", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        decisao: "aprovado",
+        acoes: { 4: true, 5: false },
+      }),
+    }),
+    params: { id: "20" },
+    env: { DB: dbMock, SESSAO_SEGREDO: SEGREDO },
+  };
+
+  const res = await onRequestPost(ctx);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.chamado.resultado, "aprovado");
+  assert.equal(data.criados.length, 1);
+  assert.equal(chamadosCriados.length, 1);
+  // O subchamado criado foi para a etapa 4 (Roteiro)
+  assert.equal(chamadosCriados[0].args[1], 4);
+});
+
+

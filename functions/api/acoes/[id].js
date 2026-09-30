@@ -26,7 +26,7 @@ export async function onRequestPut(context) {
     }
   }
 
-  const campos = ["rotulo", "setor_destino_id", "vinculo", "prerequisito_acao_id", "observacao", "etapa_destino_id", "etapas_destino_ids"];
+  const campos = ["rotulo", "setor_destino_id", "vinculo", "prerequisito_acao_id", "observacao", "etapa_destino_id", "etapas_destino_ids", "modo_execucao"];
   const dados = { ...body };
 
   if (etapasDestinoIds !== undefined) {

@@ -531,8 +531,65 @@ export async function chamadoComDetalhes(db, id) {
   const ehChamadoMae = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
   const permComentarios = await verificarPermissaoComentariosChamado(db, chamado);
 
+  let acoesDisponiveis = [];
+  if (chamado.acao_origem_id && !chamado.etapa_id) {
+    const acaoOrigem = await first(
+      db,
+      "SELECT id, rotulo, setor_destino_id, vinculo, etapa_destino_id, etapas_destino_ids, observacao, modo_execucao FROM acoes WHERE id = ?",
+      chamado.acao_origem_id
+    ).catch(() => null);
+
+    if (acaoOrigem) {
+      let idsEtapas = [];
+      if (acaoOrigem.etapas_destino_ids) {
+        try {
+          idsEtapas = JSON.parse(acaoOrigem.etapas_destino_ids).map(Number).filter(Boolean);
+        } catch (_) {
+          idsEtapas = String(acaoOrigem.etapas_destino_ids).split(",").map(Number).filter(Boolean);
+        }
+      } else if (acaoOrigem.etapa_destino_id) {
+        idsEtapas = [Number(acaoOrigem.etapa_destino_id)];
+      }
+
+      if (idsEtapas.length > 0) {
+        const placeholders = idsEtapas.map(() => "?").join(",");
+        const etapasDest = await all(
+          db,
+          `SELECT e.id, e.nome, e.setor_id, s.nome AS setor_nome
+           FROM etapas e
+           LEFT JOIN setores s ON s.id = e.setor_id
+           WHERE e.id IN (${placeholders})`,
+          ...idsEtapas
+        ).catch(() => []);
+
+        const listaEtapas = Array.isArray(etapasDest) ? etapasDest : [];
+
+        acoesDisponiveis = idsEtapas.map((id) => {
+          const et = listaEtapas.find((x) => x.id === id);
+          return {
+            id: et?.id || id,
+            rotulo: et ? `${et.nome}${et.setor_nome ? ` (${et.setor_nome})` : ""}` : `Etapa #${id}`,
+            setor_id: et?.setor_id || null,
+            setor_nome: et?.setor_nome || null,
+            vinculo: acaoOrigem.vinculo || "mae",
+            observacao: null,
+            eh_etapa_encadeada: true,
+          };
+        });
+      }
+    }
+  }
+
+  const ehAprovacaoCalculado =
+    chamado.etapa_tipo === "aprovacao" ||
+    acoesDisponiveis.length > 0 ||
+    String(chamado.titulo || "").toLowerCase().includes("aprova") ||
+    String(chamado.etapa_nome || "").toLowerCase().includes("aprova");
+
   return {
     ...chamado,
+    etapa_tipo: ehAprovacaoCalculado ? "aprovacao" : (chamado.etapa_tipo || "tarefa"),
+    acoes: acoesDisponiveis,
     eh_chamado_mae: ehChamadoMae,
     pode_apontar_horas: !ehChamadoMae,
     pode_comentar: permComentarios.permitido,

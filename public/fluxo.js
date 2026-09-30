@@ -884,11 +884,20 @@ async function iniciar(container, mensagemErro) {
                             if (ids.length === 0) {
                               return '<span style="color: var(--cor-texto-secundario); font-size: 0.85rem;">-</span>';
                             }
-                            return `<div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
-                              ${ids.map((id) => {
-                                const e = etapasAtuais.find((et) => et.id === id);
-                                return `<span class="badge-status-etapa-destino" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0; font-weight: 600; font-size: 0.78rem; padding: 0.15rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center;">${escaparHtml(e?.nome ?? `#${id}`)}</span>`;
-                              }).join("")}
+                            const ehDireto = a.modo_execucao === "direto";
+                            const rotuloModo = ehDireto ? "Disparo Direto" : "Encadeado via Setor";
+                            const corModo = ehDireto ? "#475569" : "#166534";
+                            const bgModo = ehDireto ? "#f1f5f9" : "#dcfce7";
+                            return `<div>
+                              <div style="font-size: 0.72rem; font-weight: 700; color: ${corModo}; margin-bottom: 0.25rem;">
+                                <span style="background: ${bgModo}; padding: 0.1rem 0.4rem; border-radius: 3px;">${rotuloModo}</span>
+                              </div>
+                              <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+                                ${ids.map((id) => {
+                                  const e = etapasAtuais.find((et) => et.id === id);
+                                  return `<span class="badge-status-etapa-destino" style="background: #eaf3ee; color: #1d4a35; border: 1px solid #bbf7d0; font-weight: 600; font-size: 0.78rem; padding: 0.15rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center;">${escaparHtml(e?.nome ?? `#${id}`)}</span>`;
+                                }).join("")}
+                              </div>
                             </div>`;
                           })()}</td>
                           <td>${a.vinculo === "mae" ? "Chamado mãe" : "Chamado pai"}</td>
@@ -986,6 +995,31 @@ async function iniciar(container, mensagemErro) {
                             })
                             .join("");
                         })()}
+                      </div>
+                    </div>
+                    <div class="bloco-modo-execucao" style="grid-column: 1 / -1; margin-top: 0.25rem;">
+                      <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">
+                        Modo de Execução das Etapas de Destino
+                      </label>
+                      <div style="display: flex; flex-direction: column; gap: 0.45rem; background: var(--cor-fundo-elevado); padding: 0.6rem 0.8rem; border: 1px solid var(--cor-borda); border-radius: 6px;">
+                        <label style="display: flex; align-items: flex-start; gap: 0.55rem; font-size: 0.85rem; cursor: pointer; margin: 0;">
+                          <input type="radio" name="modo_execucao" value="encadeado" ${(!acaoEmEdicao || acaoEmEdicao.modo_execucao !== "direto") ? "checked" : ""}>
+                          <div>
+                            <strong style="color: var(--cor-texto);">Encadear pelo Setor Destino (Recomendado)</strong>
+                            <div style="font-size: 0.78rem; color: var(--cor-texto-secundario); margin-top: 0.1rem; line-height: 1.35;">
+                              Gera primeiro a tarefa para o <em>Setor destino</em> (ex: Engenharia de Produto). Ao avaliar sua tarefa, aquele setor poderá marcar e disparar as etapas selecionadas (ex: Engenharia de Processos).
+                            </div>
+                          </div>
+                        </label>
+                        <label style="display: flex; align-items: flex-start; gap: 0.55rem; font-size: 0.85rem; cursor: pointer; margin: 0;">
+                          <input type="radio" name="modo_execucao" value="direto" ${acaoEmEdicao && acaoEmEdicao.modo_execucao === "direto" ? "checked" : ""}>
+                          <div>
+                            <strong style="color: var(--cor-texto);">Disparo Direto Simultâneo</strong>
+                            <div style="font-size: 0.78rem; color: var(--cor-texto-secundario); margin-top: 0.1rem; line-height: 1.35;">
+                              Abre os chamados das etapas selecionadas imediatamente ao aprovar esta ação, sem passar pelo setor destino.
+                            </div>
+                          </div>
+                        </label>
                       </div>
                     </div>
                     <div style="grid-column: 1 / -1;">
@@ -1106,11 +1140,14 @@ async function iniciar(container, mensagemErro) {
           formAcao.querySelectorAll("input[name='etapas_destino_ids[]']:checked")
         ).map((cb) => Number(cb.value)).filter(Boolean);
 
+        const modoExecucao = formAcao.elements.modo_execucao ? formAcao.elements.modo_execucao.value : "encadeado";
+
         const corpo = {
           rotulo: formAcao.elements.rotulo.value.trim(),
           setor_destino_id: Number(formAcao.elements.setor_destino_id.value),
           etapas_destino_ids: etapasSelecionadas,
           etapa_destino_id: etapasSelecionadas.length > 0 ? etapasSelecionadas[0] : null,
+          modo_execucao: modoExecucao,
           vinculo: formAcao.elements.vinculo.value,
           prerequisito_acao_id: formAcao.elements.prerequisito_acao_id.value
             ? Number(formAcao.elements.prerequisito_acao_id.value)
