@@ -287,6 +287,7 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
   const ehEtapaAprovacao = Boolean(
     chamado.etapa_tipo === "aprovacao" ||
+    (Array.isArray(chamado.acoes) && chamado.acoes.length > 0) ||
     String(chamado.titulo || "").toLowerCase().includes("aprova") ||
     String(chamado.etapa_nome || "").toLowerCase().includes("aprova")
   );
@@ -390,9 +391,9 @@ async function carregarDetalhe(chamadoRecebido = null) {
                   : ""
               }
               ${
-                chamado.responsavel_id === usuario.id
-                  ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario" style="flex: 0 0 auto; height: 32px; padding: 0 0.85rem; font-size: 0.85rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Liberar</button>`
-                  : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario" style="flex: 0 0 auto; height: 32px; padding: 0 0.85rem; font-size: 0.85rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Assumir</button>`
+                Number(chamado.responsavel_id) === Number(usuario?.id)
+                  ? `<button type="button" id="btn-liberar-responsavel" class="btn btn-secundario btn-acao-responsavel" data-acao="liberar" style="flex: 0 0 auto; height: 32px; padding: 0 0.85rem; font-size: 0.85rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Liberar</button>`
+                  : `<button type="button" id="btn-assumir-responsavel" class="btn btn-secundario btn-acao-responsavel" data-acao="assumir" style="flex: 0 0 auto; height: 32px; padding: 0 0.85rem; font-size: 0.85rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">Assumir</button>`
               }
             </div>
           `
@@ -452,14 +453,14 @@ async function carregarDetalhe(chamadoRecebido = null) {
       const select = document.getElementById("select-atribuir-responsavel");
       if (!select) return;
       const usuariosDoSetor = todos.filter(
-        (u) => u.ativo && (chamado.setor_id == null || u.setor_id === chamado.setor_id)
+        (u) => u.ativo && (chamado.setor_id == null || Number(u.setor_id) === Number(chamado.setor_id))
       );
       select.innerHTML = `
         <option value="">Atribuir para alguém do setor…</option>
         ${usuariosDoSetor
           .map(
             (u) =>
-              `<option value="${u.id}" ${u.id === chamado.responsavel_id ? "selected" : ""}>${escaparHtml(u.nome)}</option>`
+              `<option value="${u.id}" ${Number(u.id) === Number(chamado.responsavel_id) ? "selected" : ""}>${escaparHtml(u.nome)}</option>`
           )
           .join("")}
       `;
@@ -566,13 +567,14 @@ async function carregarDetalhe(chamadoRecebido = null) {
   // Atualização otimista e ultra rápida de responsável (sem recarregar o chamado inteiro)
   async function definirResponsavel(responsavelId) {
     const todosUsuarios = await obterUsuarios();
-    const usuarioEscolhido = todosUsuarios.find((u) => u.id === responsavelId);
+    const usuarioEscolhido = responsavelId != null ? todosUsuarios.find((u) => Number(u.id) === Number(responsavelId)) : null;
     const responsavelAnteriorId = chamado.responsavel_id;
     const responsavelAnteriorNome = chamado.responsavel_nome;
 
+    const ehNovoResponsavelEu = responsavelId != null && Number(responsavelId) === Number(usuario?.id);
+
     // 1. Atualização visual otimista instantânea na tela
-    const containerResp = document.querySelector(".bloco-atribuicao-responsavel");
-    const spanNomeResp = document.getElementById("valor-responsavel-atual") || containerResp?.querySelector("span:nth-child(2)");
+    const spanNomeResp = document.getElementById("valor-responsavel-atual");
     if (spanNomeResp) {
       spanNomeResp.innerHTML = usuarioEscolhido
         ? escaparHtml(usuarioEscolhido.nome)
@@ -593,19 +595,45 @@ async function carregarDetalhe(chamadoRecebido = null) {
 
     const btnAcao = document.getElementById("btn-assumir-responsavel") || document.getElementById("btn-liberar-responsavel");
     if (btnAcao) {
-      if (responsavelId === usuario.id) {
+      btnAcao.disabled = true;
+      if (ehNovoResponsavelEu) {
         btnAcao.id = "btn-liberar-responsavel";
+        btnAcao.dataset.acao = "liberar";
         btnAcao.textContent = "Liberar";
       } else {
         btnAcao.id = "btn-assumir-responsavel";
+        btnAcao.dataset.acao = "assumir";
         btnAcao.textContent = "Assumir";
+      }
+    }
+
+    // Atualiza estado local imediatamente para desbloquear cards de decisão e comentários
+    chamado.responsavel_id = responsavelId;
+    chamado.responsavel_nome = usuarioEscolhido ? usuarioEscolhido.nome : null;
+    if (chamadoAtual) {
+      chamadoAtual.responsavel_id = responsavelId;
+      chamadoAtual.responsavel_nome = chamado.responsavel_nome;
+    }
+
+    // Se for etapa de aprovação, renderiza imediatamente para desbloquear ou bloquear
+    if (ehEtapaAprovacao && !finalizado) {
+      renderAprovacao(chamado);
+    }
+
+    // Atualiza aviso de bloqueio de comentários
+    const avisoBloqueio = document.getElementById("aviso-bloqueio-comentarios-mae");
+    const formComentario = document.getElementById("form-comentario");
+    if (avisoBloqueio && formComentario) {
+      if (ehNovoResponsavelEu || usuario?.admin) {
+        avisoBloqueio.style.display = "none";
+        formComentario.style.display = "";
       }
     }
 
     // Exibe toast de confirmação rápido
     const toastStatus = document.getElementById("toast-status-topo");
     if (toastStatus) {
-      toastStatus.textContent = "✓ Responsável atualizado.";
+      toastStatus.textContent = responsavelId ? "✓ Responsável atualizado." : "✓ Responsável liberado.";
       toastStatus.hidden = false;
       clearTimeout(toastStatus._timeout);
       toastStatus._timeout = setTimeout(() => {
@@ -616,6 +644,7 @@ async function carregarDetalhe(chamadoRecebido = null) {
     // 2. Dispara PUT em segundo plano
     try {
       const respAtualizado = await api(`/chamados/${chamado.id}`, { method: "PUT", body: { responsavel_id: responsavelId } });
+      if (btnAcao) btnAcao.disabled = false;
       if (respAtualizado) {
         chamadoAtual = respAtualizado;
         chamado.responsavel_id = respAtualizado.responsavel_id;
@@ -626,9 +655,14 @@ async function carregarDetalhe(chamadoRecebido = null) {
       // Atualiza o histórico de auditoria em segundo plano
       carregarAuditoria();
     } catch (e) {
+      if (btnAcao) btnAcao.disabled = false;
       // Reverte em caso de erro
       chamado.responsavel_id = responsavelAnteriorId;
       chamado.responsavel_nome = responsavelAnteriorNome;
+      if (chamadoAtual) {
+        chamadoAtual.responsavel_id = responsavelAnteriorId;
+        chamadoAtual.responsavel_nome = responsavelAnteriorNome;
+      }
       if (spanNomeResp) {
         spanNomeResp.innerHTML = responsavelAnteriorNome
           ? escaparHtml(responsavelAnteriorNome)
@@ -640,6 +674,15 @@ async function carregarDetalhe(chamadoRecebido = null) {
           : "";
       }
       if (selectResp) selectResp.value = responsavelAnteriorId ? String(responsavelAnteriorId) : "";
+      if (btnAcao) {
+        const eraEu = responsavelAnteriorId != null && Number(responsavelAnteriorId) === Number(usuario?.id);
+        btnAcao.id = eraEu ? "btn-liberar-responsavel" : "btn-assumir-responsavel";
+        btnAcao.dataset.acao = eraEu ? "liberar" : "assumir";
+        btnAcao.textContent = eraEu ? "Liberar" : "Assumir";
+      }
+      if (ehEtapaAprovacao && !finalizado) {
+        renderAprovacao(chamado);
+      }
       if (toastStatus) toastStatus.hidden = true;
       mostrarErro(document.getElementById("mensagem-erro"), e);
     }
@@ -648,19 +691,29 @@ async function carregarDetalhe(chamadoRecebido = null) {
   // Expõe a ação de assumir para botões inline em cards bloqueados
   window.assumirTarefaDoChamado = () => definirResponsavel(usuario.id);
 
-  // Delegação de cliques para botões de assumir e liberar responsável
-  document.getElementById("detalhe")?.addEventListener("click", (e) => {
-    if (e.target.closest("#btn-assumir-responsavel")) {
-      definirResponsavel(usuario.id);
-    } else if (e.target.closest("#btn-liberar-responsavel")) {
-      definirResponsavel(null);
-    }
-  });
+  // Delegação de cliques e alterações para responsáveis com proteção contra listeners duplicados
+  if (detalheEl && !detalheEl.dataset.listenerResponsavelConfigurado) {
+    detalheEl.dataset.listenerResponsavelConfigurado = "1";
+    detalheEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("#btn-assumir-responsavel, #btn-liberar-responsavel, .btn-acao-responsavel");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const acao = btn.dataset.acao || (btn.id === "btn-liberar-responsavel" ? "liberar" : "assumir");
+      if (acao === "assumir") {
+        definirResponsavel(usuario.id);
+      } else if (acao === "liberar") {
+        definirResponsavel(null);
+      }
+    });
 
-  document.getElementById("select-atribuir-responsavel")?.addEventListener("change", (e) => {
-    const val = e.target.value;
-    definirResponsavel(val ? Number(val) : null);
-  });
+    detalheEl.addEventListener("change", (e) => {
+      if (e.target && e.target.id === "select-atribuir-responsavel") {
+        const val = e.target.value;
+        definirResponsavel(val ? Number(val) : null);
+      }
+    });
+  }
 
   const acaoContainer = document.getElementById("acao");
   if (ehEtapaAprovacao && !finalizado) {
@@ -1624,7 +1677,9 @@ async function renderAprovacao(chamado) {
     }
   }
 
-  const acoesList = etapa?.acoes || [];
+  const acoesList = (Array.isArray(chamado.acoes) && chamado.acoes.length > 0)
+    ? chamado.acoes
+    : (etapa?.acoes || []);
 
   acaoContainer.hidden = false;
   acaoContainer.innerHTML = `

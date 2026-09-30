@@ -25,7 +25,11 @@ export function resolverProximosChamados(etapa, triggering, decisoesAcoes = {}) 
           etapasDestino = [Number(acao.etapa_destino_id)];
         }
 
-        if (etapasDestino.length > 0) {
+        const temMultiplasEtapas = Array.isArray(acao.etapas_destino_ids) && acao.etapas_destino_ids.length > 0;
+        const modoExecucao = acao.modo_execucao || (temMultiplasEtapas ? "encadeado" : "direto");
+
+        // Se modo_execucao for 'direto' e houver etapas de destino, dispara os chamados diretamente para elas
+        if (modoExecucao === "direto" && etapasDestino.length > 0) {
           return etapasDestino.map((etapaId) => ({
             etapa_id: etapaId,
             acao_origem_id: acao.id,
@@ -35,6 +39,9 @@ export function resolverProximosChamados(etapa, triggering, decisoesAcoes = {}) 
           }));
         }
 
+        // Modo 'encadeado' (padrão quando há etapas de destino vinculadas ou explícito):
+        // Cria um chamado para o setor vinculado (setor_destino_id), permitindo que aquele setor
+        // decida e marque quais etapas de destino acionar.
         return [
           {
             etapa_id: null,

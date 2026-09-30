@@ -116,7 +116,7 @@ test("resolverProximosChamados propagates etapa_destino_id as etapa_id for acao"
   assert.equal(resultado[1].chamado_pai_id, 100);
 });
 
-test("resolverProximosChamados creates multiple subchamados for multiple etapas_destino_ids", () => {
+test("resolverProximosChamados creates multiple subchamados for multiple etapas_destino_ids when modo_execucao is direto", () => {
   const etapa = {
     id: 1,
     etapa_proxima_id: null,
@@ -126,6 +126,7 @@ test("resolverProximosChamados creates multiple subchamados for multiple etapas_
         setor_destino_id: 4,
         vinculo: "mae",
         etapas_destino_ids: [12, 15, 18],
+        modo_execucao: "direto",
       },
     ],
   };
@@ -143,6 +144,30 @@ test("resolverProximosChamados creates multiple subchamados for multiple etapas_
 
   assert.equal(resultado[2].etapa_id, 18);
   assert.equal(resultado[2].acao_origem_id, 20);
+});
+
+test("resolverProximosChamados encadeia chamado para setor_destino_id quando modo_execucao for encadeado ou padrao com etapas_destino_ids", () => {
+  const etapa = {
+    id: 1,
+    etapa_proxima_id: null,
+    acoes: [
+      {
+        id: 25,
+        setor_destino_id: 4,
+        vinculo: "mae",
+        etapas_destino_ids: [12, 15],
+      },
+    ],
+  };
+  const triggering = { id: 200, chamado_mae_id: 50 };
+  const resultado = resolverProximosChamados(etapa, triggering, { 25: true });
+
+  assert.equal(resultado.length, 1);
+  assert.equal(resultado[0].etapa_id, null);
+  assert.equal(resultado[0].acao_origem_id, 25);
+  assert.equal(resultado[0].setor_id, 4);
+  assert.equal(resultado[0].chamado_mae_id, 50);
+  assert.equal(resultado[0].chamado_pai_id, 50);
 });
 
 test("estaBloqueado returns true if any sibling of prerequisite acao is still not finalized", () => {

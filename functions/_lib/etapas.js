@@ -14,11 +14,15 @@ export async function assegurarColunasAcoes(db) {
       if (!nomes.has("etapas_destino_ids")) {
         await run(db, "ALTER TABLE acoes ADD COLUMN etapas_destino_ids TEXT").catch(() => {});
       }
+      if (!nomes.has("modo_execucao")) {
+        await run(db, "ALTER TABLE acoes ADD COLUMN modo_execucao TEXT DEFAULT 'encadeado'").catch(() => {});
+      }
     }
   } catch (_) {
     await run(db, "ALTER TABLE acoes ADD COLUMN observacao TEXT").catch(() => {});
     await run(db, "ALTER TABLE acoes ADD COLUMN etapa_destino_id INTEGER REFERENCES etapas(id)").catch(() => {});
     await run(db, "ALTER TABLE acoes ADD COLUMN etapas_destino_ids TEXT").catch(() => {});
+    await run(db, "ALTER TABLE acoes ADD COLUMN modo_execucao TEXT DEFAULT 'encadeado'").catch(() => {});
   }
 }
 
