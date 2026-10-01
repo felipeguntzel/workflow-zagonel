@@ -1,12 +1,13 @@
 import { run } from "./db.js";
 
-let colunasGarantidas = false;
+let colunasGarantidas = true;
 
 /**
- * Garante que as colunas 'email', 'telefone' e 'token_valido_apos' existam na tabela 'usuarios'
+ * Colunas 'email', 'telefone', 'token_valido_apos' e 'ativo' já estão consolidadas nas migrações oficiais (0011, 0014, 0028).
  */
-export async function ensureColunasUsuario(db) {
-  if (colunasGarantidas) return;
+export async function ensureColunasUsuario(db, forcar = false) {
+  if (colunasGarantidas && !forcar) return;
+
   try {
     await run(db, "ALTER TABLE usuarios ADD COLUMN email TEXT");
   } catch (_) {

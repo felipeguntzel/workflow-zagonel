@@ -1,8 +1,11 @@
 import { all, first, run } from "./db.js";
 
-export async function assegurarColunasAcoes(db) {
+let colunasAcoesAsseguradas = true;
+export async function assegurarColunasAcoes(db, forcar = false) {
+  if (colunasAcoesAsseguradas && !forcar) return;
   try {
     const info = await all(db, "PRAGMA table_info(acoes)");
+
     if (Array.isArray(info) && info.length > 0) {
       const nomes = new Set(info.map((col) => col.name.toLowerCase()));
       if (!nomes.has("observacao")) {

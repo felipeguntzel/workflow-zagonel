@@ -22,7 +22,6 @@ async function validarGruposExistem(db, grupos) {
 export async function onRequestGet(context) {
   const { erro } = await exigirPermissao(context, "usuarios", "visualizar");
   if (erro) return erro;
-  await ensureColunasUsuario(context.env.DB);
   const usuario = await first(
     context.env.DB,
     "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha, ativo FROM usuarios WHERE id = ?",
@@ -36,8 +35,8 @@ export async function onRequestGet(context) {
 export async function onRequestPut(context) {
   const { usuario, erro } = await exigirPermissao(context, "usuarios", "editar");
   if (erro) return erro;
-  await ensureColunasUsuario(context.env.DB);
   const body = await context.request.json();
+
 
   if (body.admin !== undefined) {
     const alvo = await first(context.env.DB, "SELECT admin FROM usuarios WHERE id = ?", context.params.id);

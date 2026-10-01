@@ -10,7 +10,9 @@ import {
   aplicarCascataAtraso,
   hojeISO,
   sincronizarProgressoChamadoMae,
+  statusIdPorNome,
 } from "../../../_lib/chamados.js";
+
 import { registrarAuditoria } from "../../../_lib/auditoria.js";
 
 export async function onRequestPost(context) {
@@ -80,27 +82,32 @@ export async function onRequestPost(context) {
       return json({ chamado: atualizado, criados: [] });
     }
 
-    await run(
-      context.env.DB,
-      `UPDATE chamados
-       SET status_id = (SELECT id FROM status WHERE LOWER(nome) = 'finalizado' LIMIT 1),
-           resultado = 'aprovado',
-           data_finalizacao = COALESCE(data_finalizacao, ?)
-       WHERE id = ?`,
-      hoje,
-      chamado.id
-    );
+    const statusFinalizado = await statusIdPorNome(context.env.DB, "finalizado");
 
-    await registrarAuditoria(context.env.DB, {
-      chamado_mae_id: raizId,
-      chamado_id: chamado.id,
-      usuario_id: usuario.id,
-      usuario_nome: usuario.nome,
-      acao: "decisao_aprovada",
-      detalhes: `Etapa "${etapaNome}" APROVADA por ${usuario.nome}.`
-    });
+    await Promise.all([
+      run(
+        context.env.DB,
+        `UPDATE chamados
+         SET status_id = ?,
+             resultado = 'aprovado',
+             data_finalizacao = COALESCE(data_finalizacao, ?)
+         WHERE id = ?`,
+        statusFinalizado,
+        hoje,
+        chamado.id
+      ),
+      registrarAuditoria(context.env.DB, {
+        chamado_mae_id: raizId,
+        chamado_id: chamado.id,
+        usuario_id: usuario.id,
+        usuario_nome: usuario.nome,
+        acao: "decisao_aprovada",
+        detalhes: `Etapa "${etapaNome}" APROVADA por ${usuario.nome}.`
+      })
+    ]);
 
     const atualizado = await chamadoComDetalhes(context.env.DB, chamado.id);
+
     let criados = [];
     if (chamado.etapa_id) {
       const etapa = await carregarEtapaComAcoes(context.env.DB, chamado.etapa_id);
@@ -175,22 +182,29 @@ export async function onRequestPost(context) {
       }
     }
 
-    for (const filho of criados) {
-      const etapaFilho = filho.etapa_id ? await first(context.env.DB, "SELECT nome FROM etapas WHERE id = ?", filho.etapa_id) : null;
-      const nomeFilho = etapaFilho?.nome || filho.titulo || `#${filho.id}`;
-      await registrarAuditoria(context.env.DB, {
-        chamado_mae_id: raizId,
-        chamado_id: filho.id,
-        usuario_id: usuario.id,
-        usuario_nome: usuario.nome,
-        acao: "criacao_subchamado",
-        detalhes: `Atividade "${nomeFilho}" criada pela aprovação da etapa "${etapaNome}".`
-      });
+    if (criados.length > 0) {
+      await Promise.all(
+        criados.map(async (filho) => {
+          const etapaFilho = filho.etapa_id ? await first(context.env.DB, "SELECT nome FROM etapas WHERE id = ?", filho.etapa_id) : null;
+          const nomeFilho = etapaFilho?.nome || filho.titulo || `#${filho.id}`;
+          return registrarAuditoria(context.env.DB, {
+            chamado_mae_id: raizId,
+            chamado_id: filho.id,
+            usuario_id: usuario.id,
+            usuario_nome: usuario.nome,
+            acao: "criacao_subchamado",
+            detalhes: `Atividade "${nomeFilho}" criada pela aprovação da etapa "${etapaNome}".`
+          });
+        })
+      );
     }
 
-    await aplicarCascataAtraso(context.env.DB, atualizado, hoje);
-    await sincronizarProgressoChamadoMae(context.env.DB, chamado.id, hoje);
+    await Promise.all([
+      aplicarCascataAtraso(context.env.DB, atualizado, hoje),
+      sincronizarProgressoChamadoMae(context.env.DB, chamado.id, hoje)
+    ]);
     return json({ chamado: atualizado, criados });
+
   } catch (err) {
     console.error("Erro ao processar decisão de aprovação:", err);
     return error(err?.message || "Erro ao processar decisão de aprovação.", 400);

@@ -12,9 +12,32 @@ export function hojeISO() {
 }
 
 const cacheStatusId = new Map();
+let cacheStatusCarregado = false;
+
+export async function carregarCacheStatus(db) {
+  if (cacheStatusCarregado && cacheStatusId.size > 0) return;
+  try {
+    const todos = await all(db, "SELECT id, nome FROM status");
+    if (Array.isArray(todos)) {
+      for (const s of todos) {
+        if (s.nome) {
+          cacheStatusId.set(String(s.nome).toLowerCase(), s.id);
+        }
+      }
+      if (cacheStatusId.has("cancelado") && !cacheStatusId.has("cancelada")) {
+        cacheStatusId.set("cancelada", cacheStatusId.get("cancelado"));
+      }
+      cacheStatusCarregado = true;
+    }
+  } catch (_) {}
+}
+
 export async function statusIdPorNome(db, nome) {
   const chave = String(nome).toLowerCase();
   if (cacheStatusId.has(chave)) return cacheStatusId.get(chave);
+  await carregarCacheStatus(db);
+  if (cacheStatusId.has(chave)) return cacheStatusId.get(chave);
+
   let row = await first(db, "SELECT id FROM status WHERE LOWER(nome) = LOWER(?)", nome);
   if (!row && (chave === "cancelado" || chave === "cancelada")) {
     row = await first(db, "SELECT id FROM status WHERE LOWER(nome) IN ('cancelado', 'cancelada') LIMIT 1");
@@ -77,6 +100,8 @@ async function resolverSetorEPrazoPadrao(db, { etapa_id, acao_origem_id }) {
 let colunasChamadosGarantidas = false;
 export async function garantirColunasChamados(db) {
   if (colunasChamadosGarantidas) return;
+
+
   try {
     await repararFksOrfasChamados(db);
     const cols = await all(db, "PRAGMA table_info(chamados)");
@@ -293,8 +318,8 @@ export async function repararFksOrfasChamados(db) {
 }
 
 export async function criarChamado(db, spec) {
-  await garantirColunasChamados(db);
   const { prazo_padrao_dias } = await resolverSetorEPrazoPadrao(db, spec);
+
   const hoje = hojeISO();
   const prazo = spec.prazo ?? calcularPrazoSugerido(hoje, prazo_padrao_dias, { apenasDiasUteis: true });
   const statusPrevisto = await statusIdPorNome(db, "previsto");
@@ -482,9 +507,9 @@ export async function computarBloqueado(db, chamado) {
 }
 
 export async function chamadoComDetalhes(db, id) {
-  await garantirColunasChamados(db);
   const chamado = await first(
     db,
+
     `SELECT
        c.*,
        COALESCE(e.setor_id, a.setor_destino_id) AS setor_id,
