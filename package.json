@@ -7,9 +7,12 @@
     "lint": "node --test",
     "dev": "wrangler pages dev public --ip 0.0.0.0 --port 3000",
     "build": "mkdir -p dist && cp -r public/* dist/ && wrangler pages functions build functions --outdir dist",
-    "deploy": "wrangler pages deploy public"
+    "deploy": "wrangler pages deploy public",
+    "turso:import": "node scripts/import_to_turso.js"
   },
   "devDependencies": {
-    "wrangler": "^4.132.0"
+    "@libsql/client": "^0.18.0",
+    "wrangler": "4.132.0"
   }
 }
+

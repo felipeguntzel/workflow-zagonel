@@ -12,8 +12,8 @@ export async function onRequestPost(context) {
     return error("Login e senha são obrigatórios");
   }
 
-  await ensureColunasUsuario(context.env.DB);
   const termo = String(body.login).trim().toLowerCase();
+
   const ip = context.request.headers.get("CF-Connecting-IP") || "ip_desconhecido";
   const chaveRateLimit = `${termo}:${ip}`;
 

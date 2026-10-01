@@ -5,18 +5,19 @@ import { ensureColunasUsuario } from "./usuarios.js";
 
 export const TELAS = ["empresas", "setores", "usuarios", "status", "fluxos", "chamados", "dashboards", "apontamentos"];
 
-let colunaGrupoPaiGarantida = false;
-export async function ensureColunaGrupoPai(db) {
-  if (colunaGrupoPaiGarantida) return;
+let colunaGrupoPaiGarantida = true;
+export async function ensureColunaGrupoPai(db, forcar = false) {
+  if (colunaGrupoPaiGarantida && !forcar) return;
   try {
     await run(db, "ALTER TABLE grupos_permissao ADD COLUMN grupo_pai_id INTEGER REFERENCES grupos_permissao(id)");
   } catch (_) {}
   colunaGrupoPaiGarantida = true;
 }
 
-let tabelaPermissoesGarantida = false;
-export async function ensureTabelaPermissoes(db) {
-  if (tabelaPermissoesGarantida) return;
+let tabelaPermissoesGarantida = true;
+export async function ensureTabelaPermissoes(db, forcar = false) {
+  if (tabelaPermissoesGarantida && !forcar) return;
+
   try {
     const tableInfo = await first(db, "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'permissoes'");
     if (tableInfo && tableInfo.sql && tableInfo.sql.includes("CHECK")) {

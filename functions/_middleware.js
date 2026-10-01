@@ -1,7 +1,12 @@
 import { error } from "./_lib/http.js";
+import { getTursoDb } from "./_lib/turso.js";
 
 export async function onRequest(context) {
   try {
+    const turso = getTursoDb(context.env);
+    if (turso) {
+      context.env.DB = turso;
+    }
     return await context.next();
   } catch (err) {
     console.error("Middleware caught error:", err);

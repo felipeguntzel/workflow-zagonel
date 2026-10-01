@@ -21,21 +21,31 @@ async function validarGruposExistem(db, grupos) {
 export async function onRequestGet(context) {
   const { usuario, erro } = await exigirUsuarioLogado(context);
   if (erro) return erro;
-  await ensureColunasUsuario(context.env.DB);
 
   const permissoes = await obterPermissoesDoUsuario(context.env.DB, usuario.id);
   const podeGerenciar = usuario.admin === 1 || Boolean(permissoes?.usuarios?.visualizar);
 
   if (podeGerenciar) {
-    const usuarios = await all(
-      context.env.DB,
-      "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha, ativo FROM usuarios ORDER BY id"
-    );
+    const [usuarios, todosGrupos] = await Promise.all([
+      all(
+        context.env.DB,
+        "SELECT id, nome, setor_id, login, email, telefone, admin, deve_trocar_senha, ativo FROM usuarios ORDER BY id"
+      ),
+      all(context.env.DB, "SELECT usuario_id, grupo_id FROM usuario_grupos")
+    ]);
+
+    const gruposPorUsuario = new Map();
+    for (const g of todosGrupos) {
+      if (!gruposPorUsuario.has(g.usuario_id)) gruposPorUsuario.set(g.usuario_id, []);
+      gruposPorUsuario.get(g.usuario_id).push(g.grupo_id);
+    }
+
     for (const u of usuarios) {
-      u.grupos = await carregarGruposDoUsuario(context.env.DB, u.id);
+      u.grupos = gruposPorUsuario.get(u.id) || [];
     }
     return json(usuarios);
   }
+
 
   // Usuários autenticados comuns (para seleção de responsáveis da equipe / atribuição em chamados)
   const usuarios = await all(
@@ -48,8 +58,8 @@ export async function onRequestGet(context) {
 export async function onRequestPost(context) {
   const { usuario, erro } = await exigirPermissao(context, "usuarios", "inserir");
   if (erro) return erro;
-  await ensureColunasUsuario(context.env.DB);
   const body = await context.request.json();
+
   if (!body.nome || !body.setor_id || !body.login || !body.senha) {
     return error("Campos obrigatórios: nome, setor_id, login, senha");
   }
