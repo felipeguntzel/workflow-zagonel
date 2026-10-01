@@ -11,9 +11,8 @@
     "turso:import": "node scripts/import_to_turso.js"
   },
   "devDependencies": {
+    "@libsql/client": "^0.18.0",
     "wrangler": "4.132.0"
-  },
-  "dependencies": {
-    "@libsql/client": "^0.18.0"
   }
 }
+

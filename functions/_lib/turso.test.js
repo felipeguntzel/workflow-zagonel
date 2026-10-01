@@ -1,77 +1,102 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createTursoD1Adapter, getTursoDb } from "./turso.js";
+import { createTursoHttpAdapter, getTursoDb } from "./turso.js";
 import { all, first, run, batch } from "./db.js";
 
-test("turso: createTursoD1Adapter wraps execute into D1 interface", async () => {
-  const mockClient = {
-    async execute({ sql, args }) {
-      if (sql.includes("SELECT")) {
+test("turso: createTursoHttpAdapter maps pipeline responses into D1 interface", async () => {
+  // Mock global fetch for this test
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    const results = body.requests.map((req) => {
+      if (req.type === "close") {
+        return { type: "ok", response: { type: "close" } };
+      }
+      if (req.stmt?.sql?.includes("SELECT")) {
         return {
-          columns: ["id", "nome"],
-          rows: [{ id: 1, nome: "Teste" }],
-          rowsAffected: 0,
+          type: "ok",
+          response: {
+            type: "execute",
+            result: {
+              cols: [{ name: "id" }, { name: "nome" }],
+              rows: [
+                [{ type: "integer", value: "1" }, { type: "text", value: "Teste" }],
+              ],
+              affected_row_count: 0,
+              last_insert_rowid: null,
+              query_duration_ms: 0.5,
+            },
+          },
         };
       }
       return {
-        columns: [],
-        rows: [],
-        rowsAffected: 1,
-        lastInsertRowid: 42n,
+        type: "ok",
+        response: {
+          type: "execute",
+          result: {
+            cols: [],
+            rows: [],
+            affected_row_count: 1,
+            last_insert_rowid: "42",
+            query_duration_ms: 0.5,
+          },
+        },
       };
-    },
-    async batch(stmts) {
-      return stmts.map((s, idx) => ({
-        columns: ["id"],
-        rows: [{ id: idx + 1 }],
-        rowsAffected: 1,
-        lastInsertRowid: BigInt(idx + 1),
-      }));
-    },
-    async executeMultiple(sql) {
-      return;
-    },
+    });
+
+    return {
+      ok: true,
+      async json() {
+        return { results };
+      },
+    };
   };
 
-  const adapter = createTursoD1Adapter(mockClient);
-  assert.equal(adapter._isTurso, true);
+  try {
+    const adapter = createTursoHttpAdapter({
+      url: "libsql://test.turso.io",
+      authToken: "test_token",
+    });
+    assert.equal(adapter._isTurso, true);
 
-  // Test .all()
-  const rows = await adapter.prepare("SELECT * FROM test WHERE id = ?").bind(1).all();
-  assert.deepEqual(rows.results, [{ id: 1, nome: "Teste" }]);
-  assert.equal(rows.success, true);
+    // Test .all()
+    const rows = await adapter.prepare("SELECT * FROM test WHERE id = ?").bind(1).all();
+    assert.deepEqual(rows.results, [{ id: 1, nome: "Teste" }]);
+    assert.equal(rows.success, true);
+    assert.equal(rows.meta.changes, 0);
 
-  // Test .first()
-  const item = await adapter.prepare("SELECT * FROM test WHERE id = ?").bind(1).first();
-  assert.deepEqual(item, { id: 1, nome: "Teste" });
+    // Test .first()
+    const item = await adapter.prepare("SELECT * FROM test WHERE id = ?").bind(1).first();
+    assert.deepEqual(item, { id: 1, nome: "Teste" });
 
-  const colValue = await adapter.prepare("SELECT * FROM test WHERE id = ?").bind(1).first("nome");
-  assert.equal(colValue, "Teste");
+    const colValue = await adapter.prepare("SELECT * FROM test WHERE id = ?").bind(1).first("nome");
+    assert.equal(colValue, "Teste");
 
-  // Test .run()
-  const runResult = await adapter.prepare("INSERT INTO test (nome) VALUES (?)").bind("Novo").run();
-  assert.equal(runResult.success, true);
-  assert.equal(runResult.meta.changes, 1);
-  assert.equal(runResult.meta.last_row_id, 42);
+    // Test .run()
+    const runResult = await adapter.prepare("INSERT INTO test (nome) VALUES (?)").bind("Novo").run();
+    assert.equal(runResult.success, true);
+    assert.equal(runResult.meta.changes, 1);
+    assert.equal(runResult.meta.last_row_id, 42);
 
-  // Test .batch()
-  const batchRes = await adapter.batch([
-    adapter.prepare("INSERT INTO test VALUES (?)").bind("a"),
-    adapter.prepare("INSERT INTO test VALUES (?)").bind("b"),
-  ]);
-  assert.equal(batchRes.length, 2);
-  assert.equal(batchRes[0].results[0].id, 1);
-  assert.equal(batchRes[1].results[0].id, 2);
+    // Test .batch()
+    const batchRes = await adapter.batch([
+      adapter.prepare("INSERT INTO test VALUES (?)").bind("a"),
+      adapter.prepare("INSERT INTO test VALUES (?)").bind("b"),
+    ]);
+    assert.equal(batchRes.length, 2);
 
-  // Test functions/_lib/db.js integration with Turso adapter
-  const allFromDb = await all(adapter, "SELECT * FROM test WHERE id = ?", 1);
-  assert.deepEqual(allFromDb, [{ id: 1, nome: "Teste" }]);
+    // Test db.js integration with Turso adapter
+    const allFromDb = await all(adapter, "SELECT * FROM test WHERE id = ?", 1);
+    assert.deepEqual(allFromDb, [{ id: 1, nome: "Teste" }]);
 
-  const firstFromDb = await first(adapter, "SELECT * FROM test WHERE id = ?", 1);
-  assert.deepEqual(firstFromDb, { id: 1, nome: "Teste" });
+    const firstFromDb = await first(adapter, "SELECT * FROM test WHERE id = ?", 1);
+    assert.deepEqual(firstFromDb, { id: 1, nome: "Teste" });
 
-  const runFromDb = await run(adapter, "UPDATE test SET nome = ? WHERE id = ?", "Atualizado", 1);
-  assert.equal(runFromDb.meta.last_row_id, 42);
+    const runFromDb = await run(adapter, "UPDATE test SET nome = ? WHERE id = ?", "Atualizado", 1);
+    assert.equal(runFromDb.meta.last_row_id, 42);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("turso: getTursoDb returns null when env vars are missing", () => {

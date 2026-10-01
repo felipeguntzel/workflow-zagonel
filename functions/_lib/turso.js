@@ -1,15 +1,121 @@
-import { createClient } from "@libsql/client/web";
-
 let cachedAdapter = null;
 let cachedUrl = null;
 let cachedToken = null;
 
+function normalizeUrl(url) {
+  let clean = (url || "").trim();
+  if (clean.startsWith("libsql://")) {
+    clean = "https://" + clean.slice(9);
+  }
+  if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
+    clean = "https://" + clean;
+  }
+  return clean.replace(/\/+$/, "") + "/v2/pipeline";
+}
+
+function encodeArg(v) {
+  if (v === null || v === undefined) return { type: "null" };
+  if (typeof v === "number") {
+    if (Number.isInteger(v)) return { type: "integer", value: String(v) };
+    return { type: "float", value: v };
+  }
+  if (typeof v === "boolean") return { type: "integer", value: v ? "1" : "0" };
+  return { type: "text", value: String(v) };
+}
+
+function decodeCell(cell) {
+  if (!cell || cell.type === "null") return null;
+  if (cell.type === "integer") {
+    const num = Number(cell.value);
+    return Number.isSafeInteger(num) ? num : cell.value;
+  }
+  if (cell.type === "float") return Number(cell.value);
+  return cell.value;
+}
+
+function mapResult(executeResult, durationMs = 0) {
+  const result = executeResult || {};
+  const cols = Array.isArray(result.cols) ? result.cols.map((c) => c.name) : [];
+  const rows = Array.isArray(result.rows)
+    ? result.rows.map((rowCells) => {
+        const obj = {};
+        for (let i = 0; i < cols.length; i++) {
+          obj[cols[i]] = decodeCell(rowCells[i]);
+        }
+        return obj;
+      })
+    : [];
+
+  const changes = result.affected_row_count ?? 0;
+  const lastRowId =
+    result.last_insert_rowid !== undefined && result.last_insert_rowid !== null
+      ? Number(result.last_insert_rowid)
+      : null;
+
+  return {
+    results: rows,
+    success: true,
+    meta: {
+      duration: durationMs || Math.round(result.query_duration_ms || 0),
+      changes,
+      last_row_id: lastRowId,
+    },
+  };
+}
+
 /**
- * Cria um adaptador compatível com a API do Cloudflare D1 sobre o cliente Turso (@libsql/client/web).
- * Garante que qualquer chamada a .prepare(sql).bind(...params).all() / first() / run(),
- * bem como .batch() e .exec(), funcione de forma transparente em todo o projeto.
+ * Cria um adaptador D1 transparente para o Turso utilizando exclusivamente a API HTTP v2/pipeline nativa via fetch.
+ * Não requer nenhuma dependência npm externa no bundle do Cloudflare Pages Functions.
  */
-export function createTursoD1Adapter(client) {
+export function createTursoHttpAdapter({ url, authToken }) {
+  const endpoint = normalizeUrl(url);
+
+  async function callPipeline(stmts) {
+    const start = Date.now();
+    const requests = stmts.map((s) => ({
+      type: "execute",
+      stmt: {
+        sql: s.sql,
+        args: Array.isArray(s.args) ? s.args.map(encodeArg) : [],
+      },
+    }));
+    requests.push({ type: "close" });
+
+    const resp = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ requests }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`Turso HTTP error ${resp.status}: ${errText}`);
+    }
+
+    const data = await resp.json();
+    const totalDuration = Date.now() - start;
+
+    if (!data.results || !Array.isArray(data.results)) {
+      throw new Error("Invalid response format from Turso pipeline.");
+    }
+
+    const mapped = [];
+    for (let i = 0; i < stmts.length; i++) {
+      const item = data.results[i];
+      if (!item) break;
+      if (item.type === "error") {
+        const errMsg = item.error?.message || "Unknown Turso error";
+        throw new Error(errMsg);
+      }
+      mapped.push(mapResult(item.response?.result, totalDuration));
+    }
+
+    return mapped;
+  }
+
   function createStatement(sql, args = []) {
     return {
       _sql: sql,
@@ -18,80 +124,47 @@ export function createTursoD1Adapter(client) {
         return createStatement(sql, params);
       },
       async all() {
-        const start = Date.now();
-        const res = await client.execute({ sql, args });
-        const duration = Date.now() - start;
-        return {
-          results: res.rows || [],
-          success: true,
-          meta: {
-            duration,
-            changes: res.rowsAffected ?? 0,
-            last_row_id: res.lastInsertRowid !== undefined && res.lastInsertRowid !== null ? Number(res.lastInsertRowid) : null,
-          },
-        };
+        const resList = await callPipeline([{ sql, args }]);
+        return resList[0];
       },
       async first(colName) {
-        const res = await client.execute({ sql, args });
-        const firstRow = res.rows && res.rows.length > 0 ? res.rows[0] : null;
+        const resList = await callPipeline([{ sql, args }]);
+        const firstRow = resList[0]?.results?.[0] || null;
         if (!firstRow) return null;
         if (colName) return firstRow[colName] ?? null;
         return firstRow;
       },
       async run() {
-        const start = Date.now();
-        const res = await client.execute({ sql, args });
-        const duration = Date.now() - start;
-        return {
-          success: true,
-          meta: {
-            duration,
-            changes: res.rowsAffected ?? 0,
-            last_row_id: res.lastInsertRowid !== undefined && res.lastInsertRowid !== null ? Number(res.lastInsertRowid) : null,
-          },
-        };
+        const resList = await callPipeline([{ sql, args }]);
+        return resList[0];
       },
       async raw() {
-        const res = await client.execute({ sql, args });
-        return (res.rows || []).map((row) => Object.values(row));
+        const resList = await callPipeline([{ sql, args }]);
+        return (resList[0]?.results || []).map((row) => Object.values(row));
       },
     };
   }
 
   return {
     _isTurso: true,
-    _client: client,
     prepare(sql) {
       return createStatement(sql, []);
     },
     async batch(statements) {
       if (!statements || statements.length === 0) return [];
       const batchPayload = statements.map((s) => {
-        if (typeof s === "string") return s;
+        if (typeof s === "string") return { sql: s, args: [] };
         if (s._sql) return { sql: s._sql, args: s._args || [] };
         if (s.sql) return { sql: s.sql, args: s.params || s.args || [] };
-        return s;
+        return { sql: String(s), args: [] };
       });
 
-      const start = Date.now();
-      const results = await client.batch(batchPayload, "write");
-      const duration = Date.now() - start;
-
-      return results.map((r) => ({
-        results: r.rows || [],
-        success: true,
-        meta: {
-          duration,
-          changes: r.rowsAffected ?? 0,
-          last_row_id: r.lastInsertRowid !== undefined && r.lastInsertRowid !== null ? Number(r.lastInsertRowid) : null,
-        },
-      }));
+      return callPipeline(batchPayload);
     },
     async exec(sql) {
       const start = Date.now();
-      await client.executeMultiple(sql);
-      const duration = Date.now() - start;
-      return { count: 1, duration };
+      await callPipeline([{ sql, args: [] }]);
+      return { count: 1, duration: Date.now() - start };
     },
   };
 }
@@ -114,13 +187,8 @@ export function getTursoDb(env) {
     return cachedAdapter;
   }
 
-  const client = createClient({
-    url,
-    authToken: token,
-  });
-
   cachedUrl = url;
   cachedToken = token;
-  cachedAdapter = createTursoD1Adapter(client);
+  cachedAdapter = createTursoHttpAdapter({ url, authToken: token });
   return cachedAdapter;
 }
