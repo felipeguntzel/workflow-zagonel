@@ -551,8 +551,16 @@ async function carregarDetalhe(chamadoRecebido = null) {
           statusAnterior = statusId;
           chamadoAtual = chamadoAtualizado;
 
-          if (foiFinalizado || precisavaAssumir) {
-            // Quando finalizado ou quando a tarefa foi auto-atribuída, recarrega tudo para liberar ações e atualizar responsável
+          if (foiFinalizado) {
+            try {
+              sessionStorage.setItem("workflow_toast_sucesso", "✓ Chamado finalizado com sucesso.");
+            } catch (_) {}
+            window.location.href = "/chamados";
+            return;
+          }
+
+          if (precisavaAssumir) {
+            // Quando a tarefa foi auto-atribuída, recarrega tudo para liberar ações e atualizar responsável
             await carregarTudo();
           } else {
             // Apenas atualiza auditoria em background sem recriar todo o DOM
@@ -1875,7 +1883,13 @@ async function renderAprovacao(chamado) {
         return;
       }
 
-      await carregarTudo();
+      if (corpo.decisao === "reprovado") {
+        try {
+          sessionStorage.setItem("workflow_toast_sucesso", "✓ Etapa reprovada com sucesso.");
+        } catch (_) {}
+        window.location.href = "/chamados";
+        return;
+      }
     } catch (e) {
       if (erro) {
         erro.textContent = e.message || "Falha ao processar decisão.";
