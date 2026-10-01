@@ -1090,8 +1090,8 @@ function configurarEventosConsultas() {
     }
 
     const confirmou = await confirmarAcao(
-      "Excluir Consulta Personalizada",
-      `Deseja realmente excluir a consulta "${consulta.nome}"?`,
+      `Excluir a consulta "${consulta.nome}"?`,
+      "Esta ação não poderá ser desfeita.",
       { textoConfirmar: "Excluir", tipo: "perigo" }
     );
     if (!confirmou) return;

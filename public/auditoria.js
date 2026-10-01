@@ -233,8 +233,9 @@ function abrirModalLimpezaLogs() {
     const periodo = fundo.querySelector("#select-periodo-limpeza").value;
     const desc = periodo === "tudo" ? "TODOS os registros do histórico de auditoria" : `os registros com mais de ${periodo} dias`;
     const confirmado = await confirmarAcao(
-      "Confirmar exclusão de logs?",
-      `Tem certeza que deseja apagar ${desc}? Esta operação não pode ser desfeita.`
+      "Excluir logs de auditoria?",
+      `Serão removidos permanentemente ${desc}. Esta operação não pode ser desfeita.`,
+      { textoConfirmar: "Excluir logs", tipo: "perigo" }
     );
     if (!confirmado) return;
 

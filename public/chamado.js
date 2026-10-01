@@ -551,8 +551,16 @@ async function carregarDetalhe(chamadoRecebido = null) {
           statusAnterior = statusId;
           chamadoAtual = chamadoAtualizado;
 
-          if (foiFinalizado || precisavaAssumir) {
-            // Quando finalizado ou quando a tarefa foi auto-atribuída, recarrega tudo para liberar ações e atualizar responsável
+          if (foiFinalizado) {
+            try {
+              sessionStorage.setItem("workflow_toast_sucesso", "✓ Chamado finalizado com sucesso.");
+            } catch (_) {}
+            window.location.href = "/chamados";
+            return;
+          }
+
+          if (precisavaAssumir) {
+            // Quando a tarefa foi auto-atribuída, recarrega tudo para liberar ações e atualizar responsável
             await carregarTudo();
           } else {
             // Apenas atualiza auditoria em background sem recriar todo o DOM
@@ -576,7 +584,7 @@ async function carregarDetalhe(chamadoRecebido = null) {
       if (foiFinalizado && !ehChamadoMae && !finalizado) {
         const escolha = await confirmarPerguntaApontamento(
           "Deseja realizar apontamento de horas?",
-          "Ao alterar o status para Finalizado, a tarefa será concluída e não permitirá novos apontamentos. Deseja realizar um apontamento de horas antes de concluir?"
+          "Ao alterar o status para Finalizado, a tarefa será concluída e não permitirá novos apontamentos."
         );
         if (escolha === "cancelar") {
           selectStatusTopo.value = String(statusAnterior);
@@ -1356,7 +1364,8 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
         const anexoId = btn.dataset.id;
         const confirmado = await confirmarAcao(
           "Excluir este arquivo anexo?",
-          "Tem certeza que deseja remover este anexo? Esta ação não pode ser desfeita."
+          "Esta ação não pode ser desfeita.",
+          { textoConfirmar: "Excluir", tipo: "perigo" }
         );
         if (!confirmado) return;
         try {
@@ -1375,7 +1384,8 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
         const comentarioId = btn.dataset.id;
         const confirmado = await confirmarAcao(
           "Excluir este comentário?",
-          "Tem certeza que deseja remover este comentário? Esta ação não pode ser desfeita."
+          "Esta ação não pode ser desfeita.",
+          { textoConfirmar: "Excluir", tipo: "perigo" }
         );
         if (!confirmado) return;
         try {
@@ -1873,7 +1883,13 @@ async function renderAprovacao(chamado) {
         return;
       }
 
-      await carregarTudo();
+      if (corpo.decisao === "reprovado") {
+        try {
+          sessionStorage.setItem("workflow_toast_sucesso", "✓ Etapa reprovada com sucesso.");
+        } catch (_) {}
+        window.location.href = "/chamados";
+        return;
+      }
     } catch (e) {
       if (erro) {
         erro.textContent = e.message || "Falha ao processar decisão.";
@@ -1908,7 +1924,7 @@ async function renderAprovacao(chamado) {
     if (!ehChamadoMae && !finalizado) {
       const escolha = await confirmarPerguntaApontamento(
         "Deseja realizar apontamento de horas?",
-        "Ao aprovar, a etapa será finalizada e não permitirá novos apontamentos. Deseja realizar um apontamento de horas antes de concluir?"
+        "Ao aprovar, a etapa será finalizada e não permitirá novos apontamentos."
       );
       if (escolha === "cancelar") return;
       if (escolha === "sim") {
@@ -1945,7 +1961,7 @@ async function renderAprovacao(chamado) {
     if (!ehChamadoMae && !finalizado) {
       const escolha = await confirmarPerguntaApontamento(
         "Deseja realizar apontamento de horas?",
-        "Ao reprovar, a etapa será finalizada/cancelada e não permitirá novos apontamentos. Deseja realizar um apontamento de horas antes de concluir?"
+        "Ao reprovar, a etapa será cancelada e não permitirá novos apontamentos."
       );
       if (escolha === "cancelar") return;
       if (escolha === "sim") {

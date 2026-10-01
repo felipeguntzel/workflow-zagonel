@@ -217,11 +217,13 @@ export function confirmarPerguntaApontamento(titulo = "Deseja realizar apontamen
         ${ICONES.info}
       </div>
       <h3 class="modal-confirmacao__titulo">${titulo}</h3>
-      <p class="modal-confirmacao__mensagem" style="line-height: 1.5;">${mensagem || "Esta tarefa será finalizada e não permitirá apontamentos posteriores. Deseja realizar um apontamento de horas agora?"}</p>
-      <div class="modal-confirmacao__acoes" style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
-        <button type="button" class="btn btn-secundario modal-btn-cancelar" style="margin-right: auto;" title="Cancelar finalização e voltar">Cancelar</button>
-        <button type="button" class="btn btn-secundario modal-btn-nao" style="font-weight: 600;">Não</button>
-        <button type="button" class="btn btn-primario modal-btn-sim" style="font-weight: 600;">Sim</button>
+      <p class="modal-confirmacao__mensagem" style="line-height: 1.5;">${mensagem || "Esta tarefa será finalizada e não permitirá apontamentos posteriores."}</p>
+      <div class="modal-confirmacao__acoes modal-confirmacao__acoes--pergunta">
+        <button type="button" class="btn btn-secundario modal-btn-cancelar" title="Cancelar ação e voltar">Cancelar</button>
+        <div class="modal-confirmacao__botoes-resposta">
+          <button type="button" class="btn btn-secundario modal-btn-nao" style="font-weight: 600;">Não</button>
+          <button type="button" class="btn btn-primario modal-btn-sim" style="font-weight: 600;">Sim</button>
+        </div>
       </div>
     `;
 

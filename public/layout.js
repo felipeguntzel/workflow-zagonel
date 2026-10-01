@@ -417,7 +417,7 @@ function construirSidebar(usuario, modalBusca) {
     const { confirmarAcao, mostrarAviso } = await import("./modal.js");
     const confirmado = await confirmarAcao(
       "Encerrar outras sessões?",
-      "Deseja encerrar a sessão em todos os outros navegadores e dispositivos?",
+      "Isso desconectará sua conta em todos os outros navegadores e dispositivos.",
       {
         textoCancelar: "Cancelar",
         textoConfirmar: "Encerrar sessões",
