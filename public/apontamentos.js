@@ -354,7 +354,8 @@ function renderizarTabela(itens) {
       document.getElementById(`btn-excluir-apontamento-${item.id}`)?.addEventListener("click", async () => {
         const confirmado = await confirmarAcao(
           "Excluir apontamento de horas?",
-          `Deseja realmente remover o lançamento de ${item.horas}h da data ${formatarDataBR(item.data)}?`
+          `Lançamento de ${item.horas}h em ${formatarDataBR(item.data)}. Esta ação não pode ser desfeita.`,
+          { textoConfirmar: "Excluir", tipo: "perigo" }
         );
         if (!confirmado) return;
 

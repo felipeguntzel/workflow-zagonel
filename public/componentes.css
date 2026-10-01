@@ -201,6 +201,23 @@ a.btn {
   min-width: 140px;
 }
 
+.modal-confirmacao__acoes--pergunta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+}
+.modal-confirmacao__acoes--pergunta .modal-confirmacao__botoes-resposta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.modal-confirmacao__acoes--pergunta .btn {
+  min-width: 90px;
+  padding: 0.65rem 1.1rem;
+}
+
 @media (max-width: 480px) {
   .modal-confirmacao {
     width: calc(100vw - 1.25rem);
@@ -211,6 +228,20 @@ a.btn {
     gap: 0.5rem;
   }
   .modal-confirmacao__acoes .btn {
+    width: 100%;
+    min-width: 0;
+  }
+  .modal-confirmacao__acoes--pergunta {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+  .modal-confirmacao__acoes--pergunta .modal-confirmacao__botoes-resposta {
+    display: flex;
+    flex-direction: column-reverse;
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .modal-confirmacao__acoes--pergunta .btn {
     width: 100%;
     min-width: 0;
   }

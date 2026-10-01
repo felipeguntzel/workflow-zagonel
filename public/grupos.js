@@ -404,10 +404,10 @@ async function iniciar(container, mensagemErro) {
       }
       const sair = await confirmarAcao(
         "Deseja sair sem salvar?",
-        "Os dados informados foram alterados e ainda não foram salvos. Deseja realmente sair e descartar as alterações?",
+        "Os dados informados foram alterados e ainda não foram salvos. As alterações serão descartadas.",
         {
-          textoCancelar: "Não, continuar editando",
-          textoConfirmar: "Sim, descartar e sair",
+          textoCancelar: "Continuar editando",
+          textoConfirmar: "Descartar e sair",
           tipo: "aviso",
           focoPadrao: "cancelar",
         }

@@ -208,8 +208,8 @@ async function iniciarEditor(container) {
       const { confirmarAcao, mostrarAviso } = await import("./modal.js");
 
       const textoConfirmacao = nomeTab
-        ? `Deseja restaurar o contador de IDs (AUTOINCREMENT) da tabela "${nomeTab}"?\n\nCaso a tabela esteja vazia, o próximo registro inserido recomeçará com ID 1. Se possuir registros, continuará a partir do MAX(id)+1.`
-        : `Deseja restaurar os contadores de IDs (AUTOINCREMENT) de TODAS as tabelas do banco?\n\nTodas as tabelas que estiverem vazias recomeçarão com ID 1.`;
+        ? `Caso a tabela esteja vazia, o próximo registro recomeçará com ID 1. Se possuir registros, continuará a partir do MAX(id)+1.`
+        : `Todas as tabelas que estiverem vazias recomeçarão a numeração a partir do ID 1.`;
 
       const confirmado = await confirmarAcao(
         nomeTab ? `Restaurar IDs da tabela "${nomeTab}"?` : "Restaurar IDs de todas as tabelas?",
