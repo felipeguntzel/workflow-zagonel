@@ -8,7 +8,9 @@ import {
   badgeEtapaTipo,
   badgeStatus,
   situacaoPrazoBadge,
+  habilitarNavegacaoArrastoLateral,
 } from "./geral.js";
+
 
 test("formatarTituloEtapa combina etapa e chamado quando diferem", () => {
   assert.equal(
@@ -206,3 +208,87 @@ test("situacaoPrazoBadge exibe Cancelada quando status for cancelado ou cancelad
   assert.match(situacaoPrazoBadge("2026-09-20", "2026-09-29", "cancelado"), /✕ Cancelada/);
   assert.match(situacaoPrazoBadge("2026-09-20", "2026-09-29", "cancelada"), /✕ Cancelada/);
 });
+
+test("habilitarNavegacaoArrastoLateral permite arrastar horizontalmente com o botão direito", () => {
+  const listeners = new Map();
+  const wrap = {
+    classList: {
+      classes: new Set(["geral-bpmn-wrap"]),
+      contains(c) { return this.classes.has(c); },
+      add(c) { this.classes.add(c); },
+      remove(c) { this.classes.delete(c); },
+    },
+    scrollLeft: 100,
+  };
+
+  const container = {
+    classList: {
+      contains() { return false; },
+    },
+    querySelector(sel) {
+      if (sel === ".geral-bpmn-wrap") return wrap;
+      return null;
+    },
+    addEventListener(evt, fn) {
+      listeners.set(evt, fn);
+    },
+  };
+
+  const originalWindow = globalThis.window;
+  const winListeners = new Map();
+  globalThis.window = {
+    addEventListener(evt, fn) {
+      winListeners.set(evt, fn);
+    },
+    removeEventListener() {},
+  };
+
+  try {
+    const cleanup = habilitarNavegacaoArrastoLateral(container);
+    assert.equal(typeof cleanup, "function");
+
+    const onMouseDown = listeners.get("mousedown");
+    const onContextMenu = listeners.get("contextmenu");
+    const onMouseMove = winListeners.get("mousemove");
+    const onMouseUp = winListeners.get("mouseup");
+
+    assert.equal(typeof onMouseDown, "function");
+    assert.equal(typeof onContextMenu, "function");
+    assert.equal(typeof onMouseMove, "function");
+    assert.equal(typeof onMouseUp, "function");
+
+    // 1. Botão esquerdo (button 0) NÃO deve iniciar arrasto
+    let prevented = false;
+    onMouseDown({ button: 0, clientX: 200, preventDefault() { prevented = true; } });
+    assert.equal(wrap.classList.contains("bpmn-arrastando"), false);
+
+    // 2. Botão direito (button 2) deve iniciar arrasto
+    onMouseDown({ button: 2, clientX: 200, preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(wrap.classList.contains("bpmn-arrastando"), true);
+
+    // 3. Mover mouse para a esquerda (clientX 150 -> deltaX -50) deve rolar para a direita (scrollLeft = 100 - (-50) = 150)
+    onMouseMove({ clientX: 150 });
+    assert.equal(wrap.scrollLeft, 150);
+
+    // 4. Mover mouse para a direita (clientX 250 -> deltaX +50) deve rolar para a esquerda (scrollLeft = 100 - 50 = 50)
+    onMouseMove({ clientX: 250 });
+    assert.equal(wrap.scrollLeft, 50);
+
+    // 5. Contextmenu é prevenido
+    let cmPrevented = false;
+    let cmStopped = false;
+    onContextMenu({ preventDefault() { cmPrevented = true; }, stopPropagation() { cmStopped = true; } });
+    assert.equal(cmPrevented, true);
+    assert.equal(cmStopped, true);
+
+    // 6. Soltar botão direito encerra arrasto
+    onMouseUp({ button: 2 });
+    assert.equal(wrap.classList.contains("bpmn-arrastando"), false);
+
+    cleanup();
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+

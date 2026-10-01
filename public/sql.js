@@ -450,9 +450,15 @@ function abrirModalEsquema() {
       <div class="modal-cadastro" style="max-width: 720px;">
         <div class="modal-cabecalho">
           <h3>Estrutura das Tabelas (Esquema do Banco)</h3>
-          <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
+          <div class="modal-acoes-topo">
+            <button type="button" class="modal-btn-topo btn-toggle-tela-cheia" title="Alternar entre tela cheia e janela padrão" aria-label="Alternar tela cheia">
+              <span class="icone-tela-cheia">⛶</span>
+              <span class="texto-tela-cheia">Tela cheia</span>
+            </button>
+            <button type="button" class="modal-fechar" aria-label="Fechar">✕</button>
+          </div>
         </div>
-        <div style="padding: 1.25rem;">
+        <div class="modal-corpo-esquema" style="padding: 1.25rem;">
           <input
             type="search"
             id="busca-modal-esquema"
@@ -473,12 +479,38 @@ function abrirModalEsquema() {
   `;
 
   const fundo = modalWrap.querySelector(".modal-fundo");
+  const modalCadastro = modalWrap.querySelector(".modal-cadastro");
+  const cabecalho = modalWrap.querySelector(".modal-cabecalho");
   const btnFechar = modalWrap.querySelector(".modal-fechar");
   const btnFecharRodape = modalWrap.querySelector(".btn-fechar-esquema");
+  const btnTelaCheia = modalWrap.querySelector(".btn-toggle-tela-cheia");
+  const iconeTelaCheia = btnTelaCheia?.querySelector(".icone-tela-cheia");
+  const textoTelaCheia = btnTelaCheia?.querySelector(".texto-tela-cheia");
   const buscaInp = modalWrap.querySelector("#busca-modal-esquema");
   const listaEl = modalWrap.querySelector("#lista-modal-esquema");
 
+  function alternarTelaCheia() {
+    if (!modalCadastro) return;
+    const telaCheiaAtiva = modalCadastro.classList.toggle("modal-cadastro--tela-cheia");
+    if (iconeTelaCheia) iconeTelaCheia.textContent = telaCheiaAtiva ? "🗗" : "⛶";
+    if (textoTelaCheia) textoTelaCheia.textContent = telaCheiaAtiva ? "Restaurar" : "Tela cheia";
+  }
+
+  btnTelaCheia?.addEventListener("click", alternarTelaCheia);
+  cabecalho?.addEventListener("dblclick", (e) => {
+    if (e.target.closest("button")) return;
+    alternarTelaCheia();
+  });
+
+  function tratarKeyDown(e) {
+    if (e.key === "Escape") {
+      fechar();
+    }
+  }
+  window.addEventListener("keydown", tratarKeyDown);
+
   function fechar() {
+    window.removeEventListener("keydown", tratarKeyDown);
     modalWrap.innerHTML = "";
   }
 

@@ -1450,6 +1450,20 @@ a.btn:active {
 .modal-cadastro--tela-cheia .modal-corpo-acoes .multiselect-caixa {
   max-height: 220px !important;
 }
+.modal-cadastro--tela-cheia .modal-corpo-esquema {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 1rem 0 !important;
+}
+.modal-cadastro--tela-cheia #lista-modal-esquema {
+  flex: 1;
+  max-height: none !important;
+  min-height: 0;
+}
+
 
 /* Botões do cabeçalho do modal */
 .modal-acoes-topo {
