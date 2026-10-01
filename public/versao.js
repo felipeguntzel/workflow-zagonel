@@ -1,9 +1,10 @@
 /**
  * Gerenciamento de Versão, Atualização Automática e Limpeza de Cache (WorkFlow Zagonel)
  */
-export const VERSAO_CLIENTE = "2.5.1";
+export const VERSAO_CLIENTE = "2.5.2";
 export const DATA_VERSAO_CLIENTE = "01/10/2026";
-export const HORA_VERSAO_CLIENTE = "11:35";
+export const HORA_VERSAO_CLIENTE = "11:40";
+
 
 export const DATA_HORA_VERSAO_CLIENTE = `${DATA_VERSAO_CLIENTE} às ${HORA_VERSAO_CLIENTE}`;
 const CHAVE_VERSAO_LOCAL = "workflow_versao_instalada";
