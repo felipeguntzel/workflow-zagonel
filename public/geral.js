@@ -360,9 +360,10 @@ function renderizarVisaoHorizontal(container, nos) {
           <span>🔴 Fim</span>
         </span>
       </div>
-      <span style="font-size: 0.78rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.15rem 0.45rem; border-radius: 4px;">
-        ↔️ Arraste para o lado para navegar no fluxo
+      <span style="font-size: 0.78rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); padding: 0.15rem 0.45rem; border-radius: 4px;" title="Clique e segure com o botão direito do mouse para arrastar para os lados">
+        🖱️ Arraste com o botão direito para navegar no fluxo
       </span>
+
     </div>
 
     <div class="geral-bpmn-wrap">
@@ -504,6 +505,100 @@ function vincularEventosInterativos(container) {
       { once: true }
     );
   });
+
+  // 3. Navegação lateral arrastando com o botão direito do mouse
+  habilitarNavegacaoArrastoLateral(container);
+}
+
+export function habilitarNavegacaoArrastoLateral(container) {
+  if (!container) return () => {};
+
+  const wrap = container.classList?.contains("geral-bpmn-wrap")
+    ? container
+    : container.querySelector?.(".geral-bpmn-wrap");
+
+  if (!wrap) return () => {};
+
+  if (container._dragAbortController) {
+    try {
+      container._dragAbortController.abort();
+    } catch (_) {}
+  }
+
+  const ac = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const signal = ac ? ac.signal : undefined;
+  container._dragAbortController = ac;
+
+  let isDragging = false;
+  let startX = 0;
+  let scrollStartLeft = 0;
+
+  const onMouseDown = (e) => {
+    // Permite arrastar com o botão direito (2) ou botão central (1)
+    if (e.button !== 2 && e.button !== 1) return;
+
+    isDragging = true;
+    startX = e.clientX;
+    scrollStartLeft = wrap.scrollLeft || 0;
+
+    wrap.classList.add("bpmn-arrastando");
+    if (typeof document !== "undefined" && document.body) {
+      document.body.classList.add("bpmn-arrastando-global");
+    }
+
+    if (e.preventDefault) e.preventDefault();
+  };
+
+  const onMouseMove = (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    wrap.scrollLeft = scrollStartLeft - dx;
+  };
+
+  const onMouseUp = (e) => {
+    if ((e.button === 2 || e.button === 1) && isDragging) {
+      isDragging = false;
+      wrap.classList.remove("bpmn-arrastando");
+      if (typeof document !== "undefined" && document.body) {
+        document.body.classList.remove("bpmn-arrastando-global");
+      }
+    }
+  };
+
+  const onContextMenu = (e) => {
+    // Previne menu de contexto ao arrastar ou interagir com botão direito no fluxo
+    if (e.preventDefault) e.preventDefault();
+    if (e.stopPropagation) e.stopPropagation();
+    return false;
+  };
+
+  const onBlur = () => {
+    if (isDragging) {
+      isDragging = false;
+      wrap.classList.remove("bpmn-arrastando");
+      if (typeof document !== "undefined" && document.body) {
+        document.body.classList.remove("bpmn-arrastando-global");
+      }
+    }
+  };
+
+  container.addEventListener("mousedown", onMouseDown, signal ? { capture: true, signal } : { capture: true });
+  container.addEventListener("contextmenu", onContextMenu, signal ? { capture: true, signal } : { capture: true });
+
+  const win = typeof window !== "undefined" ? window : null;
+  if (win) {
+    win.addEventListener("mousemove", onMouseMove, signal ? { signal } : false);
+    win.addEventListener("mouseup", onMouseUp, signal ? { signal } : false);
+    win.addEventListener("blur", onBlur, signal ? { signal } : false);
+  }
+
+  return () => {
+    if (ac) ac.abort();
+    wrap.classList.remove("bpmn-arrastando");
+    if (typeof document !== "undefined" && document.body) {
+      document.body.classList.remove("bpmn-arrastando-global");
+    }
+  };
 }
 
 function configurarControlesTopo() {

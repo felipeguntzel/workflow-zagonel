@@ -2285,7 +2285,17 @@ th.th-drop-alvo {
   overflow-y: hidden;
   padding: 0;
   position: relative;
+  scrollbar-width: thin;
 }
+
+.geral-bpmn-wrap.bpmn-arrastando,
+body.bpmn-arrastando-global,
+body.bpmn-arrastando-global * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
 
 .geral-bpmn-tabela {
   width: 100%;
