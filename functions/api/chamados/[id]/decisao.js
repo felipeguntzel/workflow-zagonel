@@ -184,7 +184,7 @@ export async function onRequestPost(context) {
         usuario_id: usuario.id,
         usuario_nome: usuario.nome,
         acao: "criacao_subchamado",
-        detalhes: `Etapa "${nomeFilho}" iniciada pela aprovação da etapa "${etapaNome}".`
+        detalhes: `Atividade "${nomeFilho}" criada pela aprovação da etapa "${etapaNome}".`
       });
     }
 

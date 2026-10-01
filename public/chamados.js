@@ -282,13 +282,23 @@ function renderizarTabela() {
           .map((c) => {
             const ehChamadoInicial = !c.chamado_mae_id || c.chamado_mae_id === 0;
 
-            // Regra: apontamento não é liberado no chamado inicial; nas demais etapas, requer ser admin ou responsável
+            // Regra: apontamento não é liberado no chamado inicial; nas demais etapas, requer não estar finalizado e ser admin ou responsável
             let btnApontarHtml = "";
             if (!ehChamadoInicial) {
-              const podeApontar = ehAdmin || (c.responsavel_id && Number(c.responsavel_id) === Number(usuarioLogado.id));
-              btnApontarHtml = podeApontar
-                ? `<button type="button" class="btn btn-secundario btn-apontar-tabela" data-chamado-id="${c.id}" data-chamado-titulo="${escaparAtributo(c.titulo || '')}" title="Lançar horas neste chamado">⏱️ Apontar</button>`
-                : `<button type="button" class="btn btn-secundario btn-apontar-tabela" disabled style="opacity: 0.35; cursor: not-allowed;" title="Apenas o responsável pela atividade ou um administrador pode realizar apontamentos">⏱️ Apontar</button>`;
+              const statusNome = String(c.status_etapa_nome || c.status_nome || "").toLowerCase();
+              const ehFinalizadoOuCancelado = Boolean(
+                c.data_finalizacao ||
+                statusNome === "finalizado" ||
+                statusNome === "cancelado"
+              );
+              if (ehFinalizadoOuCancelado) {
+                btnApontarHtml = `<button type="button" class="btn btn-secundario btn-apontar-tabela" disabled style="opacity: 0.35; cursor: not-allowed;" title="Não é permitido apontar horas em chamado finalizado">⏱️ Apontar</button>`;
+              } else {
+                const podeApontar = ehAdmin || (c.responsavel_id && Number(c.responsavel_id) === Number(usuarioLogado.id));
+                btnApontarHtml = podeApontar
+                  ? `<button type="button" class="btn btn-secundario btn-apontar-tabela" data-chamado-id="${c.id}" data-chamado-titulo="${escaparAtributo(c.titulo || '')}" title="Lançar horas neste chamado">⏱️ Apontar</button>`
+                  : `<button type="button" class="btn btn-secundario btn-apontar-tabela" disabled style="opacity: 0.35; cursor: not-allowed;" title="Apenas o responsável pela atividade ou um administrador pode realizar apontamentos">⏱️ Apontar</button>`;
+              }
             }
 
             // Visão padrão da solicitação inicial é a Visão Geral

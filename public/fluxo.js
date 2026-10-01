@@ -948,8 +948,8 @@ async function iniciar(container, mensagemErro) {
                     <div>
                       <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Vínculo *</label>
                       <select name="vinculo" required style="width: 100%;">
+                        <option value="pai" ${!acaoEmEdicao || acaoEmEdicao.vinculo === "pai" ? "selected" : ""}>Chamado pai (imediato)</option>
                         <option value="mae" ${acaoEmEdicao && acaoEmEdicao.vinculo === "mae" ? "selected" : ""}>Chamado mãe (raiz)</option>
-                        <option value="pai" ${acaoEmEdicao && acaoEmEdicao.vinculo === "pai" ? "selected" : ""}>Chamado pai (imediato)</option>
                       </select>
                     </div>
                     <div>

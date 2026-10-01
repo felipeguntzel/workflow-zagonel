@@ -195,3 +195,65 @@ export function mostrarAviso(mensagem, titulo = "Aviso", tipo = "info", textoBot
     btnOk.focus();
   });
 }
+
+/**
+ * Exibe confirmação antes de finalizar/aprovar/reprovar:
+ * Pergunta se o usuário deseja realizar um apontamento de horas.
+ * Retorna: "sim", "nao" ou "cancelar".
+ */
+export function confirmarPerguntaApontamento(titulo = "Deseja realizar apontamento de horas?", mensagem = "") {
+  return new Promise((resolve) => {
+    const fundo = document.createElement("div");
+    fundo.className = "modal-fundo modal-fundo--confirmacao";
+    fundo.setAttribute("role", "dialog");
+    fundo.setAttribute("aria-modal", "true");
+
+    const modal = document.createElement("div");
+    modal.className = "modal-confirmacao";
+    modal.style.maxWidth = "460px";
+
+    modal.innerHTML = `
+      <div class="modal-confirmacao__icone modal-confirmacao__icone--info" style="color: var(--cor-primaria);">
+        ${ICONES.info}
+      </div>
+      <h3 class="modal-confirmacao__titulo">${titulo}</h3>
+      <p class="modal-confirmacao__mensagem" style="line-height: 1.5;">${mensagem || "Esta tarefa será finalizada e não permitirá apontamentos posteriores. Deseja realizar um apontamento de horas agora?"}</p>
+      <div class="modal-confirmacao__acoes" style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secundario modal-btn-cancelar" style="margin-right: auto;" title="Cancelar finalização e voltar">Cancelar</button>
+        <button type="button" class="btn btn-secundario modal-btn-nao" style="font-weight: 600;">Não</button>
+        <button type="button" class="btn btn-primario modal-btn-sim" style="font-weight: 600;">Sim</button>
+      </div>
+    `;
+
+    fundo.appendChild(modal);
+    document.body.appendChild(fundo);
+
+    let resolvido = false;
+
+    function fechar(resultado) {
+      if (resolvido) return;
+      resolvido = true;
+      window.removeEventListener("keydown", tratarKeyDown);
+      fundo.classList.add("modal-fundo--fechando");
+      setTimeout(() => {
+        fundo.remove();
+      }, 120);
+      resolve(resultado);
+    }
+
+    function tratarKeyDown(ev) {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        fechar("cancelar");
+      }
+    }
+    window.addEventListener("keydown", tratarKeyDown);
+
+    modal.querySelector(".modal-btn-cancelar")?.addEventListener("click", () => fechar("cancelar"));
+    modal.querySelector(".modal-btn-nao")?.addEventListener("click", () => fechar("nao"));
+    modal.querySelector(".modal-btn-sim")?.addEventListener("click", () => fechar("sim"));
+
+    modal.querySelector(".modal-btn-sim")?.focus();
+  });
+}
+

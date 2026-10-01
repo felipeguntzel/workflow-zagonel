@@ -283,7 +283,7 @@ export async function onRequestPost(context) {
         usuario_id: null,
         usuario_nome: "Sistema",
         acao: "criacao_subchamado",
-        detalhes: `Etapa "${nomeFilho}" iniciada automaticamente pelo fluxo.`
+        detalhes: `Atividade "${nomeFilho}" criada de forma automática pelo fluxo.`
       });
     }
 

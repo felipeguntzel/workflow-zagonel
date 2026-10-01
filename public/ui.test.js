@@ -121,11 +121,12 @@ test("calcularMenorIdDisponivel reutiliza menor ID vago e lida com objetos", asy
   assert.equal(calcularMenorIdDisponivel([{ id: 1 }, { id: 3 }]), 2);
 });
 
-test("modal.js exporta confirmarAcao, mostrarAviso e abrirModal", async () => {
-  const { confirmarAcao, mostrarAviso, abrirModal } = await import("./modal.js");
+test("modal.js exporta confirmarAcao, mostrarAviso, abrirModal e confirmarPerguntaApontamento", async () => {
+  const { confirmarAcao, mostrarAviso, abrirModal, confirmarPerguntaApontamento } = await import("./modal.js");
   assert.equal(typeof confirmarAcao, "function");
   assert.equal(typeof mostrarAviso, "function");
   assert.equal(typeof abrirModal, "function");
+  assert.equal(typeof confirmarPerguntaApontamento, "function");
 });
 
 test("formatarDataBR converte YYYY-MM-DD para DD/MM/AAAA", async () => {

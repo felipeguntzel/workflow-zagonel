@@ -67,6 +67,13 @@ export async function onRequestPost(context) {
   const chamado = await first(context.env.DB, "SELECT * FROM chamados WHERE id = ?", context.params.id);
   if (!chamado) return error("Chamado não encontrado", 404);
 
+  // Validação: não permitir apontamento de horas se o chamado já foi finalizado
+  const status = chamado.status_id ? await first(context.env.DB, "SELECT nome FROM status WHERE id = ?", chamado.status_id) : null;
+  const statusNome = String(status?.nome || "").toLowerCase();
+  if (chamado.data_finalizacao || statusNome === "finalizado" || statusNome === "cancelado") {
+    return error("Não é permitido apontar horas em um chamado finalizado.", 400);
+  }
+
   // Validação: só permitir apontamento se o usuário for administrador ou for o usuário responsável pela atividade
   const ehAdmin = usuario.admin === 1 || usuario.admin === true;
   let ehResponsavel = chamado.responsavel_id === usuario.id;
