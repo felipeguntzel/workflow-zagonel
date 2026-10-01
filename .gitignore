@@ -3,3 +3,7 @@
 .superpowers/
 .dev.vars
 node_modules/
+dump_*.sql
+*.db
+dist/
+
