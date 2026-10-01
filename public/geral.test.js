@@ -38,6 +38,40 @@ test("construirArvore organiza chamados em hierarquia de pais e filhos", () => {
   assert.equal(raizes[0].filhos[0].filhos[0].id, 3);
 });
 
+test("construirArvore encadeia etapas sequenciais deslocando cada etapa para a direita quando filhas apontavam para a raiz", () => {
+  const nos = [
+    { id: 22, chamado_pai_id: null, titulo: "Solicitação Inicial" },
+    { id: 23, chamado_pai_id: 22, titulo: "Aprovação - Projetos" },
+    { id: 24, chamado_pai_id: 22, titulo: "Aprovação - Desenvolvimento" },
+    { id: 25, chamado_pai_id: 22, titulo: "Criar Produto/ Ficha" },
+    { id: 26, chamado_pai_id: 22, titulo: "Desenvolver Roteiro" },
+  ];
+
+  const raizes = construirArvore(nos);
+  assert.equal(raizes.length, 1);
+  assert.equal(raizes[0].id, 22);
+
+  // Nível 1: etapa 23 (filho de 22)
+  assert.equal(raizes[0].filhos.length, 1);
+  const etapa23 = raizes[0].filhos[0];
+  assert.equal(etapa23.id, 23);
+
+  // Nível 2: etapa 24 (filho de 23, deslocado à direita)
+  assert.equal(etapa23.filhos.length, 1);
+  const etapa24 = etapa23.filhos[0];
+  assert.equal(etapa24.id, 24);
+
+  // Nível 3: etapa 25 (filho de 24, deslocado à direita)
+  assert.equal(etapa24.filhos.length, 1);
+  const etapa25 = etapa24.filhos[0];
+  assert.equal(etapa25.id, 25);
+
+  // Nível 4: etapa 26 (filho de 25, deslocado à direita)
+  assert.equal(etapa25.filhos.length, 1);
+  const etapa26 = etapa25.filhos[0];
+  assert.equal(etapa26.id, 26);
+});
+
 test("calcularEstruturaBpmn organiza setores e fases da esquerda para a direita", () => {
   const nos = [
     { id: 10, chamado_pai_id: null, setor_id: 1, setor_nome: "Comercial", titulo: "Pedido Inicial" },
@@ -61,6 +95,37 @@ test("calcularEstruturaBpmn organiza setores e fases da esquerda para a direita"
   assert.equal(no10.nivel, 0);
   assert.equal(no20.nivel, 1);
   assert.equal(no30.nivel, 2);
+});
+
+test("calcularEstruturaBpmn desloca cada etapa para a direita na visão horizontal (fase 1, 2, 3, 4)", () => {
+  const nos = [
+    { id: 22, chamado_pai_id: null, setor_id: 1, setor_nome: "Comercial Aquecimento", titulo: "Solicitação Inicial" },
+    { id: 23, chamado_pai_id: 22, setor_id: 2, setor_nome: "Gestão de Projetos", titulo: "Aprovação - Projetos" },
+    { id: 24, chamado_pai_id: 22, setor_id: 3, setor_nome: "Desenvolvimento Produto", titulo: "Aprovação - Desenvolvimento" },
+    { id: 25, chamado_pai_id: 22, setor_id: 4, setor_nome: "Engenharia de Produto", titulo: "Criar Produto/ Ficha" },
+    { id: 26, chamado_pai_id: 22, setor_id: 5, setor_nome: "Engenharia de Processos", titulo: "Roteiro de Produção" },
+  ];
+
+  const { totalFases, nosProcessados } = calcularEstruturaBpmn(nos);
+
+  assert.equal(totalFases, 5);
+
+  const no22 = nosProcessados.find((n) => n.id === 22);
+  const no23 = nosProcessados.find((n) => n.id === 23);
+  const no24 = nosProcessados.find((n) => n.id === 24);
+  const no25 = nosProcessados.find((n) => n.id === 25);
+  const no26 = nosProcessados.find((n) => n.id === 26);
+
+  // Fase 1: solicitação inicial
+  assert.equal(no22.nivel, 0);
+  // Fase 2: aprovação projetos
+  assert.equal(no23.nivel, 1);
+  // Fase 3: aprovação desenvolvimento
+  assert.equal(no24.nivel, 2);
+  // Fase 4: criar produto/ ficha
+  assert.equal(no25.nivel, 3);
+  // Fase 5: roteiro de produção
+  assert.equal(no26.nivel, 4);
 });
 
 test("renderHtmlCardEtapa gera card recolhido por padrão com título, aprovação e status", () => {

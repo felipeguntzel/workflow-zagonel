@@ -133,7 +133,7 @@ export async function listarAuditoriaDoChamado(db, chamadoMaeId) {
         const idOrigem = Number(matchAprovacaoSub[2]);
         const nomeFilho = mapa.get(idFilho)?.etapaNome || `Etapa #${idFilho}`;
         const nomeOrigem = mapa.get(idOrigem)?.etapaNome || `Etapa #${idOrigem}`;
-        detalhes = `Etapa "${nomeFilho}" iniciada pela aprovação da etapa "${nomeOrigem}".`;
+        detalhes = `Atividade "${nomeFilho}" criada pela aprovação da etapa "${nomeOrigem}".`;
       }
 
       // 4. "Subchamado #X gerado automaticamente pelo fluxo"
@@ -141,10 +141,22 @@ export async function listarAuditoriaDoChamado(db, chamadoMaeId) {
       if (matchAutoSub) {
         const idFilho = Number(matchAutoSub[1]);
         const nomeFilho = mapa.get(idFilho)?.etapaNome || `Etapa #${idFilho}`;
-        detalhes = `Etapa "${nomeFilho}" iniciada automaticamente pelo fluxo.`;
+        detalhes = `Atividade "${nomeFilho}" criada de forma automática pelo fluxo.`;
       }
 
-      // 5. Remover "(Chamado #X)" se presente no texto para manter a leitura limpa e descritiva
+      // 5. Normalizar descrições existentes que mencionavam etapa iniciada
+      if (detalhes.includes("iniciada automaticamente pelo fluxo") || detalhes.includes("criada automaticamente pelo fluxo")) {
+        detalhes = detalhes
+          .replace(/^Etapa\s+/i, "Atividade ")
+          .replace(/iniciada automaticamente pelo fluxo|criada automaticamente pelo fluxo/i, "criada de forma automática pelo fluxo");
+      }
+      if (detalhes.includes("iniciada pela aprovação da etapa")) {
+        detalhes = detalhes
+          .replace(/^Etapa\s+/i, "Atividade ")
+          .replace("iniciada pela aprovação da etapa", "criada pela aprovação da etapa");
+      }
+
+      // 6. Remover "(Chamado #X)" se presente no texto para manter a leitura limpa e descritiva
       detalhes = detalhes.replace(/\s*\(Chamado #\d+\)/g, "");
 
       return {

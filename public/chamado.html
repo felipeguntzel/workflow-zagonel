@@ -64,15 +64,15 @@
 
   <!-- Card 4: Histórico Unificado de Auditoria -->
   <section id="card-historico-auditoria" class="painel painel-chamado">
-    <div id="cabecalho-historico" class="painel-chamado-cabecalho">
+    <div id="cabecalho-historico" class="painel-chamado-cabecalho painel-chamado-cabecalho--recolhido">
       <div class="cabecalho-lado-esquerdo">
         <h2 class="cabecalho-titulo">📜 Histórico Unificado de Ações</h2>
       </div>
       <div class="cabecalho-lado-direito">
-        <button type="button" id="btn-recolher-historico" class="btn btn-secundario btn-acao-cabecalho btn-recolher-card" title="Recolher / Expandir">▲ Recolher</button>
+        <button type="button" id="btn-recolher-historico" class="btn btn-secundario btn-acao-cabecalho btn-recolher-card" title="Recolher / Expandir">▼ Expandir</button>
       </div>
     </div>
-    <div id="historico-auditoria-wrap" style="max-height: 280px; overflow-y: auto; padding-right: 0.5rem;">
+    <div id="historico-auditoria-wrap" style="max-height: 280px; overflow-y: auto; padding-right: 0.5rem; display: none;">
       <ul id="lista-historico-auditoria" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;"></ul>
     </div>
   </section>

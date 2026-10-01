@@ -88,8 +88,36 @@ export function badgeEtapaTipo(tipo) {
   return `<span class="badge-status badge-legenda" style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; font-weight: 600; font-size: 0.78rem; padding: 0.15rem 0.45rem;">📋 Tarefa</span>`;
 }
 
+export function normalizarHierarquiaNos(nos) {
+  if (!nos || nos.length === 0) return [];
+  const raiz = nos.find((n) => !n.chamado_pai_id && !n.chamado_mae_id) || nos[0];
+  if (!raiz) return nos;
+  const raizId = raiz.id;
+
+  const subchamadosRaiz = nos.filter((n) => n.id !== raizId && (!n.chamado_pai_id || n.chamado_pai_id === raizId));
+  const temSubchamadosComPaiEspecifico = nos.some(
+    (n) => n.id !== raizId && n.chamado_pai_id && n.chamado_pai_id !== raizId
+  );
+
+  // Se todos os subchamados apontavam diretamente para a raiz (legado do vinculo='mae')
+  // encadeia-os na ordem sequencial de criação para que cada etapa se desloque para a direita
+  if (subchamadosRaiz.length > 1 && !temSubchamadosComPaiEspecifico) {
+    const ordenados = [...subchamadosRaiz].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+    let anteriorId = raizId;
+    const mapaPais = new Map();
+    for (const sub of ordenados) {
+      mapaPais.set(sub.id, anteriorId);
+      anteriorId = sub.id;
+    }
+    return nos.map((n) => (mapaPais.has(n.id) ? { ...n, chamado_pai_id: mapaPais.get(n.id) } : n));
+  }
+
+  return nos;
+}
+
 export function construirArvore(nos) {
-  const porId = new Map(nos.map((n) => [n.id, { ...n, filhos: [] }]));
+  const nosNormalizados = normalizarHierarquiaNos(nos);
+  const porId = new Map(nosNormalizados.map((n) => [n.id, { ...n, filhos: [] }]));
   const raizes = [];
   for (const no of porId.values()) {
     if (no.chamado_pai_id && porId.has(no.chamado_pai_id)) {
@@ -106,19 +134,20 @@ export function calcularEstruturaBpmn(nos) {
     return { setores: [], totalFases: 0, nosProcessados: [], raizId: null };
   }
 
-  const porId = new Map(nos.map((n) => [n.id, { ...n, filhos: [] }]));
+  const nosNormalizados = normalizarHierarquiaNos(nos);
+  const porId = new Map(nosNormalizados.map((n) => [n.id, { ...n, filhos: [] }]));
   for (const n of porId.values()) {
     if (n.chamado_pai_id && porId.has(n.chamado_pai_id)) {
       porId.get(n.chamado_pai_id).filhos.push(n);
     }
   }
 
-  const raiz = nos.find((n) => !n.chamado_pai_id && !n.chamado_mae_id) || nos[0];
+  const raiz = nosNormalizados.find((n) => !n.chamado_pai_id && !n.chamado_mae_id) || nosNormalizados[0];
 
   function atribuirNivel(no, nivel) {
-    no.nivel = nivel;
+    no.nivel = Math.max(no.nivel ?? 0, nivel);
     for (const f of no.filhos) {
-      atribuirNivel(f, nivel + 1);
+      atribuirNivel(f, (no.nivel ?? 0) + 1);
     }
   }
 
@@ -130,7 +159,36 @@ export function calcularEstruturaBpmn(nos) {
     }
   }
 
-  const nosProcessados = Array.from(porId.values());
+  // Garantir que cada etapa subsequente no fluxo avance de fase (desloque para a direita na visão horizontal)
+  const nosProcessados = Array.from(porId.values()).sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+  let nivelMinimo = 0;
+  for (let i = 0; i < nosProcessados.length; i++) {
+    const n = nosProcessados[i];
+    if (n.id === raiz.id) {
+      n.nivel = 0;
+      continue;
+    }
+
+    const anterior = i > 0 ? nosProcessados[i - 1] : null;
+    const saoIrmaosMesmoPai =
+      anterior &&
+      n.chamado_pai_id &&
+      anterior.chamado_pai_id &&
+      n.chamado_pai_id === anterior.chamado_pai_id &&
+      n.chamado_pai_id !== raiz.id;
+
+    if (saoIrmaosMesmoPai) {
+      // Subetapas irmãs criadas em paralelo pelo mesmo chamado pai compartilham a mesma fase
+      n.nivel = anterior.nivel;
+    } else {
+      // Etapas sequenciais avançam para a próxima fase (deslocando para a direita)
+      if ((n.nivel ?? 0) <= nivelMinimo) {
+        n.nivel = nivelMinimo + 1;
+      }
+    }
+    nivelMinimo = Math.max(nivelMinimo, n.nivel);
+  }
+
   const maxNivel = Math.max(0, ...nosProcessados.map((n) => n.nivel ?? 0));
   const totalFases = maxNivel + 1;
 
@@ -512,6 +570,23 @@ function configurarControlesTopo() {
       d.open = false;
     });
   });
+
+  const btnRecolherHistorico = document.getElementById("btn-recolher-historico");
+  const cabecalhoHistorico = document.getElementById("cabecalho-historico");
+  const wrapHistorico = document.getElementById("historico-auditoria-wrap");
+  if (btnRecolherHistorico) {
+    let historicoRecolhido = false; // Na visão geral, inicia expandido
+    btnRecolherHistorico.addEventListener("click", () => {
+      historicoRecolhido = !historicoRecolhido;
+      if (wrapHistorico) {
+        wrapHistorico.style.display = historicoRecolhido ? "none" : "";
+      }
+      if (cabecalhoHistorico) {
+        cabecalhoHistorico.classList.toggle("painel-chamado-cabecalho--recolhido", historicoRecolhido);
+      }
+      btnRecolherHistorico.textContent = historicoRecolhido ? "▼ Expandir" : "▲ Recolher";
+    });
+  }
 
   atualizarBotoesOrientacao();
 }

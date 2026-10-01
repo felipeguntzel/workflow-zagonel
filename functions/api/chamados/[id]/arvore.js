@@ -1,4 +1,4 @@
-import { all, first } from "../../../_lib/db.js";
+import { all, first, run } from "../../../_lib/db.js";
 import { json, error } from "../../../_lib/http.js";
 import { obterUsuarioDaRequisicao } from "../../../_lib/permissoes.js";
 
@@ -39,5 +39,31 @@ export async function onRequestGet(context) {
     raizId,
     raizId
   );
+
+  // Normalizar encadeamento se subchamados tiverem sido gravados com chamado_pai_id apontando para a raiz
+  if (nos && nos.length > 2) {
+    const subchamados = nos.filter((n) => n.id !== raizId);
+    const todosApontamParaRaiz = subchamados.every(
+      (n) => !n.chamado_pai_id || n.chamado_pai_id === raizId
+    );
+
+    if (todosApontamParaRaiz) {
+      let anteriorId = raizId;
+      for (const sub of subchamados) {
+        if (anteriorId !== raizId && sub.chamado_pai_id !== anteriorId) {
+          sub.chamado_pai_id = anteriorId;
+          await run(
+            context.env.DB,
+            "UPDATE chamados SET chamado_pai_id = ? WHERE id = ?",
+            anteriorId,
+            sub.id
+          ).catch(() => {});
+        }
+        anteriorId = sub.id;
+      }
+    }
+  }
+
   return json(nos);
 }
+

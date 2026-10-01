@@ -6,6 +6,7 @@ import {
   verificarMesFechado,
   validarPermissaoAlteracaoApontamento,
 } from "./apontamentos.js";
+import { hojeISO } from "./chamados.js";
 
 test("calcularDataFechamentoMes retorna o dia 01 do mês subsequente", () => {
   assert.equal(calcularDataFechamentoMes("2026-08"), "2026-09-01");
@@ -59,7 +60,7 @@ test("validarPermissaoAlteracaoApontamento bloqueia usuário comum em mês fecha
   const checagemAdmin = await validarPermissaoAlteracaoApontamento(mockDb, "2026-08-15", usuarioAdmin);
   assert.equal(checagemAdmin.permitido, true);
 
-  // Mês aberto (2026-09 com data de hoje) é permitido para usuário comum
-  const checagemAberto = await validarPermissaoAlteracaoApontamento(mockDb, "2026-09-25", usuarioComum);
+  // Mês aberto (mês atual com data de hoje) é permitido para usuário comum
+  const checagemAberto = await validarPermissaoAlteracaoApontamento(mockDb, hojeISO(), usuarioComum);
   assert.equal(checagemAberto.permitido, true);
 });

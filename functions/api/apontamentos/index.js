@@ -185,7 +185,7 @@ export async function onRequestPost(context) {
   }
 
   // Verifica se o chamado existe
-  const chamado = await first(db, "SELECT id, chamado_mae_id, titulo, responsavel_id FROM chamados WHERE id = ?", body.chamado_id);
+  const chamado = await first(db, "SELECT id, chamado_mae_id, titulo, responsavel_id, status_id, data_finalizacao FROM chamados WHERE id = ?", body.chamado_id);
   if (!chamado) {
     return error("Chamado não encontrado", 404);
   }
@@ -194,6 +194,13 @@ export async function onRequestPost(context) {
   const ehChamadoInicial = !chamado.chamado_mae_id || chamado.chamado_mae_id === 0;
   if (ehChamadoInicial) {
     return error("Apontamento de horas não é permitido na solicitação inicial. As horas devem ser apontadas nas etapas e atividades do fluxo.", 400);
+  }
+
+  // Validação: não permitir apontamento de horas se o chamado já foi finalizado
+  const status = chamado.status_id ? await first(db, "SELECT nome FROM status WHERE id = ?", chamado.status_id) : null;
+  const statusNome = String(status?.nome || "").toLowerCase();
+  if (chamado.data_finalizacao || statusNome === "finalizado" || statusNome === "cancelado") {
+    return error("Não é permitido apontar horas em um chamado finalizado.", 400);
   }
 
   // Validação: só permitir apontamento se o usuário for administrador ou for o usuário responsável pela atividade

@@ -647,4 +647,59 @@ test("decisao: aprova chamado encadeado por acao_origem_id e cria subchamados pa
   assert.equal(chamadosCriados[0].args[1], 4);
 });
 
+test("horas: rejeita apontamento se chamado já foi finalizado", async () => {
+  const { onRequestPost: onRequestPostHoras } = await import("./[id]/horas.js");
+  const token = await gerarToken(1, SEGREDO);
+
+  const dbMock = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes("FROM usuarios WHERE id = ?")) {
+                return { id: 1, nome: "Admin", setor_id: 1, admin: 1, deve_trocar_senha: 0 };
+              }
+              if (sql.includes("FROM chamados WHERE id = ?")) {
+                return { id: 25, chamado_mae_id: 20, status_id: 3, data_finalizacao: "2026-09-30" };
+              }
+              if (sql.includes("FROM status WHERE id = ?")) {
+                return { id: 3, nome: "Finalizado" };
+              }
+              return null;
+            },
+            async all() {
+              return { results: [] };
+            },
+            async run() {
+              return { meta: { changes: 1 } };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const ctx = {
+    request: new Request("http://localhost/api/chamados/25/horas", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        data: "2026-10-01",
+        horas: 2.0,
+      }),
+    }),
+    params: { id: "25" },
+    env: { DB: dbMock, SESSAO_SEGREDO: SEGREDO },
+  };
+
+  const res = await onRequestPostHoras(ctx);
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.match(data.error, /finalizado/i);
+});
+
 

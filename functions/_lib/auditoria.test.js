@@ -226,13 +226,13 @@ test("listarAuditoriaDoChamado normaliza nomes de fluxo e etapas legados no hist
   assert.equal(lista[0].detalhes, 'Chamado aberto por Felipe no fluxo "Produto Derivado" (Etapa: "Solicitação Inicial").');
 
   // 2. Subchamado gerado por aprovação deve exibir etapa destino e etapa origem
-  assert.equal(lista[1].detalhes, 'Etapa "Aprovação Projetos" iniciada pela aprovação da etapa "Solicitação Inicial".');
+  assert.equal(lista[1].detalhes, 'Atividade "Aprovação Projetos" criada pela aprovação da etapa "Solicitação Inicial".');
 
   // 3. Decisão aprovada deve exibir o nome da etapa e não o ID cru
   assert.equal(lista[2].detalhes, 'Etapa "Aprovação Projetos" APROVADA por Carlos.');
 
-  // 4. Subchamado automático deve exibir o nome da etapa
-  assert.equal(lista[3].detalhes, 'Etapa "Aprovação Desenvolvimento de Produto" iniciada automaticamente pelo fluxo.');
+  // 4. Subchamado automático deve exibir o nome da atividade
+  assert.equal(lista[3].detalhes, 'Atividade "Aprovação Desenvolvimento de Produto" criada de forma automática pelo fluxo.');
   assert.ok(sqlHistoricoCapturado.includes("ORDER BY h.criado_em DESC, h.id DESC"), "Deve ordenar do mais recente para o menos recente");
 });
 

@@ -2123,6 +2123,13 @@ th.th-drop-alvo {
   margin-left: 1.25rem;
 }
 
+@media (max-width: 768px) {
+  .geral-arvore-filhos {
+    padding-left: 1.15rem;
+    margin-left: 0.65rem;
+  }
+}
+
 .card-etapa-geral {
   background: var(--cor-fundo-elevado);
   border: 1px solid var(--cor-borda);

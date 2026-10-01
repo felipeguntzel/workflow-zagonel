@@ -1,7 +1,7 @@
 import { exigirLogin, permissaoDaTela } from "./auth.js";
 import { aplicarLayout } from "./layout.js";
 import { info, mostrarErro, escaparHtml, escaparAtributo, linkWhatsApp, formatarDataBR, formatarDataHoraBR } from "./ui.js";
-import { confirmarAcao } from "./modal.js";
+import { confirmarAcao, confirmarPerguntaApontamento, mostrarAviso } from "./modal.js";
 import { api } from "./api.js";
 
 let id = new URLSearchParams(window.location.search).get("id");
@@ -12,7 +12,7 @@ let chamadoAtual = null;
 let estadoRecolhimento = {
   detalhe: false,
   campos: false,
-  historico: false,
+  historico: true, // Inicia recolhido na tela do chamado
   comentarios: false,
 };
 
@@ -136,6 +136,14 @@ function iniciar() {
   const cabecalhoHistorico = document.getElementById("cabecalho-historico");
   const wrapHistorico = document.getElementById("historico-auditoria-wrap");
   if (btnRecolherHistorico) {
+    if (wrapHistorico) {
+      wrapHistorico.style.display = estadoRecolhimento.historico ? "none" : "";
+    }
+    if (cabecalhoHistorico) {
+      cabecalhoHistorico.classList.toggle("painel-chamado-cabecalho--recolhido", estadoRecolhimento.historico);
+    }
+    btnRecolherHistorico.textContent = estadoRecolhimento.historico ? "▼ Expandir" : "▲ Recolher";
+
     btnRecolherHistorico.addEventListener("click", () => {
       estadoRecolhimento.historico = !estadoRecolhimento.historico;
       if (wrapHistorico) {
@@ -439,8 +447,8 @@ async function carregarDetalhe(chamadoRecebido = null) {
     }
   }
 
-  // Ocultar apontamento de horas no chamado da solicitação inicial
-  if (ehChamadoMae) {
+  // Ocultar apontamento de horas no chamado da solicitação inicial ou se o chamado já foi finalizado
+  if (ehChamadoMae || finalizado) {
     document.querySelectorAll(".btn-abrir-modal-horas, #btn-abrir-modal-horas").forEach((b) => {
       b.style.display = "none";
       b.hidden = true;
@@ -514,53 +522,81 @@ async function carregarDetalhe(chamadoRecebido = null) {
         return;
       }
 
-      // Atualização visual otimista imediata (< 10ms)
-      const badgeLegenda = document.querySelector(".cabecalho-legendas .badge-status");
-      if (badgeLegenda && statusEscolhido) {
-        badgeLegenda.style.background = statusEscolhido.cor ? statusEscolhido.cor + "18" : "var(--cor-fundo)";
-        badgeLegenda.style.color = statusEscolhido.cor || "var(--cor-texto)";
-        badgeLegenda.style.borderColor = statusEscolhido.cor ? statusEscolhido.cor + "55" : "var(--cor-borda)";
-        badgeLegenda.innerHTML = `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${statusEscolhido.cor || "var(--cor-primaria)"};"></span>Status: ${escaparHtml(statusEscolhido.nome)}`;
-      }
+      const foiFinalizado = String(statusEscolhido?.nome || "").toLowerCase() === "finalizado";
 
-      const precisavaAssumir = !ehChamadoMae && Number(chamado.responsavel_id) !== Number(usuario?.id);
-      if (toastStatus) {
-        toastStatus.textContent = precisavaAssumir
-          ? "✓ Status alterado e chamado atribuído para você."
-          : "✓ Status alterado.";
-        toastStatus.hidden = false;
-        clearTimeout(toastStatus._timeout);
-        toastStatus._timeout = setTimeout(() => {
-          toastStatus.hidden = true;
-        }, 2500);
-      }
-
-      try {
-        const chamadoAtualizado = await api(`/chamados/${chamado.id}`, { method: "PUT", body: { status_id: statusId } });
-        statusAnterior = statusId;
-        chamadoAtual = chamadoAtualizado;
-
-        const foiFinalizado = String(statusEscolhido?.nome || "").toLowerCase() === "finalizado";
-        if (foiFinalizado || precisavaAssumir) {
-          // Quando finalizado ou quando a tarefa foi auto-atribuída, recarrega tudo para liberar ações e atualizar responsável
-          await carregarTudo();
-        } else {
-          // Apenas atualiza auditoria em background sem recriar todo o DOM
-          carregarAuditoria();
+      const aplicarMudancaStatus = async () => {
+        // Atualização visual otimista imediata (< 10ms)
+        const badgeLegenda = document.querySelector(".cabecalho-legendas .badge-status");
+        if (badgeLegenda && statusEscolhido) {
+          badgeLegenda.style.background = statusEscolhido.cor ? statusEscolhido.cor + "18" : "var(--cor-fundo)";
+          badgeLegenda.style.color = statusEscolhido.cor || "var(--cor-texto)";
+          badgeLegenda.style.borderColor = statusEscolhido.cor ? statusEscolhido.cor + "55" : "var(--cor-borda)";
+          badgeLegenda.innerHTML = `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${statusEscolhido.cor || "var(--cor-primaria)"};"></span>Status: ${escaparHtml(statusEscolhido.nome)}`;
         }
-      } catch (e) {
-        selectStatusTopo.value = String(statusAnterior);
-        // Reverte badge em caso de falha
-        const stAntes = statusList.find((s) => s.id === statusAnterior);
-        if (badgeLegenda && stAntes) {
-          badgeLegenda.style.background = stAntes.cor ? stAntes.cor + "18" : "var(--cor-fundo)";
-          badgeLegenda.style.color = stAntes.cor || "var(--cor-texto)";
-          badgeLegenda.style.borderColor = stAntes.cor ? stAntes.cor + "55" : "var(--cor-borda)";
-          badgeLegenda.innerHTML = `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${stAntes.cor || "var(--cor-primaria)"};"></span>Status: ${escaparHtml(stAntes.nome)}`;
+
+        const precisavaAssumir = !ehChamadoMae && Number(chamado.responsavel_id) !== Number(usuario?.id);
+        if (toastStatus) {
+          toastStatus.textContent = precisavaAssumir
+            ? "✓ Status alterado e chamado atribuído para você."
+            : "✓ Status alterado.";
+          toastStatus.hidden = false;
+          clearTimeout(toastStatus._timeout);
+          toastStatus._timeout = setTimeout(() => {
+            toastStatus.hidden = true;
+          }, 2500);
         }
-        if (toastStatus) toastStatus.hidden = true;
-        mostrarErro(erroStatus, e);
+
+        try {
+          const chamadoAtualizado = await api(`/chamados/${chamado.id}`, { method: "PUT", body: { status_id: statusId } });
+          statusAnterior = statusId;
+          chamadoAtual = chamadoAtualizado;
+
+          if (foiFinalizado || precisavaAssumir) {
+            // Quando finalizado ou quando a tarefa foi auto-atribuída, recarrega tudo para liberar ações e atualizar responsável
+            await carregarTudo();
+          } else {
+            // Apenas atualiza auditoria em background sem recriar todo o DOM
+            carregarAuditoria();
+          }
+        } catch (e) {
+          selectStatusTopo.value = String(statusAnterior);
+          // Reverte badge em caso de falha
+          const stAntes = statusList.find((s) => s.id === statusAnterior);
+          if (badgeLegenda && stAntes) {
+            badgeLegenda.style.background = stAntes.cor ? stAntes.cor + "18" : "var(--cor-fundo)";
+            badgeLegenda.style.color = stAntes.cor || "var(--cor-texto)";
+            badgeLegenda.style.borderColor = stAntes.cor ? stAntes.cor + "55" : "var(--cor-borda)";
+            badgeLegenda.innerHTML = `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${stAntes.cor || "var(--cor-primaria)"};"></span>Status: ${escaparHtml(stAntes.nome)}`;
+          }
+          if (toastStatus) toastStatus.hidden = true;
+          mostrarErro(erroStatus, e);
+        }
+      };
+
+      if (foiFinalizado && !ehChamadoMae && !finalizado) {
+        const escolha = await confirmarPerguntaApontamento(
+          "Deseja realizar apontamento de horas?",
+          "Ao alterar o status para Finalizado, a tarefa será concluída e não permitirá novos apontamentos. Deseja realizar um apontamento de horas antes de concluir?"
+        );
+        if (escolha === "cancelar") {
+          selectStatusTopo.value = String(statusAnterior);
+          return;
+        }
+        if (escolha === "sim") {
+          abrirModalHoras({
+            textoBotaoSubmit: "Salvar apontamento e finalizar",
+            aoConcluir: async () => {
+              await aplicarMudancaStatus();
+            },
+            aoCancelar: () => {
+              selectStatusTopo.value = String(statusAnterior);
+            },
+          });
+          return;
+        }
       }
+
+      await aplicarMudancaStatus();
     });
   }
 
@@ -1389,7 +1425,12 @@ async function carregarComentariosEAnexos(chamadoRecebido = null) {
       if (avisoBloqueio) avisoBloqueio.style.display = "none";
     }
 
-    if (chamadoInfo && (chamadoInfo.eh_chamado_mae || !chamadoInfo.chamado_mae_id)) {
+    const jaFinalizado = Boolean(
+      chamadoInfo?.data_finalizacao ||
+      String(chamadoInfo?.status_nome || "").toLowerCase() === "finalizado" ||
+      String(chamadoInfo?.status_nome || "").toLowerCase() === "cancelado"
+    );
+    if (chamadoInfo && (chamadoInfo.eh_chamado_mae || !chamadoInfo.chamado_mae_id || jaFinalizado)) {
       document.querySelectorAll(".btn-abrir-modal-horas, #btn-abrir-modal-horas").forEach((b) => {
         b.style.display = "none";
         b.hidden = true;
@@ -1426,7 +1467,7 @@ async function atualizarResumoHoras() {
 }
 
 // Abrir tela suspensa (modal flutuante) para apontamento rápido de horas
-export async function abrirModalHoras() {
+export async function abrirModalHoras(opcoes = {}) {
   let container = document.getElementById("modal-horas-container");
   if (!container) {
     container = document.createElement("div");
@@ -1435,7 +1476,18 @@ export async function abrirModalHoras() {
   }
 
   const chamadoId = id || new URLSearchParams(window.location.search).get("id");
+  const ehFinalizado = Boolean(
+    chamadoAtual?.data_finalizacao ||
+    String(chamadoAtual?.status_nome || "").toLowerCase() === "finalizado" ||
+    String(chamadoAtual?.status_nome || "").toLowerCase() === "cancelado"
+  );
+  if (ehFinalizado && !opcoes.aoConcluir) {
+    mostrarAviso("Não é permitido apontar horas em um chamado finalizado.", "Aviso", "aviso");
+    return;
+  }
+
   const hoje = new Date().toISOString().slice(0, 10);
+  const textoSubmit = opcoes.textoBotaoSubmit || "Salvar apontamento";
 
   // Renderização instantânea do modal sem bloquear pela rede
   container.innerHTML = `
@@ -1490,7 +1542,7 @@ export async function abrirModalHoras() {
 
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
               <button type="button" id="btn-cancelar-modal-horas" class="btn btn-secundario">Cancelar</button>
-              <button type="submit" class="btn btn-primario" id="btn-submit-modal-horas">Salvar apontamento</button>
+              <button type="submit" class="btn btn-primario" id="btn-submit-modal-horas">${escaparHtml(textoSubmit)}</button>
             </div>
           </form>
 
@@ -1507,9 +1559,14 @@ export async function abrirModalHoras() {
   `;
 
   const overlay = document.getElementById("overlay-horas");
+  let salvouComSucesso = false;
+
   const fechar = () => {
     container.innerHTML = "";
     document.removeEventListener("keydown", onKeyDown);
+    if (!salvouComSucesso && typeof opcoes.aoCancelar === "function") {
+      opcoes.aoCancelar();
+    }
   };
 
   const onKeyDown = (e) => {
@@ -1592,18 +1649,22 @@ export async function abrirModalHoras() {
         },
       });
 
+      salvouComSucesso = true;
       await Promise.all([
         atualizarResumoHoras(),
         carregarAuditoria(),
       ]);
       fechar();
+      if (typeof opcoes.aoConcluir === "function") {
+        await opcoes.aoConcluir();
+      }
     } catch (err) {
       if (msgErro) {
         msgErro.textContent = err.message || "Erro ao apontar horas.";
         msgErro.hidden = false;
       }
       btnSubmit.disabled = false;
-      btnSubmit.textContent = "Salvar apontamento";
+      btnSubmit.textContent = textoSubmit;
     }
   });
 }
@@ -1824,7 +1885,7 @@ async function renderAprovacao(chamado) {
     }
   }
 
-  document.getElementById("btn-aprovar")?.addEventListener("click", (e) => {
+  document.getElementById("btn-aprovar")?.addEventListener("click", async (e) => {
     if (bloqueadoPorNaoResponsavel) return;
     const acoes = {};
     const observacoesAcoes = {};
@@ -1840,10 +1901,31 @@ async function renderAprovacao(chamado) {
         acoes[a.id] = false;
       }
     });
-    enviarDecisao({ decisao: "aprovado", acoes, observacoes_acoes: observacoesAcoes }, e.currentTarget);
+
+    const btn = e.currentTarget;
+    const corpoDecisao = { decisao: "aprovado", acoes, observacoes_acoes: observacoesAcoes };
+
+    if (!ehChamadoMae && !finalizado) {
+      const escolha = await confirmarPerguntaApontamento(
+        "Deseja realizar apontamento de horas?",
+        "Ao aprovar, a etapa será finalizada e não permitirá novos apontamentos. Deseja realizar um apontamento de horas antes de concluir?"
+      );
+      if (escolha === "cancelar") return;
+      if (escolha === "sim") {
+        abrirModalHoras({
+          textoBotaoSubmit: "Salvar apontamento e avançar",
+          aoConcluir: async () => {
+            await enviarDecisao(corpoDecisao, btn);
+          },
+        });
+        return;
+      }
+    }
+
+    enviarDecisao(corpoDecisao, btn);
   });
 
-  document.getElementById("btn-reprovar")?.addEventListener("click", (e) => {
+  document.getElementById("btn-reprovar")?.addEventListener("click", async (e) => {
     if (bloqueadoPorNaoResponsavel) return;
     const campoJust = document.getElementById("justificativa");
     const justificativa = campoJust?.value.trim();
@@ -1856,7 +1938,28 @@ async function renderAprovacao(chamado) {
       campoJust?.focus();
       return;
     }
-    enviarDecisao({ decisao: "reprovado", justificativa }, e.currentTarget);
+
+    const btn = e.currentTarget;
+    const corpoDecisao = { decisao: "reprovado", justificativa };
+
+    if (!ehChamadoMae && !finalizado) {
+      const escolha = await confirmarPerguntaApontamento(
+        "Deseja realizar apontamento de horas?",
+        "Ao reprovar, a etapa será finalizada/cancelada e não permitirá novos apontamentos. Deseja realizar um apontamento de horas antes de concluir?"
+      );
+      if (escolha === "cancelar") return;
+      if (escolha === "sim") {
+        abrirModalHoras({
+          textoBotaoSubmit: "Salvar apontamento e reprovar",
+          aoConcluir: async () => {
+            await enviarDecisao(corpoDecisao, btn);
+          },
+        });
+        return;
+      }
+    }
+
+    enviarDecisao(corpoDecisao, btn);
   });
 }
 
