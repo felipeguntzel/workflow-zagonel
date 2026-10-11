@@ -15,28 +15,86 @@ let modalAtualizacaoAberto = false;
 let timerChecagem = null;
 
 /**
+ * Compara duas versões semânticas (ex: "2.5.3" e "2.3.0").
+ * Retorna:
+ *  1 se v1 > v2
+ * -1 se v1 < v2
+ *  0 se v1 === v2
+ */
+export function compararSemver(v1, v2) {
+  if (!v1 && !v2) return 0;
+  if (!v1) return -1;
+  if (!v2) return 1;
+  if (v1 === v2) return 0;
+
+  const extrairNumeros = (v) => {
+    const limpo = String(v).replace(/^[^\d]*/, "").trim();
+    if (!limpo) return [];
+    return limpo.split(".").map((n) => parseInt(n, 10) || 0);
+  };
+
+  const p1 = extrairNumeros(v1);
+  const p2 = extrairNumeros(v2);
+
+  if (p1.length === 0 || p2.length === 0) {
+    return String(v1).localeCompare(String(v2));
+  }
+
+  const max = Math.max(p1.length, p2.length);
+  for (let i = 0; i < max; i++) {
+    const num1 = p1[i] ?? 0;
+    const num2 = p2[i] ?? 0;
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  return 0;
+}
+
+/**
  * Força a limpeza completa de todos os caches (Service Worker, caches locais, sessionStorage)
  * e recarrega a aplicação com a versão mais recente do servidor, PERMANECENDO NA MESMA TELA.
  */
-export async function forcarAtualizacaoApp() {
+export async function forcarAtualizacaoApp(novaVersao) {
   try {
-    // 1. Notifica o Service Worker para assumir controle imediatamente e limpar caches
-    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: "SKIP_WAITING" });
-      navigator.serviceWorker.controller.postMessage({ type: "LIMPAR_CACHE" });
+    // 1. Atualiza versão local imediatamente para garantir consistência
+    const versaoAlvo =
+      novaVersao && novaVersao !== "Recente" && compararSemver(novaVersao, VERSAO_CLIENTE) > 0
+        ? novaVersao
+        : VERSAO_CLIENTE;
+    localStorage.setItem(CHAVE_VERSAO_LOCAL, versaoAlvo);
+
+    try {
+      sessionStorage.removeItem(CHAVE_VERSAO_IGNORADA_SESSAO);
+      sessionStorage.removeItem("workflow_verificar_versao_pos_login");
+    } catch (_) {}
+
+    // 2. Notifica Service Workers, ativa worker em espera e limpa registros antigos
+    if ("serviceWorker" in navigator) {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const reg of regs) {
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: "SKIP_WAITING" });
+          }
+          if (reg.active) {
+            reg.active.postMessage({ type: "SKIP_WAITING" });
+            reg.active.postMessage({ type: "LIMPAR_CACHE" });
+          }
+          await reg.unregister();
+        }
+      } catch (swErr) {
+        console.warn("Falha ao comunicar com Service Worker:", swErr);
+      }
     }
 
-    // 2. Limpa todos os caches do navegador
+    // 3. Limpa todos os caches do navegador no CacheStorage
     if ("caches" in window) {
       const nomes = await caches.keys();
       await Promise.all(nomes.map((nome) => caches.delete(nome)));
     }
 
-    // 3. Limpa caches de dados em sessionStorage
+    // 4. Limpa caches transitórios de sessionStorage
     sessionStorage.clear();
-
-    // 4. Salva versão atualizada
-    localStorage.setItem(CHAVE_VERSAO_LOCAL, VERSAO_CLIENTE);
 
     // 5. Preserva 100% da URL atual (pathname + todos os query parameters como ?id=18 + hash)
     const urlAtual = new URL(window.location.href);
@@ -231,7 +289,7 @@ export function exibirAvisoNovaVersao(versaoRemota) {
   btn?.addEventListener("click", () => {
     btn.disabled = true;
     btn.innerHTML = `<span>⏳</span> Atualizando e limpando cache...`;
-    forcarAtualizacaoApp();
+    forcarAtualizacaoApp(versaoRemota);
   });
 }
 
@@ -271,7 +329,13 @@ function avaliarVersao(versaoRemota, exibirFeedbackSeAtualizado) {
     ehPosLogin = sessionStorage.getItem("workflow_verificar_versao_pos_login") === "1";
   } catch (_) {}
 
-  if (versaoRemota !== versaoLocal) {
+  // Só consideramos que há nova versão se a versão remota for estritamente mais recente que a local e a do cliente
+  const temNovaVersao =
+    versaoRemota === "Recente" ||
+    (compararSemver(versaoRemota, versaoLocal) > 0 &&
+      compararSemver(versaoRemota, VERSAO_CLIENTE) > 0);
+
+  if (temNovaVersao) {
     if (ehPosLogin) {
       // Login recente: limpa adiamentos e força a exibição do modal novamente
       try {
@@ -298,6 +362,15 @@ function avaliarVersao(versaoRemota, exibirFeedbackSeAtualizado) {
       sessionStorage.removeItem(CHAVE_VERSAO_IGNORADA_SESSAO);
     } catch (_) {}
     removerIndicadorDiscretoNovaVersao();
+    if (modalAtualizacaoAberto) {
+      const modalAberto = document.querySelector(".modal-fundo--atualizacao");
+      if (modalAberto) modalAberto.remove();
+      modalAtualizacaoAberto = false;
+    }
+    // Sincroniza versão local no storage se estiver defasada em relação ao cliente atual
+    if (compararSemver(VERSAO_CLIENTE, versaoLocal) >= 0) {
+      localStorage.setItem(CHAVE_VERSAO_LOCAL, VERSAO_CLIENTE);
+    }
     if (exibirFeedbackSeAtualizado) {
       alert(`Você já está utilizando a versão mais recente do WorkFlow (v${VERSAO_CLIENTE}).`);
     }
