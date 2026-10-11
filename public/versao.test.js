@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { VERSAO_CLIENTE, DATA_VERSAO_CLIENTE, HORA_VERSAO_CLIENTE, DATA_HORA_VERSAO_CLIENTE, removerIndicadorDiscretoNovaVersao } from "./versao.js";
+import fs from "node:fs";
+import { VERSAO_CLIENTE, DATA_VERSAO_CLIENTE, HORA_VERSAO_CLIENTE, DATA_HORA_VERSAO_CLIENTE, removerIndicadorDiscretoNovaVersao, compararSemver } from "./versao.js";
+import { APP_VERSAO } from "../functions/api/versao.js";
 import { limparCacheApi } from "./api.js";
 import { setUsuarioLogado, logout } from "./auth.js";
 
@@ -67,3 +69,23 @@ test("URL com parâmetros preserva id e rota ao adicionar parâmetro atualizado"
   assert.equal(urlExemplo.searchParams.get("tab"), "historico");
   assert.equal(urlExemplo.searchParams.get("atualizado"), "12345678");
 });
+
+test("compararSemver diferencia corretamente versões maiores, menores e iguais", () => {
+  assert.equal(compararSemver("2.5.3", "2.3.0"), 1);
+  assert.equal(compararSemver("2.3.0", "2.5.3"), -1);
+  assert.equal(compararSemver("2.5.3", "2.5.3"), 0);
+  assert.equal(compararSemver("v2.5.3", "2.5.3"), 0);
+  assert.equal(compararSemver("2.6.0", "2.5.3"), 1);
+  assert.equal(compararSemver("2.5.2", "2.5.3"), -1);
+  assert.equal(compararSemver("3.0.0", "2.5.3"), 1);
+  assert.equal(compararSemver("2.5.4", "2.5.3"), 1);
+  assert.equal(compararSemver("2.5.3.1", "2.5.3"), 1);
+});
+
+test("APP_VERSAO do backend coincide com VERSAO_CLIENTE do frontend e versao.json", () => {
+  assert.equal(APP_VERSAO, VERSAO_CLIENTE, "APP_VERSAO deve ser idêntica a VERSAO_CLIENTE");
+  const rawJson = fs.readFileSync(new URL("./versao.json", import.meta.url), "utf8");
+  const parsed = JSON.parse(rawJson);
+  assert.equal(parsed.versao, VERSAO_CLIENTE, "versao.json deve ter a mesma versão de VERSAO_CLIENTE");
+});
+
