@@ -337,4 +337,35 @@ test("calcularEstruturaDiagramaC2 organiza fluxo ramificado no Estilo C.2 com et
   assert.equal(conexao6para7?.estilo, "cinza");
 });
 
+test("calcularEstruturaDiagramaC2 trata solicitacao inicial como iniciada/concluida sem ficar travada", () => {
+  const nos = [
+    { id: 22, chamado_pai_id: null, titulo: "Solicitação Inicial", status_nome: "Aberto", data_abertura: "2026-10-01" },
+    { id: 23, chamado_pai_id: 22, titulo: "Aprovação - Projetos", status_nome: "Finalizado", resultado: "aprovado" },
+    { id: 24, chamado_pai_id: 23, titulo: "Aprovação - Desenvolvimento", status_nome: "Finalizado", resultado: "aprovado" },
+    { id: 25, chamado_pai_id: 24, titulo: "Criar Produto/ Ficha", status_nome: "Finalizado", resultado: "aprovado" },
+    { id: 26, chamado_pai_id: 25, titulo: "Desenvolver Roteiro", status_nome: "Finalizado", resultado: "aprovado" },
+    { id: 27, chamado_pai_id: 26, titulo: "Desenvolver IT", status_nome: "Em Andamento", data_abertura: "2026-10-12" },
+  ];
+
+  const res = calcularEstruturaDiagramaC2(nos);
+  const noInicial = res.nosProcessados.find((n) => n.id === 22);
+
+  // Solicitação inicial não tem ação: deve ser concluída/iniciada e nunca travada
+  assert.equal(noInicial?.estadoC2, "concluido");
+  assert.equal(noInicial?.iconeC2, "✓");
+  assert.equal(noInicial?.subtextoC2, "Iniciada");
+
+  // A etapa travada real deve ser a etapa pendente ativa (27), e nunca a raiz (22)
+  assert.equal(res.etapaTravada?.id, 27);
+  assert.equal(res.etapaTravada?.titulo, "Desenvolver IT");
+
+  // Conexão entre a solicitação inicial (22) e a primeira etapa aprovada (23) deve ser verde
+  const conexao22para23 = res.conexoes.find((c) => c.origemId === 22 && c.destinoId === 23);
+  assert.equal(conexao22para23?.estilo, "verde");
+
+  // Conexão para a etapa pendente ativa (27) deve ser vermelha
+  const conexao26para27 = res.conexoes.find((c) => c.origemId === 26 && c.destinoId === 27);
+  assert.equal(conexao26para27?.estilo, "vermelho");
+});
+
 
