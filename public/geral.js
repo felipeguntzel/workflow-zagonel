@@ -316,10 +316,15 @@ export function calcularEstruturaDiagramaC2(nos) {
       n.estadoC2 = "cancelado";
       n.iconeC2 = "✕";
       n.subtextoC2 = "Cancelada";
+    } else if (n.id === noRaiz.id || (!n.chamado_pai_id && !n.chamado_mae_id) || Boolean(n.eh_mae)) {
+      // Solicitação inicial representa a abertura do fluxo: não possui ação pendente nem fica parada/travada
+      n.estadoC2 = "concluido";
+      n.iconeC2 = "✓";
+      n.subtextoC2 = "Iniciada";
     } else if (ehFinalizado) {
       n.estadoC2 = "concluido";
       n.iconeC2 = "✓";
-      n.subtextoC2 = "Aprovado";
+      n.subtextoC2 = resNorm === "aprovado" ? "Aprovado" : "Concluído";
     } else {
       const paisConcluidos = n.pais.length === 0 || n.pais.every((p) => p.estadoC2 === "concluido");
       if (paisConcluidos) {
@@ -339,7 +344,10 @@ export function calcularEstruturaDiagramaC2(nos) {
   }
 
   if (!etapaTravada) {
-    etapaTravada = listaNos.find((n) => n.estadoC2 === "travado") || listaNos.find((n) => n.estadoC2 === "futuro") || null;
+    etapaTravada =
+      listaNos.find((n) => n.id !== noRaiz.id && !n.eh_mae && n.estadoC2 === "travado") ||
+      listaNos.find((n) => n.id !== noRaiz.id && !n.eh_mae && n.estadoC2 === "futuro") ||
+      null;
   }
 
   // Conexões (arestas) entre etapas
@@ -787,7 +795,10 @@ export function renderizarVisaoC2(nos) {
   // 4. Preencher Painel Lateral: Detalhes do Status
   if (conteudoStatusEl) {
     const totalEtapas = nos.length;
-    const finalizadas = nos.filter((n) => n.data_finalizacao || String(n.status_nome || "").toLowerCase() === "finalizado" || String(n.resultado || "").toLowerCase() === "aprovado").length;
+    const finalizadas = nos.filter((n) => {
+      const ehRaiz = n.id === raiz?.id || (!n.chamado_pai_id && !n.chamado_mae_id) || Boolean(n.eh_mae);
+      return ehRaiz || n.data_finalizacao || String(n.status_nome || "").toLowerCase() === "finalizado" || String(n.resultado || "").toLowerCase() === "aprovado";
+    }).length;
     const pctGeral = Math.round((finalizadas / totalEtapas) * 100);
 
     conteudoStatusEl.innerHTML = `
@@ -812,18 +823,21 @@ export function renderizarVisaoC2(nos) {
     const ordenados = [...nos].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
     listaHistoricoEl.innerHTML = ordenados
       .map((item) => {
+        const ehRaiz = item.id === raiz?.id || (!item.chamado_pai_id && !item.chamado_mae_id) || Boolean(item.eh_mae);
         const resNorm = String(item.resultado || "").toLowerCase();
         const statNorm = String(item.status_nome || "").toLowerCase();
-        const ehConcluido = Boolean(item.data_finalizacao || statNorm === "finalizado" || resNorm === "aprovado");
+        const ehConcluido = ehRaiz || Boolean(item.data_finalizacao || statNorm === "finalizado" || resNorm === "aprovado");
         const ehCancelado = statNorm.includes("cancelad") || resNorm === "reprovado";
-        const pontoClasse = ehConcluido
+        const pontoClasse = ehCancelado
+          ? "c2-historico-ponto--vermelho"
+          : ehConcluido
           ? "c2-historico-ponto--verde"
-          : ehCancelado || item.id === estrutura.etapaTravada?.id
+          : item.id === estrutura.etapaTravada?.id
           ? "c2-historico-ponto--vermelho"
           : "c2-historico-ponto--cinza";
 
         const dataExibicao = formatarDataBR(item.data_finalizacao || item.data_abertura);
-        const nomeEtapa = item.etapa_nome || item.titulo || `Etapa #${item.id}`;
+        const nomeEtapa = item.etapa_nome || (ehRaiz ? "Solicitação Inicial" : (item.titulo || `Etapa #${item.id}`));
 
         return `
           <li class="c2-historico-item" data-id="${item.id}" style="cursor: pointer;" title="Clique para ver detalhes desta etapa">
