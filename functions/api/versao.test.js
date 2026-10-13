@@ -12,3 +12,7 @@ test("onRequestGet retorna versão e build corretos com cabeçalhos no-cache", a
   assert.ok(typeof data.timestamp === "number");
   assert.equal(res.headers.get("Cache-Control"), "no-cache, no-store, must-revalidate");
 });
+
+test("APP_VERSAO está definida como 2.5.3", () => {
+  assert.equal(APP_VERSAO, "2.5.3");
+});
