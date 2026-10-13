@@ -855,16 +855,39 @@ export function renderizarVisaoC2(nos) {
           ? "c2-historico-ponto--vermelho"
           : "c2-historico-ponto--cinza";
 
-        const dataExibicao = formatarDataBR(item.data_finalizacao || item.data_abertura);
+        let dataOuStatusHtml = "";
+        let tooltipAcao = "";
+
+        if (ehCancelado) {
+          dataOuStatusHtml = `<span class="c2-historico-data" style="color: #dc2626; font-weight: 600;">Cancelada</span>`;
+          tooltipAcao = "Etapa cancelada ou reprovada";
+        } else if (ehConcluido) {
+          const dataConc = item.data_finalizacao || item.data_abertura;
+          dataOuStatusHtml = `<span class="c2-historico-data" title="Concluída em ${formatarDataBR(dataConc)}">${formatarDataBR(dataConc)}</span>`;
+          tooltipAcao = `Concluída em ${formatarDataBR(dataConc)}`;
+        } else if (item.id === estrutura.etapaTravada?.id) {
+          const prazoFormatado = item.prazo ? formatarDataBR(item.prazo) : null;
+          dataOuStatusHtml = prazoFormatado
+            ? `<span class="c2-historico-data" style="color: #dc2626; font-weight: 600;" title="Prazo da etapa">Prazo: ${prazoFormatado}</span>`
+            : `<span class="c2-historico-data" style="color: #dc2626; font-weight: 600;">Em andamento</span>`;
+          tooltipAcao = "Etapa em andamento";
+        } else {
+          const prazoFormatado = item.prazo ? formatarDataBR(item.prazo) : null;
+          dataOuStatusHtml = prazoFormatado
+            ? `<span class="c2-historico-data" style="color: var(--cor-texto-secundario);" title="Prazo previsto">Previsto: ${prazoFormatado}</span>`
+            : `<span class="c2-historico-data" style="color: var(--cor-texto-secundario);">Aguardando</span>`;
+          tooltipAcao = "Aguardando etapas anteriores";
+        }
+
         const nomeEtapa = item.etapa_nome || (ehRaiz ? "Solicitação Inicial" : (item.titulo || `Etapa #${item.id}`));
 
         return `
-          <li class="c2-historico-item" data-id="${item.id}" style="cursor: pointer;" title="Clique para ver detalhes desta etapa">
+          <li class="c2-historico-item" data-id="${item.id}" style="cursor: pointer;" title="Clique para ver detalhes (${tooltipAcao})">
             <div class="c2-historico-item__esquerda">
               <span class="c2-historico-ponto ${pontoClasse}"></span>
               <span class="c2-historico-nome">${escaparHtml(nomeEtapa)}</span>
             </div>
-            <span class="c2-historico-data">${dataExibicao}</span>
+            ${dataOuStatusHtml}
           </li>
         `;
       })
