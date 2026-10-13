@@ -555,7 +555,7 @@ function renderizarVisaoHorizontal(container, nos) {
   let html = `
     <div style="margin-bottom: 0.45rem; font-size: 0.82rem; color: var(--cor-texto-secundario); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.4rem;">
       <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-        <span><strong>Fluxo Horizontal (BPMN):</strong> Tarefas encadeadas da esquerda para a direita por raia de setor</span>
+        <span><strong>Fluxo Horizontal (BPMN):</strong> Tarefas encadeadas da esquerda para a direita por setor</span>
         <span style="font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.4rem;">
           <span>🟢 Início</span>
           <span>•</span>
