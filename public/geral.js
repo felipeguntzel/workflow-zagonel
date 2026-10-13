@@ -828,10 +828,15 @@ export function renderizarVisaoC2(nos) {
         <span class="c2-detalhes-rotulo">Fim Estimado:</span>
         <span class="c2-detalhes-valor">${formatarDataBR(raiz?.prazo)}</span>
       </div>
-      <div class="c2-detalhes-etapa-contagem">
-        Etapa ${finalizadas} de ${totalEtapas} (${pctGeral}%)
+      <div class="c2-detalhes-linha" style="margin-top: 0.35rem;">
+        <span class="c2-detalhes-rotulo">Progresso geral:</span>
+        <span class="c2-detalhes-valor" style="color: #16a34a;">${pctGeral}% concluído</span>
       </div>
-      <div class="c2-detalhes-progresso-barra">
+      <div class="c2-detalhes-linha">
+        <span class="c2-detalhes-rotulo">Etapas:</span>
+        <span class="c2-detalhes-valor">${finalizadas} de ${totalEtapas} concluídas</span>
+      </div>
+      <div class="c2-detalhes-progresso-barra" style="margin-top: 0.35rem;" title="${pctGeral}% concluído (${finalizadas} de ${totalEtapas} etapas)">
         <div class="c2-detalhes-progresso-preenchimento" style="width: ${pctGeral}%;"></div>
       </div>
     `;
