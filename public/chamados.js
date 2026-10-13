@@ -282,9 +282,11 @@ function renderizarTabela() {
           .map((c) => {
             const ehChamadoInicial = !c.chamado_mae_id || c.chamado_mae_id === 0;
 
-            // Regra: apontamento não é liberado no chamado inicial; nas demais etapas, requer não estar finalizado e ser admin ou responsável
+            // Regra: apontamento de horas padronizado em todas as linhas para manter o alinhamento da coluna Ações
             let btnApontarHtml = "";
-            if (!ehChamadoInicial) {
+            if (ehChamadoInicial) {
+              btnApontarHtml = `<button type="button" class="btn btn-secundario btn-pequeno btn-apontar-tabela" disabled style="padding: 0.2rem 0.45rem; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 4px; line-height: 1.2; opacity: 0.35; cursor: not-allowed;" title="Apontamento de horas não é aplicável na solicitação inicial">⏱️ Apontar</button>`;
+            } else {
               const statusNome = String(c.status_etapa_nome || c.status_nome || "").toLowerCase();
               const ehFinalizadoOuCancelado = Boolean(
                 c.data_finalizacao ||
@@ -292,12 +294,12 @@ function renderizarTabela() {
                 statusNome === "cancelado"
               );
               if (ehFinalizadoOuCancelado) {
-                btnApontarHtml = `<button type="button" class="btn btn-secundario btn-apontar-tabela" disabled style="opacity: 0.35; cursor: not-allowed;" title="Não é permitido apontar horas em chamado finalizado">⏱️ Apontar</button>`;
+                btnApontarHtml = `<button type="button" class="btn btn-secundario btn-pequeno btn-apontar-tabela" disabled style="padding: 0.2rem 0.45rem; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 4px; line-height: 1.2; opacity: 0.35; cursor: not-allowed;" title="Não é permitido apontar horas em chamado finalizado">⏱️ Apontar</button>`;
               } else {
                 const podeApontar = ehAdmin || (c.responsavel_id && Number(c.responsavel_id) === Number(usuarioLogado.id));
                 btnApontarHtml = podeApontar
-                  ? `<button type="button" class="btn btn-secundario btn-apontar-tabela" data-chamado-id="${c.id}" data-chamado-titulo="${escaparAtributo(c.titulo || '')}" title="Lançar horas neste chamado">⏱️ Apontar</button>`
-                  : `<button type="button" class="btn btn-secundario btn-apontar-tabela" disabled style="opacity: 0.35; cursor: not-allowed;" title="Apenas o responsável pela atividade ou um administrador pode realizar apontamentos">⏱️ Apontar</button>`;
+                  ? `<button type="button" class="btn btn-secundario btn-pequeno btn-apontar-tabela" data-chamado-id="${c.id}" data-chamado-titulo="${escaparAtributo(c.titulo || '')}" style="padding: 0.2rem 0.45rem; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 4px; line-height: 1.2;" title="Lançar horas neste chamado">⏱️ Apontar</button>`
+                  : `<button type="button" class="btn btn-secundario btn-pequeno btn-apontar-tabela" disabled style="padding: 0.2rem 0.45rem; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 4px; line-height: 1.2; opacity: 0.35; cursor: not-allowed;" title="Apenas o responsável pela atividade ou um administrador pode realizar apontamentos">⏱️ Apontar</button>`;
               }
             }
 
@@ -319,7 +321,7 @@ function renderizarTabela() {
                 <td>${badgeStatusGeral(c.status_geral_texto)}</td>
                 <td>${c.prazo ? escaparHtml(formatarDataBR(c.prazo)) : "-"}</td>
                 <td>${situacaoBadge(c.prazo, c.status_nome)}</td>
-                <td style="text-align: center; white-space: nowrap;">
+                <td style="text-align: center; white-space: nowrap; min-width: 215px;">
                   <div style="display: inline-flex; gap: 0.3rem; align-items: center; justify-content: center; flex-wrap: nowrap;">
                     <a href="/geral?id=${idChamadoGeral}" class="btn btn-secundario btn-pequeno" title="Ver andamento geral de todas as etapas" style="padding: 0.2rem 0.45rem; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 4px; line-height: 1.2;">📊 Geral</a>
                     <button type="button" class="btn btn-secundario btn-pequeno btn-historico-tabela" data-chamado-id="${c.id}" data-chamado-mae-id="${idChamadoGeral}" data-chamado-titulo="${escaparAtributo(c.titulo || '')}" data-chamado-etapa="${escaparAtributo(c.etapa_atual || '')}" data-status-geral="${escaparAtributo(c.status_geral_texto || '')}" title="Abrir histórico unificado de ações em tela sobreposta" style="padding: 0.2rem 0.45rem; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 4px; line-height: 1.2;">📜 Histórico</button>

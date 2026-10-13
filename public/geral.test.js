@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   calcularEstruturaBpmn,
+  calcularEstruturaDiagramaC2,
   construirArvore,
   renderHtmlCardEtapa,
   formatarTituloEtapa,
@@ -291,4 +292,49 @@ test("habilitarNavegacaoArrastoLateral permite arrastar horizontalmente com o bo
     globalThis.window = originalWindow;
   }
 });
+
+test("calcularEstruturaDiagramaC2 lida com lista vazia", () => {
+  const res = calcularEstruturaDiagramaC2([]);
+  assert.equal(res.nosProcessados.length, 0);
+  assert.equal(res.conexoes.length, 0);
+  assert.equal(res.totalColunas, 0);
+  assert.equal(res.temSync, false);
+});
+
+test("calcularEstruturaDiagramaC2 organiza fluxo ramificado no Estilo C.2 com etapas concluidas e travada", () => {
+  const nos = [
+    { id: 1, chamado_pai_id: null, titulo: "Abertura", status_nome: "Finalizado", resultado: "aprovado" },
+    { id: 2, chamado_pai_id: 1, titulo: "Aprovação Projetos", status_nome: "Finalizado", resultado: "aprovado" },
+    { id: 3, chamado_pai_id: 2, titulo: "Aprovação Desenvolvimento Produto", status_nome: "Finalizado", resultado: "aprovado" },
+    { id: 4, chamado_pai_id: 3, titulo: "Gravação Laser", status_nome: "Finalizado", resultado: "aprovado" },
+    { id: 5, chamado_pai_id: 4, titulo: "SIG", status_nome: "Finalizado", resultado: "aprovado" },
+    { id: 6, chamado_pai_id: 3, titulo: "Engenharia de Produto", status_nome: "Em Andamento", data_abertura: "2026-10-08" },
+    { id: 7, chamado_pai_id: 6, titulo: "Engenharia de Processos", status_nome: "Aberto" },
+    { id: 8, chamado_pai_id: 3, titulo: "Marketing", status_nome: "Finalizado", resultado: "aprovado" },
+    { id: 9, chamado_pai_id: 8, titulo: "SIG", status_nome: "Aberto" },
+  ];
+
+  const res = calcularEstruturaDiagramaC2(nos);
+
+  assert.equal(res.totalTrilhas, 3);
+  assert.equal(res.temSync, true);
+  assert.equal(res.etapaTravada?.id, 6);
+  assert.equal(res.etapaTravada?.titulo, "Engenharia de Produto");
+
+  // Conexões concluídas devem ser verdes
+  const conexao1para2 = res.conexoes.find((c) => c.origemId === 1 && c.destinoId === 2);
+  assert.equal(conexao1para2?.estilo, "verde");
+
+  const conexao2para3 = res.conexoes.find((c) => c.origemId === 2 && c.destinoId === 3);
+  assert.equal(conexao2para3?.estilo, "verde");
+
+  // Conexão para a etapa travada deve ser vermelha
+  const conexao3para6 = res.conexoes.find((c) => c.origemId === 3 && c.destinoId === 6);
+  assert.equal(conexao3para6?.estilo, "vermelho");
+
+  // Conexão a partir da travada para a próxima etapa futura deve ser cinza
+  const conexao6para7 = res.conexoes.find((c) => c.origemId === 6 && c.destinoId === 7);
+  assert.equal(conexao6para7?.estilo, "cinza");
+});
+
 

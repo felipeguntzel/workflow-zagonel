@@ -4,8 +4,9 @@ import { escaparHtml, formatarDataBR, formatarDataHoraBR, mostrarErro } from "./
 import { api } from "./api.js";
 
 let nosAtuais = [];
-let modoVisualizacao = (typeof localStorage !== "undefined" && localStorage.getItem("workflow_visao_geral_orientacao")) || "horizontal";
+let modoVisualizacao = (typeof localStorage !== "undefined" && localStorage.getItem("workflow_visao_geral_orientacao_v2")) || "c2";
 let etapasExpandidas = false; // Por padrão, ao abrir, etapas vêm recolhidas (somente título, aprovação, status)
+let resizeObserverC2 = null;
 
 export function inicializar() {
   if (typeof window === "undefined") return;
@@ -210,6 +211,182 @@ export function calcularEstruturaBpmn(nos) {
     totalFases,
     nosProcessados,
     raizId: raiz.id,
+  };
+}
+
+export function calcularEstruturaDiagramaC2(nos) {
+  if (!nos || nos.length === 0) {
+    return {
+      nosProcessados: [],
+      conexoes: [],
+      totalColunas: 0,
+      totalTrilhas: 1,
+      temSync: false,
+      etapaTravada: null,
+      raizId: null,
+    };
+  }
+
+  const nosNorm = normalizarHierarquiaNos(nos);
+  const porId = new Map(nosNorm.map((n) => [n.id, { ...n, filhos: [], pais: [] }]));
+
+  for (const n of porId.values()) {
+    if (n.chamado_pai_id && porId.has(n.chamado_pai_id)) {
+      porId.get(n.chamado_pai_id).filhos.push(n);
+      n.pais.push(porId.get(n.chamado_pai_id));
+    }
+  }
+
+  const raiz = nosNorm.find((n) => !n.chamado_pai_id && !n.chamado_mae_id) || nosNorm[0];
+  const noRaiz = porId.get(raiz.id) || Array.from(porId.values())[0];
+
+  // Atribuir colunas (níveis horizontais da esquerda para a direita)
+  function atribuirNivel(no, nivel) {
+    no.coluna = Math.max(no.coluna ?? 0, nivel);
+    for (const f of no.filhos) {
+      atribuirNivel(f, no.coluna + 1);
+    }
+  }
+  atribuirNivel(noRaiz, 0);
+
+  const listaNos = Array.from(porId.values());
+  for (const n of listaNos) {
+    if (n.coluna === undefined) n.coluna = 0;
+  }
+
+  // Atribuir trilhas verticais (linhas da grade para fluxos paralelos)
+  let proximaTrilha = 0;
+  function atribuirTrilhas(no, trilhaAtual) {
+    if (no.trilha !== undefined) return;
+    no.trilha = trilhaAtual;
+
+    if (no.filhos.length === 0) return;
+    if (no.filhos.length === 1) {
+      atribuirTrilhas(no.filhos[0], trilhaAtual);
+    } else {
+      for (let i = 0; i < no.filhos.length; i++) {
+        const t = (i === 0) ? trilhaAtual : ++proximaTrilha;
+        atribuirTrilhas(no.filhos[i], t);
+      }
+    }
+  }
+  atribuirTrilhas(noRaiz, 0);
+
+  const totalTrilhas = Math.max(1, proximaTrilha + 1);
+  const maxColuna = Math.max(0, ...listaNos.map((n) => n.coluna));
+
+  // Identificar nós únicos por coluna para centralização vertical
+  const contagemPorColuna = new Map();
+  for (const n of listaNos) {
+    contagemPorColuna.set(n.coluna, (contagemPorColuna.get(n.coluna) || 0) + 1);
+  }
+
+  for (const n of listaNos) {
+    const unicoNaColuna = contagemPorColuna.get(n.coluna) === 1;
+    if (unicoNaColuna && totalTrilhas > 1 && n.filhos.length > 1) {
+      n.spanTrilhas = totalTrilhas;
+      n.trilha = 0;
+      n.centralizado = true;
+    } else if (unicoNaColuna && n.coluna < maxColuna && !listaNos.some((outro) => outro.coluna < n.coluna && contagemPorColuna.get(outro.coluna) > 1)) {
+      n.spanTrilhas = totalTrilhas;
+      n.trilha = 0;
+      n.centralizado = true;
+    } else {
+      n.spanTrilhas = 1;
+      n.centralizado = false;
+    }
+  }
+
+  // Identificar status individual de cada nó (concluído, travado/pendente, cancelado, futuro)
+  const hoje = new Date().toISOString().slice(0, 10);
+  let etapaTravada = null;
+  let maiorInatividadeDias = -1;
+
+  for (const n of listaNos) {
+    const statusNorm = String(n.status_nome || "").toLowerCase();
+    const resNorm = String(n.resultado || "").toLowerCase();
+    const ehFinalizado = Boolean(n.data_finalizacao || statusNorm === "finalizado" || resNorm === "aprovado");
+    const ehCancelado = statusNorm.includes("cancelad") || resNorm === "reprovado";
+
+    const dataRef = n.data_abertura || n.atualizado_em || n.criado_em || hoje;
+    const diffDias = Math.max(0, Math.round((new Date(hoje) - new Date(dataRef)) / 86400000));
+    n.diasInativo = diffDias;
+
+    if (ehCancelado) {
+      n.estadoC2 = "cancelado";
+      n.iconeC2 = "✕";
+      n.subtextoC2 = "Cancelada";
+    } else if (ehFinalizado) {
+      n.estadoC2 = "concluido";
+      n.iconeC2 = "✓";
+      n.subtextoC2 = "Aprovado";
+    } else {
+      const paisConcluidos = n.pais.length === 0 || n.pais.every((p) => p.estadoC2 === "concluido");
+      if (paisConcluidos) {
+        n.estadoC2 = "travado";
+        n.iconeC2 = "!";
+        n.subtextoC2 = diffDias > 0 ? `Parado há ${diffDias} dia${diffDias > 1 ? "s" : ""}` : "Em andamento";
+        if (diffDias > maiorInatividadeDias) {
+          maiorInatividadeDias = diffDias;
+          etapaTravada = n;
+        }
+      } else {
+        n.estadoC2 = "futuro";
+        n.iconeC2 = "○";
+        n.subtextoC2 = "Aguardando";
+      }
+    }
+  }
+
+  if (!etapaTravada) {
+    etapaTravada = listaNos.find((n) => n.estadoC2 === "travado") || listaNos.find((n) => n.estadoC2 === "futuro") || null;
+  }
+
+  // Conexões (arestas) entre etapas
+  const conexoes = [];
+  for (const p of listaNos) {
+    for (const c of p.filhos) {
+      let estiloConexao = "cinza";
+      if (p.estadoC2 === "concluido" && c.estadoC2 === "concluido") {
+        estiloConexao = "verde";
+      } else if (c.estadoC2 === "travado") {
+        estiloConexao = "vermelho";
+      }
+
+      conexoes.push({
+        origemId: p.id,
+        destinoId: c.id,
+        estilo: estiloConexao,
+      });
+    }
+  }
+
+  // Verificar se há ramificações paralelas convergindo em sincronização final
+  const temRamificacao = totalTrilhas > 1;
+  const nosFolhas = listaNos.filter((n) => n.filhos.length === 0);
+  const temSync = temRamificacao && nosFolhas.length > 1;
+
+  let totalColunas = maxColuna + 1;
+  if (temSync) {
+    totalColunas += 1;
+    for (const folha of nosFolhas) {
+      conexoes.push({
+        origemId: folha.id,
+        destinoId: "sync",
+        estilo: folha.estadoC2 === "concluido" ? "verde" : "cinza",
+        isSync: true,
+      });
+    }
+  }
+
+  return {
+    nosProcessados: listaNos,
+    conexoes,
+    totalColunas,
+    totalTrilhas,
+    temSync,
+    etapaTravada,
+    raizId: noRaiz.id,
   };
 }
 
@@ -443,17 +620,340 @@ function renderizarVisaoHorizontal(container, nos) {
   container.innerHTML = html;
 }
 
-function renderizarFluxoAtivo() {
-  const container = document.getElementById("arvore");
-  if (!container || nosAtuais.length === 0) return;
+export function atualizarLinhasSvgC2(canvasInner, svgEl, conexoes) {
+  if (typeof document === "undefined" || !canvasInner || !svgEl || !conexoes || conexoes.length === 0) return;
 
-  if (modoVisualizacao === "horizontal") {
-    renderizarVisaoHorizontal(container, nosAtuais);
-  } else {
-    renderizarVisaoVertical(container, nosAtuais);
+  const pathsAntigos = svgEl.querySelectorAll("path");
+  pathsAntigos.forEach((p) => p.remove());
+
+  const innerRect = canvasInner.getBoundingClientRect();
+  const width = Math.max(innerRect.width, canvasInner.scrollWidth || 0);
+  const height = Math.max(innerRect.height, canvasInner.scrollHeight || 0);
+
+  svgEl.setAttribute("width", String(width));
+  svgEl.setAttribute("height", String(height));
+  svgEl.style.width = `${width}px`;
+  svgEl.style.height = `${height}px`;
+
+  for (const c of conexoes) {
+    const elOrigem = document.getElementById(`c2-card-${c.origemId}`);
+    const elDestino = document.getElementById(`c2-card-${c.destinoId}`);
+    if (!elOrigem || !elDestino) continue;
+
+    const rectOrigem = elOrigem.getBoundingClientRect();
+    const rectDestino = elDestino.getBoundingClientRect();
+
+    const x1 = rectOrigem.right - innerRect.left;
+    const y1 = rectOrigem.top + rectOrigem.height / 2 - innerRect.top;
+    const x2 = rectDestino.left - innerRect.left;
+    const y2 = rectDestino.top + rectDestino.height / 2 - innerRect.top;
+
+    const dx = Math.max(25, (x2 - x1) * 0.5);
+    const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    path.setAttribute("fill", "none");
+
+    if (c.estilo === "verde") {
+      path.setAttribute("stroke", "#16a34a");
+      path.setAttribute("stroke-width", "2.5");
+      path.setAttribute("marker-end", "url(#c2-arrow-green)");
+    } else if (c.estilo === "vermelho") {
+      path.setAttribute("stroke", "#ef4444");
+      path.setAttribute("stroke-width", "2.5");
+      path.setAttribute("marker-end", "url(#c2-arrow-red)");
+    } else {
+      path.setAttribute("stroke", "#94a3b8");
+      path.setAttribute("stroke-width", "1.5");
+      path.setAttribute("marker-end", "url(#c2-arrow-gray)");
+    }
+
+    if (c.isSync) {
+      path.setAttribute("stroke-dasharray", "4 4");
+    }
+
+    svgEl.appendChild(path);
+  }
+}
+
+export function renderizarVisaoC2(nos) {
+  if (typeof document === "undefined") return;
+
+  const gridEl = document.getElementById("c2-grid-etapas");
+  const canvasInner = document.getElementById("c2-canvas-inner");
+  const svgEl = document.getElementById("c2-conexoes-svg");
+  const tituloEl = document.getElementById("c2-diagrama-titulo");
+  const subtituloEl = document.getElementById("c2-diagrama-subtitulo");
+  const conteudoTempoEl = document.getElementById("c2-conteudo-tempo");
+  const conteudoStatusEl = document.getElementById("c2-conteudo-status");
+  const listaHistoricoEl = document.getElementById("c2-lista-historico");
+  const blocoDetalhesEl = document.getElementById("c2-bloco-detalhes-card");
+  const conteudoDetalhesEl = document.getElementById("c2-conteudo-detalhes-card");
+  const btnFecharDetalhes = document.getElementById("c2-btn-fechar-detalhes");
+
+  if (!gridEl || !canvasInner || !svgEl || !nos || nos.length === 0) return;
+
+  const estrutura = calcularEstruturaDiagramaC2(nos);
+  const raiz = nos.find((n) => !n.chamado_pai_id && !n.chamado_mae_id) || nos[0];
+
+  if (tituloEl) {
+    tituloEl.textContent = raiz?.titulo ? raiz.titulo : "Fluxo de Atendimento";
+  }
+  if (subtituloEl) {
+    subtituloEl.textContent = raiz?.fluxo_nome ? raiz.fluxo_nome : "Zagonel";
   }
 
-  vincularEventosInterativos(container);
+  // 1. Configurar Grade do Canvas
+  gridEl.style.gridTemplateColumns = `repeat(${estrutura.totalColunas}, minmax(160px, 195px))`;
+  gridEl.style.gridTemplateRows = `repeat(${estrutura.totalTrilhas}, minmax(68px, auto))`;
+
+  // 2. Renderizar Cards Limpos no Estilo C.2
+  let cardsHtml = "";
+  for (const no of estrutura.nosProcessados) {
+    const colStyle = `${no.coluna + 1} / span 1`;
+    const rowStyle = no.centralizado ? `1 / span ${estrutura.totalTrilhas}` : `${no.trilha + 1} / span 1`;
+    const alignSelf = no.centralizado ? "align-self: center;" : "";
+
+    cardsHtml += `
+      <div id="c2-card-${no.id}" class="c2-card c2-card--${no.estadoC2}" data-id="${no.id}" style="grid-column: ${colStyle}; grid-row: ${rowStyle}; ${alignSelf}">
+        <div class="c2-card__topo">
+          <span class="c2-card__icone c2-card__icone--${no.estadoC2}">${no.iconeC2}</span>
+          <span class="c2-card__id">#${no.id}</span>
+        </div>
+        <div class="c2-card__nome" title="${escaparHtml(no.titulo || no.etapa_nome || '')}">
+          ${escaparHtml(no.etapa_nome || no.titulo || "Etapa")}
+        </div>
+        <div class="c2-card__subtexto c2-card__subtexto--${no.estadoC2}">
+          ${escaparHtml(no.subtextoC2)}
+        </div>
+      </div>
+    `;
+  }
+
+  // Card de Sincronização / Conclusão de Etapas Paralelas
+  if (estrutura.temSync) {
+    const folhas = estrutura.nosProcessados.filter((n) => n.filhos.length === 0);
+    const todasFinalizadas = folhas.every((f) => f.estadoC2 === "concluido");
+    const pendentesCount = folhas.filter((f) => f.estadoC2 !== "concluido").length;
+
+    cardsHtml += `
+      <div id="c2-card-sync" class="c2-card c2-card--sync ${todasFinalizadas ? "c2-card--concluido" : ""}" style="grid-column: ${estrutura.totalColunas} / span 1; grid-row: 1 / span ${estrutura.totalTrilhas}; align-self: center;">
+        <div class="c2-card__topo">
+          <span class="c2-card__icone c2-card__icone--sync">${todasFinalizadas ? "✓" : "🔄"}</span>
+        </div>
+        <div class="c2-card__nome">
+          Sincronização / Conclusão
+        </div>
+        <div class="c2-card__subtexto">
+          ${todasFinalizadas ? "Todas as frentes concluídas" : `Aguarda ${pendentesCount} frente${pendentesCount > 1 ? "s" : ""} para finalizar`}
+        </div>
+      </div>
+    `;
+  }
+
+  gridEl.innerHTML = cardsHtml;
+
+  // 3. Preencher Painel Lateral: Tempo por Etapa
+  if (conteudoTempoEl) {
+    if (estrutura.etapaTravada) {
+      const etapaTravadaNome = estrutura.etapaTravada.etapa_nome || estrutura.etapaTravada.titulo || "Etapa";
+      const dias = estrutura.etapaTravada.diasInativo || 0;
+      const horas = dias * 24;
+      const textoInativo = dias > 0 ? `Parado há ${dias} dia${dias > 1 ? "s" : ""} (${horas}h)` : "Em andamento";
+      const pctPrazo = Math.min(100, Math.max(15, dias * 15));
+
+      conteudoTempoEl.innerHTML = `
+        <div style="font-weight: 600; color: var(--cor-texto);">
+          Em andamento na <strong>${escaparHtml(etapaTravadaNome)}</strong>
+        </div>
+        <div class="c2-tempo-barra-fundo">
+          <div class="c2-tempo-barra-progresso" style="width: ${pctPrazo}%;"></div>
+        </div>
+        <div class="c2-tempo-alerta">
+          <span>⏱️</span>
+          <span>Tempo de inatividade: <strong>${textoInativo}</strong></span>
+        </div>
+      `;
+    } else {
+      conteudoTempoEl.innerHTML = `
+        <div style="color: var(--cor-texto-secundario); font-size: 0.84rem;">
+          ✓ Todas as etapas foram finalizadas com sucesso.
+        </div>
+      `;
+    }
+  }
+
+  // 4. Preencher Painel Lateral: Detalhes do Status
+  if (conteudoStatusEl) {
+    const totalEtapas = nos.length;
+    const finalizadas = nos.filter((n) => n.data_finalizacao || String(n.status_nome || "").toLowerCase() === "finalizado" || String(n.resultado || "").toLowerCase() === "aprovado").length;
+    const pctGeral = Math.round((finalizadas / totalEtapas) * 100);
+
+    conteudoStatusEl.innerHTML = `
+      <div class="c2-detalhes-linha">
+        <span class="c2-detalhes-rotulo">Início:</span>
+        <span class="c2-detalhes-valor">${formatarDataBR(raiz?.data_abertura)}</span>
+        <span class="c2-detalhes-divisor">-</span>
+        <span class="c2-detalhes-rotulo">Fim Estimado:</span>
+        <span class="c2-detalhes-valor">${formatarDataBR(raiz?.prazo)}</span>
+      </div>
+      <div class="c2-detalhes-etapa-contagem">
+        Etapa ${finalizadas} de ${totalEtapas} (${pctGeral}%)
+      </div>
+      <div class="c2-detalhes-progresso-barra">
+        <div class="c2-detalhes-progresso-preenchimento" style="width: ${pctGeral}%;"></div>
+      </div>
+    `;
+  }
+
+  // 5. Preencher Painel Lateral: Histórico
+  if (listaHistoricoEl) {
+    const ordenados = [...nos].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+    listaHistoricoEl.innerHTML = ordenados
+      .map((item) => {
+        const resNorm = String(item.resultado || "").toLowerCase();
+        const statNorm = String(item.status_nome || "").toLowerCase();
+        const ehConcluido = Boolean(item.data_finalizacao || statNorm === "finalizado" || resNorm === "aprovado");
+        const ehCancelado = statNorm.includes("cancelad") || resNorm === "reprovado";
+        const pontoClasse = ehConcluido
+          ? "c2-historico-ponto--verde"
+          : ehCancelado || item.id === estrutura.etapaTravada?.id
+          ? "c2-historico-ponto--vermelho"
+          : "c2-historico-ponto--cinza";
+
+        const dataExibicao = formatarDataBR(item.data_finalizacao || item.data_abertura);
+        const nomeEtapa = item.etapa_nome || item.titulo || `Etapa #${item.id}`;
+
+        return `
+          <li class="c2-historico-item" data-id="${item.id}" style="cursor: pointer;" title="Clique para ver detalhes desta etapa">
+            <div class="c2-historico-item__esquerda">
+              <span class="c2-historico-ponto ${pontoClasse}"></span>
+              <span class="c2-historico-nome">${escaparHtml(nomeEtapa)}</span>
+            </div>
+            <span class="c2-historico-data">${dataExibicao}</span>
+          </li>
+        `;
+      })
+      .join("");
+  }
+
+  // 6. Eventos interativos de clique em cards e itens do histórico
+  const selecionarNo = (id) => {
+    const no = nos.find((n) => String(n.id) === String(id));
+    if (!no) return;
+
+    gridEl.querySelectorAll(".c2-card").forEach((c) => c.classList.remove("c2-card--selecionado"));
+    const cardEl = document.getElementById(`c2-card-${no.id}`);
+    if (cardEl) cardEl.classList.add("c2-card--selecionado");
+
+    if (blocoDetalhesEl && conteudoDetalhesEl) {
+      blocoDetalhesEl.hidden = false;
+      const resNorm = String(no.resultado || "").toLowerCase();
+      const tagResultado = no.resultado
+        ? `<span class="badge" style="background: ${resNorm.includes("aprovad") ? "#dcfce7" : "#fee2e2"}; color: ${resNorm.includes("aprovad") ? "#166534" : "#991b1b"}; font-size: 0.76rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px;">${escaparHtml(no.resultado)}</span>`
+        : "";
+
+      conteudoDetalhesEl.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.82rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.35rem;">
+            <strong style="color: var(--cor-texto); font-size: 0.9rem;">#${no.id} ${escaparHtml(no.etapa_nome || no.titulo || "Etapa")}</strong>
+            ${tagResultado}
+          </div>
+          <div><strong>🏢 Setor:</strong> ${escaparHtml(no.setor_nome || "Não definido")}</div>
+          <div><strong>👤 Responsável:</strong> ${escaparHtml(no.responsavel_nome || "Não atribuído")}</div>
+          <div><strong>📅 Prazo:</strong> ${formatarDataBR(no.prazo)}</div>
+          <div><strong>Status:</strong> ${badgeStatus(no.status_nome, no.status_cor)}</div>
+          ${
+            no.diasInativo !== undefined && no.diasInativo > 0
+              ? `<div style="color: #dc2626; font-weight: 600;">⏱️ Inatividade: ${no.diasInativo} dia(s)</div>`
+              : ""
+          }
+          <div style="margin-top: 0.35rem;">
+            <a href="/chamado?id=${no.id}${no.eh_mae || !no.chamado_mae_id ? '&modo=detalhes' : ''}" class="btn btn-primario" style="text-decoration: none; width: 100%; display: flex; align-items: center; justify-content: center; height: 30px; font-size: 0.8rem; box-sizing: border-box;">
+              Abrir chamado #${no.id} →
+            </a>
+          </div>
+        </div>
+      `;
+    }
+  };
+
+  gridEl.querySelectorAll(".c2-card").forEach((c) => {
+    c.addEventListener("click", () => {
+      const id = c.dataset.id;
+      if (id) selecionarNo(id);
+    });
+  });
+
+  listaHistoricoEl?.querySelectorAll(".c2-historico-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      const id = item.dataset.id;
+      if (id) selecionarNo(id);
+    });
+  });
+
+  btnFecharDetalhes?.addEventListener("click", () => {
+    if (blocoDetalhesEl) blocoDetalhesEl.hidden = true;
+    gridEl.querySelectorAll(".c2-card").forEach((c) => c.classList.remove("c2-card--selecionado"));
+  });
+
+  // 7. Atualizar conexões SVG
+  const desenhar = () => {
+    atualizarLinhasSvgC2(canvasInner, svgEl, estrutura.conexoes);
+  };
+
+  desenhar();
+  if (typeof requestAnimationFrame !== "undefined") {
+    requestAnimationFrame(desenhar);
+    setTimeout(desenhar, 60);
+  }
+
+  // 8. Observador de redimensionamento para manter setas precisas
+  if (typeof ResizeObserver !== "undefined") {
+    if (resizeObserverC2) {
+      try { resizeObserverC2.disconnect(); } catch (_) {}
+    }
+    resizeObserverC2 = new ResizeObserver(() => {
+      desenhar();
+    });
+    resizeObserverC2.observe(canvasInner);
+  }
+}
+
+function renderizarFluxoAtivo() {
+  const c2Layout = document.getElementById("c2-visao-layout");
+  const container = document.getElementById("arvore");
+  const cardResumo = document.getElementById("card-resumo-fluxo");
+  const wrapControlesLegados = document.getElementById("controles-expansao-legado");
+
+  if (nosAtuais.length === 0) return;
+
+  if (modoVisualizacao === "c2") {
+    if (c2Layout) c2Layout.style.display = "grid";
+    if (container) container.hidden = true;
+    if (cardResumo) cardResumo.hidden = true;
+    if (wrapControlesLegados) wrapControlesLegados.hidden = true;
+    renderizarVisaoC2(nosAtuais);
+  } else if (modoVisualizacao === "horizontal") {
+    if (c2Layout) c2Layout.style.display = "none";
+    if (container) {
+      container.hidden = false;
+      renderizarVisaoHorizontal(container, nosAtuais);
+      vincularEventosInterativos(container);
+    }
+    if (cardResumo) cardResumo.hidden = false;
+    if (wrapControlesLegados) wrapControlesLegados.hidden = false;
+  } else {
+    if (c2Layout) c2Layout.style.display = "none";
+    if (container) {
+      container.hidden = false;
+      renderizarVisaoVertical(container, nosAtuais);
+      vincularEventosInterativos(container);
+    }
+    if (cardResumo) cardResumo.hidden = false;
+    if (wrapControlesLegados) wrapControlesLegados.hidden = false;
+  }
 }
 
 function vincularEventosInterativos(container) {
@@ -602,21 +1102,37 @@ export function habilitarNavegacaoArrastoLateral(container) {
 }
 
 function configurarControlesTopo() {
+  const btnC2 = document.getElementById("btn-visao-c2");
   const btnHorizontal = document.getElementById("btn-visao-horizontal");
   const btnVertical = document.getElementById("btn-visao-vertical");
   const btnExpandir = document.getElementById("btn-expandir-tudo");
   const btnRecolher = document.getElementById("btn-recolher-tudo");
+  const wrapControlesLegados = document.getElementById("controles-expansao-legado");
 
   const atualizarBotoesOrientacao = () => {
+    if (btnC2) btnC2.classList.toggle("ativo", modoVisualizacao === "c2");
     if (btnHorizontal) btnHorizontal.classList.toggle("ativo", modoVisualizacao === "horizontal");
     if (btnVertical) btnVertical.classList.toggle("ativo", modoVisualizacao === "vertical");
+    if (wrapControlesLegados) {
+      wrapControlesLegados.hidden = modoVisualizacao === "c2";
+    }
   };
+
+  btnC2?.addEventListener("click", () => {
+    if (modoVisualizacao === "c2") return;
+    modoVisualizacao = "c2";
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("workflow_visao_geral_orientacao_v2", "c2");
+    }
+    atualizarBotoesOrientacao();
+    renderizarFluxoAtivo();
+  });
 
   btnHorizontal?.addEventListener("click", () => {
     if (modoVisualizacao === "horizontal") return;
     modoVisualizacao = "horizontal";
     if (typeof localStorage !== "undefined") {
-      localStorage.setItem("workflow_visao_geral_orientacao", "horizontal");
+      localStorage.setItem("workflow_visao_geral_orientacao_v2", "horizontal");
     }
     atualizarBotoesOrientacao();
     renderizarFluxoAtivo();
@@ -626,7 +1142,7 @@ function configurarControlesTopo() {
     if (modoVisualizacao === "vertical") return;
     modoVisualizacao = "vertical";
     if (typeof localStorage !== "undefined") {
-      localStorage.setItem("workflow_visao_geral_orientacao", "vertical");
+      localStorage.setItem("workflow_visao_geral_orientacao_v2", "vertical");
     }
     atualizarBotoesOrientacao();
     renderizarFluxoAtivo();
