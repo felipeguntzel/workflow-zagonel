@@ -35,18 +35,21 @@
       <h2 id="titulo-pagina-geral">Visão Geral do Fluxo de Atendimento</h2>
     </div>
     <div class="pagina-cabecalho__acoes" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-      <!-- Alternador de Orientação: Horizontal / Vertical -->
+      <!-- Alternador de Visualização: Visual (C.2) / BPMN / Vertical -->
       <div class="grupo-botoes-orientacao" role="group" aria-label="Modo de visualização">
-        <button type="button" id="btn-visao-horizontal" class="btn-visao-modo ativo" title="Visão Horizontal com Raias por Setor (BPMN)">
-          ↔️ Horizontal
+        <button type="button" id="btn-visao-c2" class="btn-visao-modo ativo" title="Visão Visual de Tarefas (Cards Limpos e Linhas Conectoras)">
+          📊 Fluxo Visual
+        </button>
+        <button type="button" id="btn-visao-horizontal" class="btn-visao-modo" title="Visão Horizontal com Raias por Setor (BPMN)">
+          ↔️ Raias BPMN
         </button>
         <button type="button" id="btn-visao-vertical" class="btn-visao-modo" title="Visão Vertical em Árvore Hierárquica">
-          ↕️ Vertical
+          ↕️ Hierárquica
         </button>
       </div>
 
-      <!-- Controles de Expansão / Recolhimento -->
-      <div style="display: flex; gap: 0.4rem;">
+      <!-- Controles de Expansão / Recolhimento (para visões legadas BPMN e Vertical) -->
+      <div id="controles-expansao-legado" style="display: flex; gap: 0.4rem;" hidden>
         <button type="button" id="btn-expandir-tudo" class="btn btn-secundario btn-cabecalho-acao" title="Expandir detalhes e comentários de todas as etapas">
           ▼ Expandir tudo
         </button>
@@ -61,11 +64,79 @@
   <div id="toast-geral-sucesso" class="toast-status-rapido toast-sucesso" style="margin-bottom: 0.85rem;" hidden></div>
 
   <div class="geral-fluxo-container">
-    <!-- Card de Resumo do Fluxo Raiz -->
+    <!-- Estrutura Principal Dividida: Estilo C.2 (Fluxo Visual Limpo e Painel Lateral) -->
+    <div id="c2-visao-layout" class="c2-visao-layout">
+      <!-- Coluna da Esquerda: Diagrama de Tarefas -->
+      <section class="c2-diagrama-secao">
+        <div class="c2-diagrama-cabecalho">
+          <div class="c2-diagrama-info">
+            <span id="c2-diagrama-titulo" class="c2-diagrama-titulo">Fluxo de Processo</span>
+            <span id="c2-diagrama-subtitulo" class="c2-diagrama-subtitulo"></span>
+          </div>
+          <div class="c2-legenda-wrap">
+            <span class="c2-legenda-item"><span class="c2-ponto c2-ponto--concluido">✓</span> Concluída</span>
+            <span class="c2-legenda-item"><span class="c2-ponto c2-ponto--travado">!</span> Pendente</span>
+            <span class="c2-legenda-item"><span class="c2-ponto c2-ponto--futuro">○</span> Aguardando</span>
+            <span class="c2-legenda-item"><span class="c2-linha-legenda c2-linha-legenda--verde"></span> Caminho Concluído</span>
+          </div>
+        </div>
+
+        <div class="c2-canvas-container" id="c2-canvas-container">
+          <div class="c2-canvas-inner" id="c2-canvas-inner">
+            <svg class="c2-conexoes-svg" id="c2-conexoes-svg" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="c2-arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#16a34a"></path>
+                </marker>
+                <marker id="c2-arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#ef4444"></path>
+                </marker>
+                <marker id="c2-arrow-gray" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#94a3b8"></path>
+                </marker>
+              </defs>
+            </svg>
+            <div class="c2-grid-etapas" id="c2-grid-etapas"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Coluna da Direita: Painel Lateral (Tempo por Etapa, Detalhes do Status e Histórico) -->
+      <aside class="c2-painel-lateral" id="c2-painel-lateral">
+        <!-- 1. Tempo por Etapa -->
+        <div class="c2-painel-bloco" id="c2-bloco-tempo">
+          <div class="c2-painel-bloco__titulo">Tempo por Etapa</div>
+          <div id="c2-conteudo-tempo" class="c2-conteudo-tempo"></div>
+        </div>
+
+        <!-- 2. Detalhes do Status -->
+        <div class="c2-painel-bloco" id="c2-bloco-status">
+          <div class="c2-painel-bloco__titulo">Detalhes do Status</div>
+          <div id="c2-conteudo-status" class="c2-conteudo-status"></div>
+        </div>
+
+        <!-- 3. Histórico -->
+        <div class="c2-painel-bloco" id="c2-bloco-historico">
+          <div class="c2-painel-bloco__titulo">Histórico</div>
+          <ul id="c2-lista-historico" class="c2-historico-lista"></ul>
+        </div>
+
+        <!-- 4. Detalhes da Etapa Clicada (Interativo) -->
+        <div class="c2-painel-bloco c2-painel-bloco--destaque" id="c2-bloco-detalhes-card" hidden>
+          <div class="c2-painel-bloco__titulo">
+            <span>Detalhes da Etapa</span>
+            <button type="button" id="c2-btn-fechar-detalhes" class="btn-fechar-card-detalhe" title="Fechar">&times;</button>
+          </div>
+          <div id="c2-conteudo-detalhes-card"></div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Card de Resumo do Fluxo Raiz (usado na visão legada BPMN e Hierárquica) -->
     <div id="card-resumo-fluxo" class="geral-resumo-card" hidden></div>
 
-    <!-- Árvore e Linha do Tempo das Etapas -->
-    <div id="arvore" class="geral-arvore-container">
+    <!-- Árvore e Linha do Tempo das Etapas (visão legada BPMN e Hierárquica) -->
+    <div id="arvore" class="geral-arvore-container" hidden>
       <div style="text-align: center; padding: 2.5rem; color: var(--cor-texto-secundario);">
         Carregando fluxo completo do chamado...
       </div>
