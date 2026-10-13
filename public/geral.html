@@ -48,6 +48,11 @@
         </button>
       </div>
 
+      <button type="button" id="btn-tela-cheia-fluxo" class="btn btn-secundario btn-cabecalho-acao" title="Alternar visualização em tela cheia" style="height: 34px; display: inline-flex; align-items: center; gap: 0.35rem;">
+        <span class="icone-tela-cheia">⛶</span>
+        <span class="texto-tela-cheia">Tela cheia</span>
+      </button>
+
       <!-- Controles de Expansão / Recolhimento (para visões legadas BPMN e Vertical) -->
       <div id="controles-expansao-legado" style="display: flex; gap: 0.4rem;" hidden>
         <button type="button" id="btn-expandir-tudo" class="btn btn-secundario btn-cabecalho-acao" title="Expandir detalhes e comentários de todas as etapas">
@@ -103,10 +108,13 @@
 
       <!-- Coluna da Direita: Painel Lateral (Tempo por Etapa, Detalhes do Status e Histórico) -->
       <aside class="c2-painel-lateral" id="c2-painel-lateral">
-        <!-- 1. Tempo por Etapa -->
-        <div class="c2-painel-bloco" id="c2-bloco-tempo">
-          <div class="c2-painel-bloco__titulo">Tempo por Etapa</div>
-          <div id="c2-conteudo-tempo" class="c2-conteudo-tempo"></div>
+        <!-- 1. Tempo por Etapa (inicia recolhido) -->
+        <div class="c2-painel-bloco c2-painel-bloco--recolhido" id="c2-bloco-tempo">
+          <div class="c2-painel-bloco__titulo" id="c2-titulo-tempo" style="cursor: pointer;" title="Clique para expandir ou recolher">
+            <span>Tempo por Etapa</span>
+            <button type="button" id="btn-toggle-tempo" class="c2-painel-bloco__toggle" title="Expandir / Recolher">▼ Expandir</button>
+          </div>
+          <div id="c2-conteudo-tempo" class="c2-conteudo-tempo" style="display: none;"></div>
         </div>
 
         <!-- 2. Detalhes do Status -->
@@ -115,10 +123,13 @@
           <div id="c2-conteudo-status" class="c2-conteudo-status"></div>
         </div>
 
-        <!-- 3. Histórico -->
-        <div class="c2-painel-bloco" id="c2-bloco-historico">
-          <div class="c2-painel-bloco__titulo">Histórico</div>
-          <ul id="c2-lista-historico" class="c2-historico-lista"></ul>
+        <!-- 3. Histórico (inicia recolhido) -->
+        <div class="c2-painel-bloco c2-painel-bloco--recolhido" id="c2-bloco-historico">
+          <div class="c2-painel-bloco__titulo" id="c2-titulo-historico" style="cursor: pointer;" title="Clique para expandir ou recolher">
+            <span>Histórico</span>
+            <button type="button" id="btn-toggle-historico" class="c2-painel-bloco__toggle" title="Expandir / Recolher">▼ Expandir</button>
+          </div>
+          <ul id="c2-lista-historico" class="c2-historico-lista" style="display: none;"></ul>
         </div>
 
         <!-- 4. Detalhes da Etapa Clicada (Interativo) -->
@@ -142,17 +153,17 @@
       </div>
     </div>
 
-    <!-- Histórico Unificado de Ações -->
+    <!-- Histórico Unificado de Ações (inicia recolhido) -->
     <section class="painel painel-chamado" style="margin-top: 1.5rem;">
-      <div id="cabecalho-historico" class="painel-chamado-cabecalho">
+      <div id="cabecalho-historico" class="painel-chamado-cabecalho painel-chamado-cabecalho--recolhido">
         <div class="cabecalho-lado-esquerdo">
           <h2 class="cabecalho-titulo">📜 Histórico Unificado de Ações</h2>
         </div>
         <div class="cabecalho-lado-direito">
-          <button type="button" id="btn-recolher-historico" class="btn btn-secundario btn-acao-cabecalho btn-recolher-card" title="Recolher / Expandir">▲ Recolher</button>
+          <button type="button" id="btn-recolher-historico" class="btn btn-secundario btn-acao-cabecalho btn-recolher-card" title="Recolher / Expandir">▼ Expandir</button>
         </div>
       </div>
-      <div id="historico-auditoria-wrap" style="max-height: 320px; overflow-y: auto; padding-right: 0.5rem;">
+      <div id="historico-auditoria-wrap" style="display: none; max-height: 320px; overflow-y: auto; padding-right: 0.5rem;">
         <ul id="lista-historico-auditoria" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;"></ul>
       </div>
     </section>

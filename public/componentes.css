@@ -3319,6 +3319,50 @@ tr.tr-contexto-ativo {
   justify-content: space-between;
 }
 
+.c2-painel-bloco--recolhido {
+  padding-bottom: 0.65rem;
+}
+
+.c2-painel-bloco--recolhido .c2-painel-bloco__titulo {
+  margin-bottom: 0;
+}
+
+.c2-painel-bloco__toggle {
+  background: var(--cor-fundo);
+  border: 1px solid var(--cor-borda);
+  color: var(--cor-texto-secundario);
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.c2-painel-bloco__toggle:hover {
+  background: var(--cor-fundo-elevado);
+  color: var(--cor-texto);
+  border-color: var(--cor-primaria);
+}
+
+/* Modo Tela Cheia do Fluxo Visual */
+.geral-fluxo-container--tela-cheia {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  background: var(--cor-fundo) !important;
+  padding: 1.25rem !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+}
+
+.geral-fluxo-container--tela-cheia .c2-canvas-container {
+  min-height: calc(100vh - 120px) !important;
+}
+
 .btn-fechar-card-detalhe {
   background: transparent;
   border: none;

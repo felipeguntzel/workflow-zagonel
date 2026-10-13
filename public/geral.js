@@ -4,16 +4,35 @@ import { escaparHtml, formatarDataBR, formatarDataHoraBR, mostrarErro } from "./
 import { api } from "./api.js";
 
 let nosAtuais = [];
-let modoVisualizacao = (typeof localStorage !== "undefined" && localStorage.getItem("workflow_visao_geral_orientacao_v2")) || "c2";
+let modoVisualizacao = "c2"; // Padrão absoluto ao abrir tela: Fluxo Visual
 let etapasExpandidas = false; // Por padrão, ao abrir, etapas vêm recolhidas (somente título, aprovação, status)
 let resizeObserverC2 = null;
 
 export function inicializar() {
   if (typeof window === "undefined") return;
   const usuario = exigirLogin();
-  const id = new URLSearchParams(window.location.search).get("id");
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id");
+  const visaoParam = params.get("visao");
+  if (visaoParam === "horizontal" || visaoParam === "vertical") {
+    modoVisualizacao = visaoParam;
+  } else {
+    modoVisualizacao = "c2";
+  }
+
   if (usuario && id) {
     aplicarLayout(usuario);
+
+    // Iniciar em tela cheia: recolhe a barra lateral principal do sistema para ampliar espaço
+    const sidebar = document.querySelector(".sidebar");
+    if (sidebar && !sidebar.classList.contains("recolhida")) {
+      sidebar.classList.add("recolhida");
+      const botaoColapsar = sidebar.querySelector("#btn-colapsar-sidebar");
+      if (botaoColapsar) botaoColapsar.textContent = "»";
+      try {
+        localStorage.setItem("workflow_zagonel_sidebar_colapsada", "1");
+      } catch (_) {}
+    }
 
     const toastSalvo = sessionStorage.getItem("workflow_toast_sucesso");
     if (toastSalvo) {
@@ -1196,11 +1215,85 @@ function configurarControlesTopo() {
     });
   });
 
+  // Alternador de Tela Cheia do Fluxo Visual
+  const btnTelaCheia = document.getElementById("btn-tela-cheia-fluxo");
+  const layoutContainer = document.querySelector(".geral-fluxo-container");
+  if (btnTelaCheia && layoutContainer) {
+    btnTelaCheia.addEventListener("click", () => {
+      const ativa = layoutContainer.classList.toggle("geral-fluxo-container--tela-cheia");
+      const icone = btnTelaCheia.querySelector(".icone-tela-cheia");
+      const texto = btnTelaCheia.querySelector(".texto-tela-cheia");
+      if (icone) icone.textContent = ativa ? "🗗" : "⛶";
+      if (texto) texto.textContent = ativa ? "Restaurar" : "Tela cheia";
+      if (document.fullscreenEnabled) {
+        if (ativa && !document.fullscreenElement) {
+          layoutContainer.requestFullscreen?.().catch(() => {});
+        } else if (!ativa && document.fullscreenElement) {
+          document.exitFullscreen?.().catch(() => {});
+        }
+      }
+      setTimeout(() => {
+        const svg = document.getElementById("c2-conexoes-svg");
+        const inner = document.getElementById("c2-canvas-inner");
+        if (svg && inner && nosAtuais.length > 0) {
+          const est = calcularEstruturaDiagramaC2(nosAtuais);
+          atualizarLinhasSvgC2(inner, svg, est.conexoes);
+        }
+      }, 150);
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      const estaFs = Boolean(document.fullscreenElement);
+      layoutContainer.classList.toggle("geral-fluxo-container--tela-cheia", estaFs);
+      const icone = btnTelaCheia.querySelector(".icone-tela-cheia");
+      const texto = btnTelaCheia.querySelector(".texto-tela-cheia");
+      if (icone) icone.textContent = estaFs ? "🗗" : "⛶";
+      if (texto) texto.textContent = estaFs ? "Restaurar" : "Tela cheia";
+    });
+  }
+
+  // Alternador do bloco Tempo por Etapa (inicia recolhido)
+  const blocoTempo = document.getElementById("c2-bloco-tempo");
+  const tituloTempo = document.getElementById("c2-titulo-tempo");
+  const conteudoTempo = document.getElementById("c2-conteudo-tempo");
+  const btnToggleTempo = document.getElementById("btn-toggle-tempo");
+
+  const alternarTempo = () => {
+    if (!blocoTempo || !conteudoTempo) return;
+    const estaOculto = conteudoTempo.style.display === "none";
+    conteudoTempo.style.display = estaOculto ? "" : "none";
+    blocoTempo.classList.toggle("c2-painel-bloco--recolhido", !estaOculto);
+    if (btnToggleTempo) btnToggleTempo.textContent = estaOculto ? "▲ Recolher" : "▼ Expandir";
+  };
+
+  tituloTempo?.addEventListener("click", alternarTempo);
+
+  // Alternador do bloco Histórico (inicia recolhido)
+  const blocoHist = document.getElementById("c2-bloco-historico");
+  const tituloHist = document.getElementById("c2-titulo-historico");
+  const listaHist = document.getElementById("c2-lista-historico");
+  const btnToggleHist = document.getElementById("btn-toggle-historico");
+
+  const alternarHist = () => {
+    if (!blocoHist || !listaHist) return;
+    const estaOculto = listaHist.style.display === "none";
+    listaHist.style.display = estaOculto ? "" : "none";
+    blocoHist.classList.toggle("c2-painel-bloco--recolhido", !estaOculto);
+    if (btnToggleHist) btnToggleHist.textContent = estaOculto ? "▲ Recolher" : "▼ Expandir";
+  };
+
+  tituloHist?.addEventListener("click", alternarHist);
+
+  // Histórico Unificado de Ações no rodapé (inicia recolhido)
   const btnRecolherHistorico = document.getElementById("btn-recolher-historico");
   const cabecalhoHistorico = document.getElementById("cabecalho-historico");
   const wrapHistorico = document.getElementById("historico-auditoria-wrap");
   if (btnRecolherHistorico) {
-    let historicoRecolhido = false; // Na visão geral, inicia expandido
+    let historicoRecolhido = true; // Inicia recolhido por padrão
+    if (wrapHistorico) wrapHistorico.style.display = "none";
+    if (cabecalhoHistorico) cabecalhoHistorico.classList.add("painel-chamado-cabecalho--recolhido");
+    btnRecolherHistorico.textContent = "▼ Expandir";
+
     btnRecolherHistorico.addEventListener("click", () => {
       historicoRecolhido = !historicoRecolhido;
       if (wrapHistorico) {
