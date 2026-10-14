@@ -24,3 +24,13 @@ test("error() accepts a custom status", async () => {
   const res = error("não encontrado", 404);
   assert.equal(res.status, 404);
 });
+
+test("error() accepts custom extras payload", async () => {
+  const res = error("erro de chave", 400, { codigo: "FK_ERR", dependencias: ["chamados"] });
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), {
+    error: "erro de chave",
+    codigo: "FK_ERR",
+    dependencias: ["chamados"],
+  });
+});

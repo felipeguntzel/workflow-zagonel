@@ -107,7 +107,18 @@ async function buscarDaRede(rotaLimpa, metodo, headers, body) {
   });
 
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error ?? `Erro ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data?.error ?? `Erro ${res.status}`);
+    if (data && typeof data === "object") {
+      err.dados = data;
+      err.dependencias = data.dependencias;
+      err.comandosSugeridos = data.comandosSugeridos;
+      err.tabela = data.tabela;
+      err.codigo = data.codigo;
+      err.erroOriginal = data.erroOriginal;
+    }
+    throw err;
+  }
   if (data === null && res.status !== 204) {
     throw new Error("Resposta em formato inválido do servidor.");
   }

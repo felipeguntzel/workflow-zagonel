@@ -63,6 +63,9 @@ async function iniciarEditor(container) {
             <select id="select-tabela-modelo" class="select-padrao" style="width: auto; min-width: 210px; font-weight: 600; padding: 0.45rem 0.75rem; font-size: 0.85rem;">
               <option value="">Carregando tabelas...</option>
             </select>
+            <button type="button" id="btn-atualizar-contagem" class="btn btn-secundario" title="Atualizar contagem de registros em tempo de execução" style="font-size: 0.82rem; padding: 0.45rem 0.65rem;">
+              ↺
+            </button>
             <button type="button" class="btn btn-secundario btn-modelo-sql" data-acao="select" title="Inserir comando SELECT com limite" style="font-size: 0.82rem; padding: 0.45rem 0.7rem;">+ SELECT</button>
             <button type="button" class="btn btn-secundario btn-modelo-sql" data-acao="insert" title="Inserir modelo de INSERT" style="font-size: 0.82rem; padding: 0.45rem 0.7rem;">+ INSERT</button>
             <button type="button" class="btn btn-secundario btn-modelo-sql" data-acao="update" title="Inserir modelo de UPDATE com WHERE" style="font-size: 0.82rem; padding: 0.45rem 0.7rem;">+ UPDATE</button>
@@ -200,6 +203,21 @@ async function iniciarEditor(container) {
   // Modal de Esquema do Banco
   btnAbrirEsquema.addEventListener("click", abrirModalEsquema);
 
+  // Atualizar contagem de registros das tabelas em tempo de execução
+  const btnAtualizarContagem = document.getElementById("btn-atualizar-contagem");
+  if (btnAtualizarContagem) {
+    btnAtualizarContagem.addEventListener("click", async () => {
+      btnAtualizarContagem.disabled = true;
+      btnAtualizarContagem.textContent = "⏳";
+      try {
+        await carregarTabelas(true);
+      } finally {
+        btnAtualizarContagem.disabled = false;
+        btnAtualizarContagem.textContent = "↺";
+      }
+    });
+  }
+
   // Ação rápida para Restaurar IDs (AUTOINCREMENT)
   const btnRestaurarIdsRapido = document.getElementById("btn-restaurar-ids-rapido");
   if (btnRestaurarIdsRapido) {
@@ -249,7 +267,11 @@ async function iniciarEditor(container) {
           `;
         }
 
-        await carregarTabelas();
+        if (resp.tabelas && Array.isArray(resp.tabelas)) {
+          atualizarEstadoTabelas(resp.tabelas);
+        } else {
+          await carregarTabelas(true);
+        }
       } catch (err) {
         if (statusEl) {
           statusEl.innerHTML = `
@@ -338,8 +360,12 @@ async function iniciarEditor(container) {
           </div>
         `;
 
-        // Recarrega contadores das tabelas em segundo plano
-        carregarTabelas(false);
+        // Atualiza a contagem de registros em tempo de execução
+        if (resp.tabelas && Array.isArray(resp.tabelas)) {
+          atualizarEstadoTabelas(resp.tabelas);
+        } else {
+          await carregarTabelas(true);
+        }
       }
     } catch (err) {
       resultadoAtual = null;
@@ -350,12 +376,7 @@ async function iniciarEditor(container) {
         <span class="sql-badge-tag sql-badge-erro">FALHA</span>
         <span style="color: var(--cor-vencido); font-weight: 600;">Erro na execução</span>
       `;
-      areaEl.innerHTML = `
-        <div style="padding: 1rem; border-radius: 0.4rem; background: rgba(192, 57, 43, 0.08); border: 1px solid var(--cor-vencido); color: var(--cor-vencido); font-family: monospace; font-size: 0.88rem; white-space: pre-wrap;">
-<strong>Erro retornado pelo banco:</strong>
-${escaparHtml(err.message || String(err))}
-        </div>
-      `;
+      renderizarErroExecucao(areaEl, err, sql, editor);
     } finally {
       btnExecutar.disabled = false;
       btnExecutar.innerHTML = `
@@ -366,32 +387,292 @@ ${escaparHtml(err.message || String(err))}
   }
 }
 
+function atualizarSelectTabelaModelo() {
+  const selectEl = document.getElementById("select-tabela-modelo");
+  if (!selectEl) return;
+  const valorAnterior = selectEl.value;
+
+  if (estadoTabelas.length === 0) {
+    selectEl.innerHTML = `<option value="">Nenhuma tabela encontrada</option>`;
+    return;
+  }
+
+  selectEl.innerHTML = `
+    <option value="">Selecione uma tabela (${estadoTabelas.length})...</option>
+    ${estadoTabelas
+      .map(
+        (t) =>
+          `<option value="${escaparHtml(t.nome)}" ${t.nome === valorAnterior ? "selected" : ""}>${escaparHtml(t.nome)} (${t.totalRegistros} reg)</option>`
+      )
+      .join("")}
+  `;
+
+  if (valorAnterior && estadoTabelas.some((t) => t.nome === valorAnterior)) {
+    selectEl.value = valorAnterior;
+  } else if (!valorAnterior && estadoTabelas.some((t) => t.nome === "chamados")) {
+    selectEl.value = "chamados";
+  } else if (!valorAnterior && estadoTabelas.some((t) => t.nome === "usuarios")) {
+    selectEl.value = "usuarios";
+  }
+}
+
+function atualizarEstadoTabelas(novasTabelas) {
+  if (Array.isArray(novasTabelas) && novasTabelas.length > 0) {
+    estadoTabelas = novasTabelas;
+  }
+  atualizarSelectTabelaModelo();
+
+  const listaModal = document.getElementById("lista-modal-esquema");
+  const buscaInp = document.getElementById("busca-modal-esquema");
+  if (listaModal) {
+    const filtro = buscaInp ? buscaInp.value.trim().toLowerCase() : "";
+    listaModal.innerHTML = renderizarItensEsquema(filtro);
+  }
+}
+
 async function carregarTabelas(atualizarSelect = true) {
   const selectEl = document.getElementById("select-tabela-modelo");
 
   try {
-    const dados = await api("/sql");
-    estadoTabelas = (dados && Array.isArray(dados.tabelas)) ? dados.tabelas : [];
-    
-    if (atualizarSelect && selectEl) {
-      if (estadoTabelas.length === 0) {
-        selectEl.innerHTML = `<option value="">Nenhuma tabela encontrada</option>`;
-      } else {
-        const valorAnterior = selectEl.value;
-        selectEl.innerHTML = `
-          <option value="">Selecione uma tabela (${estadoTabelas.length})...</option>
-          ${estadoTabelas.map((t) => `<option value="${escaparHtml(t.nome)}" ${t.nome === valorAnterior ? "selected" : ""}>${escaparHtml(t.nome)} (${t.totalRegistros} reg)</option>`).join("")}
-        `;
-        if (!valorAnterior && estadoTabelas.some((t) => t.nome === "usuarios")) {
-          selectEl.value = "usuarios";
-        }
-      }
+    const dados = await api("/sql", { noCache: true });
+    if (dados && Array.isArray(dados.tabelas)) {
+      estadoTabelas = dados.tabelas;
+    }
+    if (atualizarSelect) {
+      atualizarEstadoTabelas(estadoTabelas);
     }
   } catch (err) {
-    if (selectEl) {
+    if (selectEl && (!estadoTabelas || estadoTabelas.length === 0)) {
       selectEl.innerHTML = `<option value="">Erro ao listar tabelas</option>`;
     }
   }
+}
+
+function limparMensagemErroSql(msg) {
+  return String(msg || "")
+    .replace(/^D1_ERROR:\s*/i, "")
+    .replace(/^SQLite error:\s*/i, "")
+    .replace(/^Error:\s*/i, "")
+    .trim();
+}
+
+function obterTituloTipoErro(msg) {
+  const m = limparMensagemErroSql(msg);
+  if (/FOREIGN KEY constraint failed/i.test(m)) return "Restrição de Chave Estrangeira (FOREIGN KEY)";
+  if (/UNIQUE constraint failed/i.test(m)) return "Violação de Registro Único (UNIQUE)";
+  if (/NOT NULL constraint failed/i.test(m)) return "Campo Obrigatório Não Preenchido (NOT NULL)";
+  if (/CHECK constraint failed/i.test(m)) return "Regra de Validação Violada (CHECK)";
+  if (/no such table/i.test(m)) return "Tabela Não Encontrada";
+  if (/no such column/i.test(m)) return "Coluna Não Encontrada";
+  if (/syntax error|incomplete input/i.test(m)) return "Erro de Sintaxe SQL";
+  if (/table .* already exists/i.test(m)) return "Tabela Já Existente";
+  if (/datatype mismatch/i.test(m)) return "Incompatibilidade de Tipo de Dados";
+  if (/database is locked/i.test(m)) return "Banco de Dados Bloqueado";
+  if (/PRIMARY KEY must be unique/i.test(m)) return "Chave Primária Duplicada";
+  return "Falha na Execução do Comando";
+}
+
+function traduzirMensagemErroSql(mensagemOriginal) {
+  const msgLimpa = limparMensagemErroSql(mensagemOriginal);
+
+  if (/FOREIGN KEY constraint failed/i.test(msgLimpa)) {
+    return "Falha na restrição de chave estrangeira (FOREIGN KEY constraint failed). Existem registros dependentes vinculados ou a chave referenciada não existe.";
+  }
+  const uniqueColMatch = msgLimpa.match(/UNIQUE constraint failed:\s*([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)/i);
+  if (uniqueColMatch) {
+    return `Violação de valor único (UNIQUE): o campo "${uniqueColMatch[2]}" da tabela "${uniqueColMatch[1]}" já possui um registro com este valor.`;
+  }
+  const uniqueGenMatch = msgLimpa.match(/UNIQUE constraint failed:\s*(.+)/i);
+  if (uniqueGenMatch) {
+    return `Violação de valor único (UNIQUE): já existe um registro idêntico para (${uniqueGenMatch[1]}).`;
+  }
+  const notNullColMatch = msgLimpa.match(/NOT NULL constraint failed:\s*([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)/i);
+  if (notNullColMatch) {
+    return `Campo obrigatório não preenchido (NOT NULL): a coluna "${notNullColMatch[2]}" da tabela "${notNullColMatch[1]}" não pode ser nula.`;
+  }
+  const notNullGenMatch = msgLimpa.match(/NOT NULL constraint failed:\s*(.+)/i);
+  if (notNullGenMatch) {
+    return `Campo obrigatório não preenchido (NOT NULL): o campo (${notNullGenMatch[1]}) é obrigatório e não aceita valor nulo.`;
+  }
+  const checkMatch = msgLimpa.match(/CHECK constraint failed:\s*(.+)/i);
+  if (checkMatch) {
+    return `Falha na validação de regra (CHECK): o valor informado viola a regra definida para a tabela (${checkMatch[1]}).`;
+  }
+  const noTableMatch = msgLimpa.match(/no such table:\s*([a-zA-Z0-9_]+)/i);
+  if (noTableMatch) {
+    return `Tabela não encontrada: a tabela "${noTableMatch[1]}" não existe no banco de dados. Verifique a ortografia ou consulte o esquema de tabelas.`;
+  }
+  const noColMatch = msgLimpa.match(/no such column:\s*([a-zA-Z0-9_.]+)/i);
+  if (noColMatch) {
+    return `Coluna não encontrada: a coluna "${noColMatch[1]}" não existe na tabela informada.`;
+  }
+  const syntaxNearMatch = msgLimpa.match(/near\s+"([^"]+)":\s*syntax error/i);
+  if (syntaxNearMatch) {
+    return `Erro de sintaxe SQL próximo a "${syntaxNearMatch[1]}". Verifique se há erros de digitação, pontuação ou palavras-chave incorretas.`;
+  }
+  if (/syntax error/i.test(msgLimpa)) {
+    return "Erro de sintaxe no comando SQL. Verifique a estrutura da instrução, parênteses e vírgulas.";
+  }
+  if (/incomplete input/i.test(msgLimpa)) {
+    return "Instrução SQL incompleta. Verifique se faltou fechar parênteses, aspas ou finalizar o comando com ponto e vírgula.";
+  }
+  const tableExistsMatch = msgLimpa.match(/table\s+([a-zA-Z0-9_]+)\s+already exists/i);
+  if (tableExistsMatch) {
+    return `A tabela "${tableExistsMatch[1]}" já existe no banco de dados.`;
+  }
+  const colsMismatch = msgLimpa.match(/table\s+([a-zA-Z0-9_]+)\s+has\s+(\d+)\s+columns\s+but\s+(\d+)\s+values\s+were\s+supplied/i);
+  if (colsMismatch) {
+    return `Incompatibilidade na quantidade de colunas: a tabela "${colsMismatch[1]}" possui ${colsMismatch[2]} colunas, mas foram fornecidos ${colsMismatch[3]} valores no INSERT.`;
+  }
+  if (/datatype mismatch/i.test(msgLimpa)) {
+    return "Incompatibilidade de tipos de dados: o tipo de dado informado não é compatível com o esperado pela coluna correspondente.";
+  }
+  if (/database is locked|database table is locked/i.test(msgLimpa)) {
+    return "O banco de dados está ocupado no momento por outra operação simultânea. Aguarde alguns instantes e tente novamente.";
+  }
+  if (/PRIMARY KEY must be unique/i.test(msgLimpa)) {
+    return "A chave primária (PRIMARY KEY) deve ser única. Já existe um registro com este mesmo identificador.";
+  }
+  const ambiguousMatch = msgLimpa.match(/ambiguous column name:\s*([a-zA-Z0-9_.]+)/i);
+  if (ambiguousMatch) {
+    return `Nome de coluna ambíguo: a coluna "${ambiguousMatch[1]}" existe em mais de uma tabela. Especifique a tabela antes do nome da coluna (ex: tabela.${ambiguousMatch[1]}).`;
+  }
+  if (/attempt to write a readonly database/i.test(msgLimpa)) {
+    return "Não é possível realizar gravações: o banco de dados está configurado em modo somente leitura.";
+  }
+  if (/authorization denied/i.test(msgLimpa)) {
+    return "Permissão negada para executar esta operação no banco de dados.";
+  }
+  return msgLimpa;
+}
+
+function renderizarErroExecucao(container, err, sql, editor) {
+  const dados = err.dados || {};
+  const dependencias = err.dependencias || dados.dependencias || [];
+  const comandosSugeridos = err.comandosSugeridos || dados.comandosSugeridos || [];
+  const tabela = err.tabela || dados.tabela || "";
+  const erroOriginal = err.erroOriginal || dados.erroOriginal || err.message || "";
+  const msgAmigavel = err.message || traduzirMensagemErroSql(erroOriginal);
+
+  if (dependencias.length > 0) {
+    const linhasTabelaHtml = dependencias
+      .map((dep, idx) => {
+        return `
+          <tr>
+            <td><strong style="color: var(--cor-primaria); font-family: monospace;">${escaparHtml(dep.tabela)}</strong></td>
+            <td><code style="background: var(--cor-fundo); padding: 0.15rem 0.35rem; border-radius: 0.25rem; font-weight: 600;">${escaparHtml(dep.campo)}</code></td>
+            <td><span class="badge" style="background: rgba(192, 57, 43, 0.12); color: var(--cor-vencido); font-weight: 700;">${dep.totalRegistros} registro(s)</span></td>
+            <td>
+              <button type="button" class="btn btn-secundario btn-usar-cmd-dep" data-cmd-idx="${idx}" style="font-size: 0.78rem; padding: 0.25rem 0.55rem;">
+                Carregar no Editor
+              </button>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const todosComandosSql = [
+      ...comandosSugeridos,
+      sql.trim().endsWith(";") ? sql.trim() : sql.trim() + ";",
+    ].join("\n");
+
+    container.innerHTML = `
+      <div class="sql-erro-card">
+        <div class="sql-erro-topo">
+          <span class="badge" style="background: var(--cor-vencido); color: #fff; font-weight: 700; font-size: 0.8rem; padding: 0.25rem 0.6rem; border-radius: 0.3rem;">
+            FALHA NA CHAVE ESTRANGEIRA
+          </span>
+          <h4 class="sql-erro-titulo">
+            Registros dependentes impedem a exclusão ${tabela ? `na tabela "${escaparHtml(tabela)}"` : ""}
+          </h4>
+        </div>
+
+        <p class="sql-erro-msg" style="margin: 0.4rem 0 0.85rem; color: var(--cor-texto);">
+          Não foi possível concluir a exclusão porque existem registros vinculados nas tabelas e campos dependentes abaixo que precisam ser excluídos ou desvinculados primeiro:
+        </p>
+
+        <div class="sql-dependencias-wrap">
+          <table class="sql-dependencias-tabela">
+            <thead>
+              <tr>
+                <th>Tabela Dependente</th>
+                <th>Campo Dependente</th>
+                <th>Registros Vinculados</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${linhasTabelaHtml}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-top: 0.85rem;">
+          <button type="button" id="btn-inserir-todos-comandos-dep" class="btn btn-primario" style="font-size: 0.85rem; padding: 0.45rem 0.9rem;">
+            Inserir comandos para excluir dependências primeiro
+          </button>
+        </div>
+
+        <div class="sql-comandos-bloco">
+          <div style="font-size: 0.78rem; color: var(--cor-texto-secundario); margin-bottom: 0.4rem; font-family: sans-serif; font-weight: 600;">
+            Sequência recomendada de comandos para executar no editor:
+          </div>
+          <code>${escaparHtml(todosComandosSql)}</code>
+        </div>
+
+        <details class="sql-detalhes-tecnicos">
+          <summary>Ver mensagem técnica original do SQLite</summary>
+          <pre>${escaparHtml(erroOriginal)}</pre>
+        </details>
+      </div>
+    `;
+
+    container.querySelectorAll(".btn-usar-cmd-dep").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.getAttribute("data-cmd-idx"));
+        const dep = dependencias[idx];
+        if (dep && dep.comandoExclusao && editor) {
+          editor.value = dep.comandoExclusao;
+          editor.focus();
+          editor.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      });
+    });
+
+    const btnInserirTodos = container.querySelector("#btn-inserir-todos-comandos-dep");
+    btnInserirTodos?.addEventListener("click", () => {
+      if (editor) {
+        editor.value = todosComandosSql;
+        editor.focus();
+        editor.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="sql-erro-card">
+      <div class="sql-erro-topo">
+        <span class="badge" style="background: var(--cor-vencido); color: #fff; font-weight: 700; font-size: 0.8rem; padding: 0.25rem 0.6rem; border-radius: 0.3rem;">
+          FALHA NA EXECUÇÃO
+        </span>
+        <h4 class="sql-erro-titulo">
+          ${escaparHtml(obterTituloTipoErro(erroOriginal))}
+        </h4>
+      </div>
+
+      <p class="sql-erro-msg" style="margin: 0.4rem 0 0.85rem; color: var(--cor-texto); font-size: 0.92rem; line-height: 1.5; white-space: pre-wrap;">
+        ${escaparHtml(msgAmigavel)}
+      </p>
+
+      <details class="sql-detalhes-tecnicos" open>
+        <summary>Detalhes técnicos retornados pelo banco</summary>
+        <pre>${escaparHtml(erroOriginal)}</pre>
+      </details>
+    </div>
+  `;
 }
 
 function renderizarTabelaDados(container, colunas, linhas) {
