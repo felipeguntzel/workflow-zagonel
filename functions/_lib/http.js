@@ -5,6 +5,6 @@ export function json(data, status = 200, customHeaders = {}) {
   });
 }
 
-export function error(message, status = 400) {
-  return json({ error: message }, status);
+export function error(message, status = 400, extras = {}) {
+  return json({ error: message, ...extras }, status);
 }

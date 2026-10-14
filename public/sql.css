@@ -101,3 +101,101 @@
   border: var(--cor-borda-largura) solid var(--cor-borda);
   border-radius: 0.4rem;
 }
+
+/* Card de Diagnóstico de Erro e Dependências */
+.sql-erro-card {
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  background: rgba(192, 57, 43, 0.05);
+  border: 1px solid var(--cor-vencido);
+  color: var(--cor-texto);
+}
+
+.sql-erro-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+}
+
+.sql-erro-titulo {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--cor-vencido);
+  font-weight: 700;
+}
+
+.sql-erro-msg {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0.5rem 0 0.85rem;
+}
+
+.sql-dependencias-wrap {
+  margin: 0.85rem 0;
+  background: var(--cor-fundo-elevado);
+  border: 1px solid var(--cor-borda);
+  border-radius: 0.4rem;
+  overflow-x: auto;
+}
+
+.sql-dependencias-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.sql-dependencias-tabela th {
+  background: var(--cor-fundo);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  font-weight: 700;
+  color: var(--cor-texto-secundario);
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.sql-dependencias-tabela td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--cor-borda);
+  vertical-align: middle;
+}
+
+.sql-dependencias-tabela tr:last-child td {
+  border-bottom: none;
+}
+
+.sql-comandos-bloco {
+  margin-top: 0.85rem;
+  padding: 0.75rem;
+  background: var(--cor-fundo);
+  border: 1px solid var(--cor-borda);
+  border-radius: 0.35rem;
+  font-family: monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  color: var(--cor-texto);
+}
+
+.sql-detalhes-tecnicos {
+  margin-top: 0.85rem;
+  font-size: 0.82rem;
+  color: var(--cor-texto-secundario);
+}
+
+.sql-detalhes-tecnicos summary {
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+
+.sql-detalhes-tecnicos pre {
+  margin-top: 0.4rem;
+  padding: 0.55rem 0.75rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 0.25rem;
+  font-family: monospace;
+  white-space: pre-wrap;
+  color: var(--cor-vencido);
+  border: 1px solid rgba(192, 57, 43, 0.15);
+}
